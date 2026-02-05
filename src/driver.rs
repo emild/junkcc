@@ -105,7 +105,7 @@ pub fn compile(config: &Config) -> Result<(), String>
 
     compiler::run(&config, &pp_file_path, &as_file_path)?;
 
-    if config.stop_after_lexer || config.stop_after_parser
+    if config.stop_after_lexer || config.stop_after_parser || config.stop_after_assembly_generation
     {
         return Ok(());
     }

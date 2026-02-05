@@ -6,8 +6,8 @@ mod lexer;
 use lexer::Lexer;
 use lexer::Token;
 mod parser;
+mod codegen;
 
-use parser::{parse_program, pretty_print_ast};
 
 
 pub fn run_lexer_test(config: &Config, lexer: &mut Lexer) -> Result<(), String>
@@ -41,8 +41,22 @@ pub fn run(config: &Config, input_file_path: &str, _output_file_path: &str) -> R
     } 
 
 
-    match parse_program(&mut lexer) {
-        Ok(prog) => { pretty_print_ast(&prog); },
+    match parser::parse_program(&mut lexer) {
+        Ok(prog_ast) => {
+            parser::pretty_print_ast(&prog_ast);
+            if config.stop_after_parser {
+                info!("Stopped after parser");
+                return Ok(());
+            }
+
+            let prog_code_ast = codegen::generate_code(&prog_ast)?;
+            codegen::pretty_print_ast(&prog_code_ast);
+            if config.stop_after_assembly_generation {
+                info!("Stopped after assembly generation");
+                return Ok(());
+            }
+
+        },
         Err(msg) => { return Err(format!("ERROR: {msg}")); }
     }
 
