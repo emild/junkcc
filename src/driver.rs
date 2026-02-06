@@ -1,8 +1,6 @@
 
 use crate::config::Config;
-use std::io::Write;
 use std::process::{self, Stdio};
-use std::fs;
 
 const CPP_EXE: &str = "cpp";
 const AS_EXE: &str = "as";
@@ -84,7 +82,6 @@ fn run_helper_program(exe_name: &str,
                 return Err(format!("Failed to spawn pchild rocess '{CPP_EXE}'. Error: {err}"));
             }
         }
-
 }
 
 pub fn preprocess(config: &Config) -> Result<(), String>
@@ -104,35 +101,7 @@ pub fn compile(config: &Config) -> Result<(), String>
     let as_file_path = get_as_filename(config);
 
     compiler::run(&config, &pp_file_path, &as_file_path)?;
-
-    if config.stop_after_lexer || config.stop_after_parser || config.stop_after_assembly_generation
-    {
-        return Ok(());
-    }
-
-    if let Ok(mut as_file) = fs::File::create(&as_file_path) {
-        //STUBBED
-        let stubbed_code: &str = 
-"
-    .file	\"return_2.c\"
-	.text
-	.globl	main
-	.type	main, @function
-main:
-	movl	$2, %eax
-	ret
-	.size	main, .-main
-	.ident	\"GCC: (Ubuntu 13.3.0-6ubuntu2~24.04) 13.3.0\"
-	.section	.note.GNU-stack,\"\",@progbits
-";
-        match as_file.write_all(stubbed_code.as_bytes()) {
-            Ok(_) => return Ok(()),
-            Err(e) => return Err(format!("Failed to write stubbed ASM: '{e}'"))
-        };
-    }
-    else {
-        return Err(format!("Failed to open as file: '{as_file_path}'"));
-    }
+    Ok(())
 }
 
 pub fn assemble(config: &Config) -> Result<(), String>

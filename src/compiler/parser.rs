@@ -1,4 +1,5 @@
 pub mod ast;
+mod pretty_print;
 
 use crate::compiler::lexer::{self, Token};
 
@@ -124,3 +125,5 @@ pub fn parse_program(l: &mut lexer::Lexer) -> Result<Program, String>
         _ => Err(format!("Trailing garbage: {:?}", t))
     }
 }
+
+pub use pretty_print::pretty_print_ast;
