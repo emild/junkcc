@@ -20,6 +20,9 @@ pub enum Token {
     OpenBrace,
     CloseBrace,
     Semicolon,
+    Decrement,
+    Minus,
+    Tilde,
 
     EOS
 }
@@ -58,7 +61,11 @@ impl RegexTable {
             RegexTableEntry { r: Regex::new(r"^\)").unwrap(),               f: Self::parse_close_parenthesis },
             RegexTableEntry { r: Regex::new(r"^\{").unwrap(),               f: Self::parse_open_brace },
             RegexTableEntry { r: Regex::new(r"^\}").unwrap(),               f: Self::parse_close_brace },
-            RegexTableEntry { r: Regex::new(r"^;").unwrap(),                f: Self::parse_semicolon }
+            RegexTableEntry { r: Regex::new(r"^;").unwrap(),                f: Self::parse_semicolon },
+            //The entry below (decrement, i.e. '--') must be before the one for minus . i.e. '-'
+            RegexTableEntry { r: Regex::new(r"^--").unwrap(),               f: Self::parse_decrement },
+            RegexTableEntry { r: Regex::new(r"^-").unwrap(),                f: Self::parse_minus },
+            RegexTableEntry { r: Regex::new(r"^~").unwrap(),                f: Self::parse_tilde }
         ];
 
         RegexTable {
@@ -86,6 +93,9 @@ impl RegexTable {
     fn parse_open_brace(&self, _: &str) -> Token { Token::OpenBrace }
     fn parse_close_brace(&self, _: &str) -> Token { Token::CloseBrace }
     fn parse_semicolon(&self, _: &str) -> Token { Token::Semicolon }
+    fn parse_decrement(&self, _: &str) -> Token { Token::Decrement }
+    fn parse_minus(&self, _: &str) -> Token { Token::Minus }
+    fn parse_tilde(&self, _: &str) -> Token { Token::Tilde }
 }
 
 
