@@ -5,9 +5,28 @@ fn pretty_print_expression(expr: &Expression, indent: usize)
     match expr {
         Expression::IntConstant(c) => {
             println!("{}Constant({})", " ".repeat(indent), c);
+        },
+        Expression::Unary(unary_op, inner_expression) => {
+            pretty_print_unary_operator(unary_op, inner_expression, indent);
         }
     }
 }
+
+fn pretty_print_unary_operator(unary_op: &UnaryOperator, inner_expression: &Expression, indent: usize)
+{
+    match unary_op {
+        UnaryOperator::Complement => {
+            println!("{}BinaryNot(", " ".repeat(indent));
+        },
+        UnaryOperator::Negate => {
+            println!("{}Minus(", " ".repeat(indent));
+        }
+    }
+
+    pretty_print_expression(inner_expression, indent + 4);
+    println!("{})", " ".repeat(indent));
+}
+
 
 fn pretty_print_statement(s: &Statement, indent: usize)
 {

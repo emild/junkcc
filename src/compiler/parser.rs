@@ -103,7 +103,7 @@ fn parse_statement(l: &mut lexer::Lexer) -> Result<Statement, String>
 fn parse_expression(l: &mut lexer::Lexer) -> Result<Expression, String>
 {
     let t = l.get_token()?;
-
+    
     let expr = match t {
         Token::EOS => { return Err(format!("Expected expression, got end of file")); },
         Token::IntConstant(c) => Expression::IntConstant(c),
