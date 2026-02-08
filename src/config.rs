@@ -6,6 +6,7 @@ pub struct Config {
     pub input_file_path: String,
     pub stop_after_lexer: bool,
     pub stop_after_parser: bool,
+    pub stop_after_tacky_generation: bool,
     pub stop_after_assembly_generation: bool
 }
 
@@ -16,11 +17,13 @@ impl Config {
 
         let mut stop_after_lexer = false;
         let mut stop_after_parser = false;
+        let mut stop_after_tacky_generation = false;
         let mut stop_after_assembly_generation = false;
 
         let mut opt_map = HashMap::from([
             (String::from("--lex"), &mut stop_after_lexer),
             (String::from("--parse"), &mut stop_after_parser),
+            (String::from("--tacky"), &mut stop_after_tacky_generation),
             (String::from("--codegen"), &mut stop_after_assembly_generation)
         ]);
 
@@ -68,6 +71,7 @@ impl Config {
                 input_file_path,
                 stop_after_lexer,
                 stop_after_parser,
+                stop_after_tacky_generation,
                 stop_after_assembly_generation
             }),
             None => {

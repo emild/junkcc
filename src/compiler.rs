@@ -6,6 +6,7 @@ mod lexer;
 use lexer::Lexer;
 use lexer::Token;
 mod parser;
+mod tacky;
 mod codegen;
 mod code_emitter;
 
@@ -50,6 +51,13 @@ pub fn run(config: &Config, input_file_path: &str, output_file_path: &str) -> Re
             parser::pretty_print_ast(&prog_ast);
             if config.stop_after_parser {
                 info!("Stopped after parser");
+                return Ok(());
+            }
+
+            let prog_tacky_ast = tacky::emit_tacky_program(&prog_ast)?;
+            tacky::pretty_print_ast(&prog_tacky_ast);
+            if config.stop_after_tacky_generation {
+                info!("Stopped after TACKY generation");
                 return Ok(());
             }
 
