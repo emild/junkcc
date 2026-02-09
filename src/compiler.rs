@@ -61,8 +61,15 @@ pub fn run(config: &Config, input_file_path: &str, output_file_path: &str) -> Re
                 return Ok(());
             }
 
-            let prog_code_ast = codegen::generate_code(&prog_ast)?;
+            let mut prog_code_ast = codegen::generate_code(&prog_tacky_ast)?;
             codegen::pretty_print_ast(&prog_code_ast);
+
+            let stack_allocation_size = codegen::replace_pseudo_operands(&mut prog_code_ast)?;
+            codegen::pretty_print_ast(&prog_code_ast);
+
+            codegen::fixup_instructions(&mut prog_code_ast, stack_allocation_size)?;
+            codegen::pretty_print_ast(&prog_code_ast);
+
             if config.stop_after_assembly_generation {
                 info!("Stopped after assembly generation");
                 return Ok(());

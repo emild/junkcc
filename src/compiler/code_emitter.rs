@@ -7,7 +7,7 @@ use super::codegen::ast::*;
 fn emit_operand(op: &Operand, buf_writer: &mut BufWriter<fs::File>) -> std::io::Result<()>
 {
     match op {
-        Operand::Register => {
+        Operand::Reg(_) => {
             write!(buf_writer, "%eax")?;
             Ok(())
         },

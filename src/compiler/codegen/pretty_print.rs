@@ -3,14 +3,29 @@ use super::ast::*;
 fn pretty_print_operand(op: &Operand)
 {
     match op {
-        Operand::Register => {
-            print!("REG");
+        Operand::Reg(reg) => {
+            print!("REG({:?})", reg);
         },
         Operand::Imm(c) => {
             print!("IMM({})", c);
+        },
+        Operand::Pseudo(var_name) => {
+            print!("PSEUDO({})", var_name);
+        },
+        Operand::Stack(idx) => {
+            print!("STACK({})", idx);
         }
-        _ => {}
+        _ => { panic!("Invalid operand: '{:?}'", op); }
     };
+}
+
+fn pretty_print_unary_operator(unary_op: &UnaryOperator)
+{
+    match unary_op {
+        UnaryOperator::Neg => { print!("neg"); },
+        UnaryOperator::Not => { print!("not"); },
+        _ => { panic!("Unexpected unary operator: '{:?}'", unary_op); }
+    }
 }
 
 
@@ -28,7 +43,17 @@ fn pretty_print_instructions(instructions: &Vec<Instruction>, indent: usize)
             Instruction::Ret => {
                 println!("{}ret", " ".repeat(indent))
             },
-            _ => {}
+            Instruction::AllocateStack(size) => {
+                println!("{}AllocateStack({})", " ".repeat(indent), size);
+            },
+            Instruction::Unary(unary_op, dest) => {
+                print!("{}", " ".repeat(indent));
+                pretty_print_unary_operator(&unary_op);
+                print!(" dest=");
+                pretty_print_operand(&dest);
+                println!("");
+            }
+            _ => { panic!("Unknown instruction: '{:?}'", ins); }
         };
     }
 }
@@ -44,7 +69,7 @@ fn pretty_print_function(f: &FunctionDefinition, indent: usize)
             println!("{})", " ".repeat(indent + 4));
             println!("{})", " ".repeat(indent));
         },
-        _ => ()
+        _ => { panic!("Invalid function definiton: '{:?}'", f); }
     }   
 }
 
@@ -54,7 +79,7 @@ fn pretty_print_program(p: &Program, indent: usize)
     println!("{}Program(", " ".repeat(indent));
     match p {
         Program::ProgramDefinition(f) => pretty_print_function(&f, indent + 4),
-        _ => ()
+        _ => { panic!("Invalid program definition: '{:?}'", p); }
     };
 
     println!("{})", " ".repeat(indent));    
