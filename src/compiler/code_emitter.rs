@@ -1,4 +1,5 @@
 use std::fs;
+use std::io;
 use std::io::Write;
 use std::io::BufWriter;
 use super::codegen::ast::*;
@@ -7,16 +8,41 @@ use super::codegen::ast::*;
 fn emit_operand(op: &Operand, buf_writer: &mut BufWriter<fs::File>) -> std::io::Result<()>
 {
     match op {
-        Operand::Reg(_) => {
-            write!(buf_writer, "%eax")?;
+        Operand::Reg(r) => {
+            let reg_str = match r {
+                Register::AX => "eax",
+                Register::R10 => "r10d",
+                _ => { return Err(std::io::Error::other(format!("Code emit: Unsupported register: '{:?}'", r))); }
+            };
+
+            write!(buf_writer, "%{}", reg_str)?;
             Ok(())
         },
         Operand::Imm(c) => {
             write!(buf_writer, "${}", c)?;
             Ok(())
+        },
+        Operand::Stack(stack_idx) => {
+            write!(buf_writer, "{}(%rbp)", stack_idx)?;
+            Ok(())
         }
-        _ => { return Err(std::io::Error::other(format!("Unsupported operand '{:?}'", op))); }
+        _ => { return Err(std::io::Error::other(format!("Emit Code: Unsupported operand '{:?}'", op))); }
     }
+}
+
+fn emit_unary_operator(unary_operator: &UnaryOperator, dst: &Operand, buf_writer: &mut BufWriter<fs::File>) -> std::io::Result<()>
+{
+    let operator_str = match unary_operator {
+        UnaryOperator::Neg => "negl",
+        UnaryOperator::Not => "notl",
+        _ => { return Err(std::io::Error::other(format!("Emit Code: Unsupported unary operand, got '{:?}'", unary_operator))); }
+    };
+
+    write!(buf_writer, "{}{} ", " ".repeat(16), operator_str)?;
+    emit_operand(dst, buf_writer)?;
+    writeln!(buf_writer, "")?;
+
+    Ok(())
 }
 
 
@@ -24,6 +50,9 @@ fn emit_body(instructions: &Vec<Instruction>, buf_writer: &mut BufWriter<fs::Fil
 {
     for ins in instructions {
         match ins {
+            Instruction::AllocateStack(stack_allocation_size) => {
+                writeln!(buf_writer, "{}subq ${}, %rsp", " ".repeat(16), stack_allocation_size)?;
+            },
             Instruction::Mov(src, dest ) => {
                 write!(buf_writer, "{}movl ", " ".repeat(16))?;
                 emit_operand(&src, buf_writer)?;
@@ -32,7 +61,13 @@ fn emit_body(instructions: &Vec<Instruction>, buf_writer: &mut BufWriter<fs::Fil
                 writeln!(buf_writer, "")?;
             },
             Instruction::Ret => {
+                //Epilog
+                writeln!(buf_writer, "{}movq %rbp, %rsp", " ".repeat(16))?;
+                writeln!(buf_writer, "{}popq %rbp", " ".repeat(16))?;
                 writeln!(buf_writer, "{}ret", " ".repeat(16))?;
+            },
+            Instruction::Unary(unary_operator, dst) => {
+                emit_unary_operator(unary_operator, dst, buf_writer)?;
             },
             _ => {
                 return Err(std::io::Error::other(format!("Unsupported instruction '{:?}'", ins)));
@@ -48,10 +83,18 @@ fn emit_function(f: &FunctionDefinition, buf_writer: &mut BufWriter<fs::File>) -
 {
     match f {
         FunctionDefinition::Function(func_name, instructions) => {
+            writeln!(buf_writer, "{}", "#".repeat(40))?;
+            writeln!(buf_writer, "# {}", func_name)?;
+            writeln!(buf_writer, "{}\n", "#".repeat(40))?;
             writeln!(buf_writer, "{}.globl {}", " ".repeat(16), func_name)?;
             writeln!(buf_writer, "")?;
             writeln!(buf_writer, "{}:", func_name)?;
+            //(Pre(?)Prolog
+            writeln!(buf_writer, "{}pushq %rbp", " ".repeat(16))?;
+            writeln!(buf_writer, "{}movq %rsp, %rbp", " ".repeat(16))?;
+
             emit_body(instructions, buf_writer)?;
+
             writeln!(buf_writer, "")?;
             Ok(())
         },
