@@ -12,7 +12,8 @@ pub enum FunctionDefinition {
 #[derive(Debug)]
 pub enum Instruction {
     Return(Val),
-    Unary(UnaryOperator, Val /* src */, Val /* dst */)
+    Unary(UnaryOperator, Val /* src */, Val /* dst */),
+    Binary(BinaryOperator, Val /* src 1 */, Val /* src 2 */, Val /* dst */)
 }
 
 #[derive(Debug, Clone)]
@@ -25,4 +26,13 @@ pub enum Val {
 pub enum UnaryOperator {
     Complement,
     Negate
+}
+
+#[derive(Debug)]
+pub enum BinaryOperator {
+    Add,
+    Subtract,
+    Multiply,
+    Divide,
+    Remainder
 }

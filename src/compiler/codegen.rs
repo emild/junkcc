@@ -39,7 +39,8 @@ fn generate_code_for_tacky_instructions(tacky_instructions: &Vec<tacky::ast::Ins
                     _ => { return Err(format!("Tacky instruction conversion error: cannot convert '{:?}'", tacky_unary_op)); }
                 };
                 instructions.push(unary_op_instruction);
-            }
+            },
+            _ => { panic!("Invalid TACKY Instruction: {:?}", tacky_inst); }
         };
     }
 

@@ -14,6 +14,30 @@ fn pretty_print_tacky_unary_operator(unary_op: &UnaryOperator)
 }
 
 
+fn pretty_print_tacky_binary_operator(binary_op: &BinaryOperator)
+{
+    match *binary_op {
+        BinaryOperator::Add => {
+            print!("ADD");
+        },
+        BinaryOperator::Subtract => {
+            print!("SUBTRACT");
+        },
+        BinaryOperator::Multiply => {
+            print!("MULTIPLY");
+        },
+        BinaryOperator::Divide => {
+            print!("DIVIDE");
+        },
+        BinaryOperator::Remainder => {
+            print!("REMAINDER");
+        },
+
+        _ => {}
+    };
+}
+
+
 fn pretty_print_tacky_val(val: &Val)
 {
     match val {
@@ -44,6 +68,17 @@ fn pretty_print_tacky_instructions(instructions: &Vec<Instruction>, indent: usiz
                 pretty_print_tacky_unary_operator(&op);
                 print!("(");
                 pretty_print_tacky_val(&src);
+                println!(")");
+            },
+            Instruction::Binary(op, src1 , src2, dst) => {
+                print!("{}", " ".repeat(indent));
+                pretty_print_tacky_val(&dst);
+                print!(" = ");
+                pretty_print_tacky_binary_operator(&op);
+                print!("(");
+                pretty_print_tacky_val(&src1);
+                print!(", ");
+                pretty_print_tacky_val(&src2);
                 println!(")");
             },
             _ => {}

@@ -27,6 +27,20 @@ fn emit_tacky_unary_operator(unop: &parser::ast::UnaryOperator) -> Result<UnaryO
     }
 }
 
+
+fn emit_tacky_binary_operator(binop: &parser::ast::BinaryOperator) -> Result<BinaryOperator, String>
+{
+    match binop {
+        parser::ast::BinaryOperator::Add => Ok(BinaryOperator::Add),
+        parser::ast::BinaryOperator::Subtract => Ok(BinaryOperator::Subtract),
+        parser::ast::BinaryOperator::Multiply => Ok(BinaryOperator::Multiply),
+        parser::ast::BinaryOperator::Divide => Ok(BinaryOperator::Divide),
+        parser::ast::BinaryOperator::Remainder => Ok(BinaryOperator::Remainder),
+        _ => { return Err(format!("TACKY Conversion: Expected binary operator, got '{:?}'", binop)); }
+    }
+}
+
+
 fn emit_tacky_expression(expr: &parser::ast::Expression, instructions: &mut Vec<Instruction>) -> Result<Val, String>
 {
     let val = match expr {
@@ -37,11 +51,21 @@ fn emit_tacky_expression(expr: &parser::ast::Expression, instructions: &mut Vec<
             let src = emit_tacky_expression(&inner_expression, instructions)?;
             let dst_name = make_temp_name();
             let dst = Val::Var(dst_name);
-            let un_op = emit_tacky_unary_operator(unop)?;
-            instructions.push(Instruction::Unary(un_op, src, dst.clone()));
+            let tacky_un_op = emit_tacky_unary_operator(unop)?;
+            instructions.push(Instruction::Unary(tacky_un_op, src, dst.clone()));
 
             dst
         },
+        parser::ast::Expression::Binary(binop, expr1, expr2 ) => {
+            let src1 = emit_tacky_expression(expr1, instructions)?;
+            let src2 = emit_tacky_expression(expr2, instructions)?;
+            let dst_name = make_temp_name();
+            let dst = Val::Var(dst_name);
+            let tacky_bin_op = emit_tacky_binary_operator(binop)?;
+            instructions.push(Instruction::Binary(tacky_bin_op, src1, src2, dst.clone()));
+
+            dst
+        }
 
         _ => { return Err(format!("TACKY Conversion: expected expression, got '{:?}'", expr)); }
     };
