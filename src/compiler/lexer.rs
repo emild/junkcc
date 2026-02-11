@@ -36,6 +36,7 @@ pub enum Token {
 pub struct Lexer {
     reader: BufReader<fs::File>,
     current_line: String,
+    current_line_number: usize,
     current_line_position: usize,
     current_line_length: usize,
     end_of_stream: bool,
@@ -130,6 +131,7 @@ impl Lexer {
         Ok(Lexer {
             reader: BufReader::new(file),
             current_line: String::new(),
+            current_line_number: 0,
             current_line_position: 0,
             current_line_length: 0,
             end_of_stream: false,
@@ -153,6 +155,7 @@ impl Lexer {
             }
         }
         
+        self.current_line_number += 1;
         self.current_line_position = 0;
         self.current_line_length = line.len();
         self.current_line = line;
@@ -231,5 +234,7 @@ impl Lexer {
 
         Ok(token)
     }
+
+    pub fn get_current_line_number(&self) -> usize { self.current_line_number }
 
 }
