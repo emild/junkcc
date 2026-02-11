@@ -23,6 +23,11 @@ pub enum Token {
     Decrement,
     Minus,
     Tilde,
+    Plus,
+    Increment,
+    Asterisk,
+    Slash,
+    Percent,
 
     EOS
 }
@@ -52,7 +57,6 @@ struct RegexTable {
 
 
 
-
 impl RegexTable {
     fn new() -> RegexTable {
         let regexes = vec![
@@ -63,10 +67,16 @@ impl RegexTable {
             RegexTableEntry { r: Regex::new(r"^\{").unwrap(),               f: Self::parse_open_brace },
             RegexTableEntry { r: Regex::new(r"^\}").unwrap(),               f: Self::parse_close_brace },
             RegexTableEntry { r: Regex::new(r"^;").unwrap(),                f: Self::parse_semicolon },
-            //The entry below (decrement, i.e. '--') must be before the one for minus . i.e. '-'
+            //The entry below (decrement, i.e. '--') must be before the one for minus, i.e. '-'
             RegexTableEntry { r: Regex::new(r"^--").unwrap(),               f: Self::parse_decrement },
             RegexTableEntry { r: Regex::new(r"^-").unwrap(),                f: Self::parse_minus },
-            RegexTableEntry { r: Regex::new(r"^~").unwrap(),                f: Self::parse_tilde }
+            RegexTableEntry { r: Regex::new(r"^~").unwrap(),                f: Self::parse_tilde },
+            //The entry below (increment, i.e. '++') must be before the one for plus, i.e. '+'
+            RegexTableEntry { r: Regex::new(r"^[+][+]").unwrap(),           f: Self::parse_increment },
+            RegexTableEntry { r: Regex::new(r"^[+]").unwrap(),              f: Self::parse_plus },
+            RegexTableEntry { r: Regex::new(r"^\*").unwrap(),               f: Self::parse_asterisk },
+            RegexTableEntry { r: Regex::new(r"^/").unwrap(),                f: Self::parse_slash },
+            RegexTableEntry { r: Regex::new(r"^%").unwrap(),                f: Self::parse_percent },
         ];
 
         RegexTable {
@@ -97,7 +107,13 @@ impl RegexTable {
     fn parse_decrement(&self, _: &str) -> Token { Token::Decrement }
     fn parse_minus(&self, _: &str) -> Token { Token::Minus }
     fn parse_tilde(&self, _: &str) -> Token { Token::Tilde }
+    fn parse_increment(&self, _: &str) -> Token { Token::Increment }
+    fn parse_plus(&self, _: &str) -> Token { Token::Plus }
+    fn parse_asterisk(&self, _: &str) -> Token { Token::Asterisk }
+    fn parse_slash(&self, _: &str) -> Token { Token::Slash }
+    fn parse_percent(&self, _: &str) -> Token { Token::Percent }
 }
+
 
 
 
