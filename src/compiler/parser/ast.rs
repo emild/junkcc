@@ -1,3 +1,7 @@
+pub trait Precedence {
+    fn precedence(&self) -> u32;
+}
+
 #[derive(Debug)]
 pub enum Expression {
     IntConstant(i32),
@@ -12,6 +16,13 @@ pub enum UnaryOperator {
     Negate
 }
 
+impl Precedence for UnaryOperator {
+    fn precedence(&self) -> u32 {
+        60
+    }
+}
+
+
 #[derive(Debug)]
 pub enum BinaryOperator {
     Add,
@@ -19,6 +30,19 @@ pub enum BinaryOperator {
     Multiply,
     Divide,
     Remainder
+}
+
+impl Precedence for BinaryOperator {
+    fn precedence(&self) -> u32 {
+        match self {
+            BinaryOperator::Add|
+            BinaryOperator::Subtract => 45,
+
+            BinaryOperator::Multiply |
+            BinaryOperator::Divide   |
+            BinaryOperator::Remainder => 50
+        }
+    }
 }
 
 #[derive(Debug)]
