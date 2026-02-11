@@ -2,7 +2,6 @@ pub mod ast;
 mod pretty_print;
 
 use crate::compiler::lexer::{self, Token};
-
 use ast::*;
 
 
