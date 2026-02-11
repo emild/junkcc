@@ -16,10 +16,10 @@ pub fn run_lexer_test(config: &Config, lexer: &mut Lexer) -> Result<(), String>
     let mut no_tokens = true;
 
     loop {
-        let peeked_token = lexer.peek_token()?;
-        info!("Peeked Token: '{:?}'", peeked_token);
-        let peeked_token = lexer.peek_token()?;
-        info!("Peeked Token: '{:?}'", peeked_token);
+        // let peeked_token = lexer.peek_token()?;
+        // info!("Peeked Token: '{:?}'", peeked_token);
+        // let peeked_token = lexer.peek_token()?;
+        // info!("Peeked Token: '{:?}'", peeked_token);
         let token = lexer.get_token()?;
         info!("Token: '{:?}'", token);
         match token {
