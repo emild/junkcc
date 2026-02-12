@@ -114,7 +114,7 @@ fn pretty_print_tacky_program(p: &Program, indent: usize)
 }
 
 
-pub fn pretty_print_ast(program: &Program)
+pub fn pretty_print_tacky_ast(program: &Program)
 {
     pretty_print_tacky_program(&program, 0);
 }

@@ -1,8 +1,7 @@
 use std::fs;
-use std::io;
 use std::io::Write;
 use std::io::BufWriter;
-use super::codegen::ast::*;
+use super::ast::*;
 
 
 fn emit_operand(op: &Operand, buf_writer: &mut BufWriter<fs::File>) -> std::io::Result<()>

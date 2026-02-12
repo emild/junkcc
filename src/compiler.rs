@@ -10,7 +10,8 @@ use lexer::Token;
 mod parser;
 mod tacky;
 mod codegen;
-mod code_emitter;
+
+
 
 
 pub fn run_lexer_test(config: &Config, lexer: &mut Lexer) -> Result<(), String>
@@ -56,28 +57,28 @@ pub fn run(config: &Config, input_file_path: &str, output_file_path: &str) -> Re
                 return Ok(());
             }
 
-            let prog_tacky_ast = tacky::emit_tacky_program(&prog_ast)?;
-            tacky::pretty_print_ast(&prog_tacky_ast);
+            let prog_tacky_ast = tacky::generate_tacky_ast(&prog_ast)?;
+            tacky::pretty_print_tacky_ast(&prog_tacky_ast);
             if config.stop_after_tacky_generation {
                 info!("Stopped after TACKY generation");
                 return Ok(());
             }
 
-            let mut prog_code_ast = codegen::generate_code(&prog_tacky_ast)?;
-            codegen::pretty_print_ast(&prog_code_ast);
+            let mut prog_code_ast = codegen::generate_code_ast(&prog_tacky_ast)?;
+            codegen::pretty_print_code_ast(&prog_code_ast);
 
             let stack_allocation_size = codegen::replace_pseudo_operands(&mut prog_code_ast)?;
-            codegen::pretty_print_ast(&prog_code_ast);
+            codegen::pretty_print_code_ast(&prog_code_ast);
 
             codegen::fixup_instructions(&mut prog_code_ast, stack_allocation_size)?;
-            codegen::pretty_print_ast(&prog_code_ast);
+            codegen::pretty_print_code_ast(&prog_code_ast);
 
             if config.stop_after_assembly_generation {
                 info!("Stopped after assembly generation");
                 return Ok(());
             }
 
-            match code_emitter::emit_code(&prog_code_ast, output_file_path) {
+            match codegen::emit_code(&prog_code_ast, output_file_path) {
                 Ok(()) => Ok(()),
                 Err(e) => Err(format!("Code emission error: {}", e))
             }

@@ -4,7 +4,6 @@ pub mod ast;
 mod pretty_print;
 
 use ast::*;
-
 use super::parser;
 
 
@@ -114,4 +113,6 @@ pub fn emit_tacky_program(program: &parser::ast::Program) -> Result<Program, Str
 }
 
 
-pub use pretty_print::pretty_print_ast;
+
+pub use self::emit_tacky_program as generate_tacky_ast;
+pub use pretty_print::pretty_print_tacky_ast;
