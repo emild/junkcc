@@ -51,6 +51,15 @@ fn replace_pseudo_operands_in_function_body(instructions: &mut Vec<Instruction>)
                 let new_dest = pseudo_operand_state.replace_operand(&dst);
                 Some(Instruction::Unary(unary_op.clone(), new_dest))
             },
+            Instruction::Binary(binary_op, src, dst) => {
+                let new_src = pseudo_operand_state.replace_operand(&src);
+                let new_dst = pseudo_operand_state.replace_operand(&dst);
+                Some(Instruction::Binary(binary_op.clone(), new_src, new_dst))
+            },
+            Instruction::Idiv(divisor) => {
+                let new_divisor = pseudo_operand_state.replace_operand(&divisor);
+                Some(Instruction::Idiv(new_divisor))
+            }
             _ => None
         };
 

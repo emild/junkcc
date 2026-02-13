@@ -2,7 +2,7 @@ use std::mem::replace;
 
 use super::ast::*;
 
-fn fixup_mov_operands(instruction: &Instruction) -> Option<Vec<Instruction>>
+fn fixup_instruction_operands(instruction: &Instruction) -> Option<Vec<Instruction>>
 {
     match instruction {
         Instruction::Mov(Operand::Stack(src_idx), Operand::Stack(dst_idx))=> {
@@ -11,6 +11,25 @@ fn fixup_mov_operands(instruction: &Instruction) -> Option<Vec<Instruction>>
                 Instruction::Mov(Operand::Reg(Register::R10), Operand::Stack(*dst_idx))
             ])
         },
+        Instruction::Binary(BinaryOperator::Add, Operand::Stack(src_idx), Operand::Stack(dst_idx)) |
+        Instruction::Binary(BinaryOperator::Sub, Operand::Stack(src_idx), Operand::Stack(dst_idx)) => {
+            Some(vec![
+                Instruction::Mov(Operand::Stack(*src_idx), Operand::Reg(Register::R10)),
+                Instruction::Mov(Operand::Reg(Register::R10), Operand::Stack(*dst_idx))
+            ])
+        },
+        Instruction::Idiv(Operand::Imm(c)) => {
+            Some(vec![
+                Instruction::Mov(Operand::Imm(*c), Operand::Reg(Register::R10)),
+                Instruction::Idiv(Operand::Reg(Register::R10))
+            ])
+        },
+        Instruction::Binary(BinaryOperator::Mul, src, Operand::Stack(stack_idx)) => {
+            Some(vec![
+                Instruction::Binary(BinaryOperator::Mul, src.clone(), Operand::Reg(Register::R11)),
+                Instruction::Mov(Operand::Reg(Register::R11), Operand::Stack(*stack_idx))
+            ])
+        }
         _ => None
     }
 }
@@ -22,7 +41,7 @@ fn fixup_function_body_instructions(instructions: &mut Vec<Instruction>, stack_a
 
     for it in instructions.drain(..) {
         
-        if let  Some(mut replacements) = fixup_mov_operands(&it) {
+        if let  Some(mut replacements) = fixup_instruction_operands(&it) {
             new_instructions.append(&mut replacements);
         }
         else {

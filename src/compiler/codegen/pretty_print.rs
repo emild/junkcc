@@ -29,6 +29,17 @@ fn pretty_print_unary_operator(unary_op: &UnaryOperator)
 }
 
 
+fn pretty_print_binary_operator(binary_op: &BinaryOperator)
+{
+    match binary_op {
+        BinaryOperator::Add => { print!("add"); },
+        BinaryOperator::Sub =>  { print!("sub"); },
+        BinaryOperator::Mul => { print!("mul"); },
+        _ => { panic!("Unexpected binary operator: '{:?}'", binary_op); }
+    }
+}
+
+
 fn pretty_print_instructions(instructions: &Vec<Instruction>, indent: usize)
 {
     for ins in instructions {
@@ -51,6 +62,23 @@ fn pretty_print_instructions(instructions: &Vec<Instruction>, indent: usize)
                 pretty_print_unary_operator(&unary_op);
                 print!(" dest=");
                 pretty_print_operand(&dest);
+                println!("");
+            },
+            Instruction::Binary(binary_op, src, dest) => {
+                print!("{}", " ".repeat(indent));
+                pretty_print_binary_operator(&binary_op);
+                print!(" src=");
+                pretty_print_operand(&src);
+                print!(" dest=");
+                pretty_print_operand(&dest);
+                println!("");
+            },
+            Instruction::Cdq => {
+                println!("{}cdq", " ".repeat(indent));
+            },
+            Instruction::Idiv(divisor) => {
+                print!("{}idiv divisor=", " ".repeat(indent));
+                pretty_print_operand(divisor);
                 println!("");
             }
             _ => { panic!("Unknown instruction: '{:?}'", ins); }
