@@ -20,6 +20,7 @@ fn make_temp_name() -> String
 fn emit_tacky_unary_operator(unop: &parser::ast::UnaryOperator) -> Result<UnaryOperator, String>
 {
     match unop {
+        parser::ast::UnaryOperator::Plus => Ok(UnaryOperator::Plus),
         parser::ast::UnaryOperator::Complement => Ok(UnaryOperator::Complement),
         parser::ast::UnaryOperator::Negate => Ok(UnaryOperator::Negate),
         _ => { return Err(format!("TACKY Conversion: Expected unary operator, got '{:?}'", unop)); }

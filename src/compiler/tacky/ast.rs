@@ -25,7 +25,8 @@ pub enum Val {
 #[derive(Debug)]
 pub enum UnaryOperator {
     Complement,
-    Negate
+    Negate,
+    Plus
 }
 
 #[derive(Debug)]

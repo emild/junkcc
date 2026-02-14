@@ -36,6 +36,7 @@ fn generate_code_for_tacky_unary_instruction(
     let unary_op_instruction = match tacky_unary_op {
         tacky::ast::UnaryOperator::Complement   => Instruction::Unary(UnaryOperator::Not, unary_op_dst),
         tacky::ast::UnaryOperator::Negate       => Instruction::Unary(UnaryOperator::Neg, unary_op_dst),
+        tacky::ast::UnaryOperator::Plus         => { return Ok(()); }
     };
     instructions.push(unary_op_instruction);
 

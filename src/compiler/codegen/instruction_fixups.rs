@@ -11,11 +11,17 @@ fn fixup_instruction_operands(instruction: &Instruction) -> Option<Vec<Instructi
                 Instruction::Mov(Operand::Reg(Register::R10), Operand::Stack(*dst_idx))
             ])
         },
-        Instruction::Binary(BinaryOperator::Add, Operand::Stack(src_idx), Operand::Stack(dst_idx)) |
+        Instruction::Binary(BinaryOperator::Add, Operand::Stack(src_idx), Operand::Stack(dst_idx)) => {
+            Some(vec![
+                Instruction::Mov(Operand::Stack(*src_idx), Operand::Reg(Register::R10)),
+                Instruction::Binary(BinaryOperator::Add, Operand::Reg(Register::R10), Operand::Stack(*dst_idx))
+            ])
+
+        },
         Instruction::Binary(BinaryOperator::Sub, Operand::Stack(src_idx), Operand::Stack(dst_idx)) => {
             Some(vec![
                 Instruction::Mov(Operand::Stack(*src_idx), Operand::Reg(Register::R10)),
-                Instruction::Mov(Operand::Reg(Register::R10), Operand::Stack(*dst_idx))
+                Instruction::Binary(BinaryOperator::Sub, Operand::Reg(Register::R10), Operand::Stack(*dst_idx))
             ])
         },
         Instruction::Idiv(Operand::Imm(c)) => {
@@ -26,6 +32,7 @@ fn fixup_instruction_operands(instruction: &Instruction) -> Option<Vec<Instructi
         },
         Instruction::Binary(BinaryOperator::Mul, src, Operand::Stack(stack_idx)) => {
             Some(vec![
+                Instruction::Mov(Operand::Stack(*stack_idx), Operand::Reg(Register::R11)),
                 Instruction::Binary(BinaryOperator::Mul, src.clone(), Operand::Reg(Register::R11)),
                 Instruction::Mov(Operand::Reg(Register::R11), Operand::Stack(*stack_idx))
             ])

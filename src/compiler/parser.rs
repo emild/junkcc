@@ -80,7 +80,7 @@ fn parse_statement(l: &mut lexer::Lexer) -> Result<Statement, String>
     let stmnt = match t {
         Token::EOS => { return Err(format!("Unexpected end of file")); },
         Token::KwReturn => {
-            let ex = parse_expression(l)?;
+            let ex = parse_expression(l, 0)?;
             Statement::Return(ex)
         },
         _ => {
@@ -173,7 +173,7 @@ fn parse_factor(l: &mut lexer::Lexer) -> Result<Expression, String>
                 _ => { return Err(format!("Expected '(' got '{:?}'", t)); }
             };
 
-            let inner_expression = parse_expression(l)?;
+            let inner_expression = parse_expression(l, 0)?;
 
             t = l.get_token()?;
             match t {

@@ -10,7 +10,9 @@ fn emit_operand(op: &Operand, buf_writer: &mut BufWriter<fs::File>) -> std::io::
         Operand::Reg(r) => {
             let reg_str = match r {
                 Register::AX => "eax",
+                Register::DX => "edx",
                 Register::R10 => "r10d",
+                Register::R11 => "r11d",
                 _ => { return Err(std::io::Error::other(format!("Code emit: Unsupported register: '{:?}'", r))); }
             };
 
@@ -44,6 +46,24 @@ fn emit_unary_operator(unary_operator: &UnaryOperator, dst: &Operand, buf_writer
     Ok(())
 }
 
+fn emit_binary_operator(binary_operator: &BinaryOperator, src: &Operand, dst: &Operand, buf_writer: &mut BufWriter<fs::File>) -> std::io::Result<()>
+{
+    let operator_str = match binary_operator {
+        BinaryOperator::Add => "addl",
+        BinaryOperator::Sub => "subl",
+        BinaryOperator::Mul => "imull",
+        _ => { return Err(std::io::Error::other(format!("Emit Code: Unsupported binary operand, got '{:?}'", binary_operator))); }
+    };
+
+    write!(buf_writer, "{}{} ", " ".repeat(16), operator_str)?;
+    emit_operand(src, buf_writer)?;
+    write!(buf_writer, ", ")?;
+    emit_operand(dst, buf_writer)?;
+    writeln!(buf_writer, "")?;
+
+    Ok(())
+}
+
 
 fn emit_body(instructions: &Vec<Instruction>, buf_writer: &mut BufWriter<fs::File>) -> std::io::Result<()>
 {
@@ -65,8 +85,19 @@ fn emit_body(instructions: &Vec<Instruction>, buf_writer: &mut BufWriter<fs::Fil
                 writeln!(buf_writer, "{}popq %rbp", " ".repeat(16))?;
                 writeln!(buf_writer, "{}ret", " ".repeat(16))?;
             },
+            Instruction::Cdq => {
+                writeln!(buf_writer, "{}cdq", " ".repeat(16))?;
+            },
             Instruction::Unary(unary_operator, dst) => {
                 emit_unary_operator(unary_operator, dst, buf_writer)?;
+            },
+            Instruction::Binary(binary_operator, src, dst) => {
+                emit_binary_operator(binary_operator, src, dst, buf_writer)?;
+            },
+            Instruction::Idiv(divisor) => {
+                write!(buf_writer, "{}idivl ", " ".repeat(16))?;
+                emit_operand(divisor, buf_writer)?;
+                writeln!(buf_writer, "")?;
             },
             _ => {
                 return Err(std::io::Error::other(format!("Unsupported instruction '{:?}'", ins)));
