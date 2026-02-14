@@ -36,6 +36,12 @@ fn emit_tacky_binary_operator(binop: &parser::ast::BinaryOperator) -> Result<Bin
         parser::ast::BinaryOperator::Multiply => Ok(BinaryOperator::Multiply),
         parser::ast::BinaryOperator::Divide => Ok(BinaryOperator::Divide),
         parser::ast::BinaryOperator::Remainder => Ok(BinaryOperator::Remainder),
+        parser::ast::BinaryOperator::BitwiseOr => Ok(BinaryOperator::BitwiseOr),
+        parser::ast::BinaryOperator::BitwiseAnd => Ok(BinaryOperator::BitwiseAnd),
+        parser::ast::BinaryOperator::BitwiseXor => Ok(BinaryOperator::BitwiseXor),
+        parser::ast::BinaryOperator::ShiftLeft => Ok(BinaryOperator::ShiftLeft),
+        parser::ast::BinaryOperator::ShiftRight => Ok(BinaryOperator::ShiftRight),
+
         _ => { return Err(format!("TACKY Conversion: Expected binary operator, got '{:?}'", binop)); }
     }
 }

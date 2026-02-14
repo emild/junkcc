@@ -24,6 +24,36 @@ fn fixup_instruction_operands(instruction: &Instruction) -> Option<Vec<Instructi
                 Instruction::Binary(BinaryOperator::Sub, Operand::Reg(Register::R10), Operand::Stack(*dst_idx))
             ])
         },
+        Instruction::Binary(BinaryOperator::And, Operand::Stack(src_idx), Operand::Stack(dst_idx)) => {
+            Some(vec![
+                Instruction::Mov(Operand::Stack(*src_idx), Operand::Reg(Register::R10)),
+                Instruction::Binary(BinaryOperator::And, Operand::Reg(Register::R10), Operand::Stack(*dst_idx))
+            ])
+        },
+        Instruction::Binary(BinaryOperator::Or, Operand::Stack(src_idx), Operand::Stack(dst_idx)) => {
+            Some(vec![
+                Instruction::Mov(Operand::Stack(*src_idx), Operand::Reg(Register::R10)),
+                Instruction::Binary(BinaryOperator::Or, Operand::Reg(Register::R10), Operand::Stack(*dst_idx))
+            ])
+        },
+        Instruction::Binary(BinaryOperator::Xor, Operand::Stack(src_idx), Operand::Stack(dst_idx)) => {
+            Some(vec![
+                Instruction::Mov(Operand::Stack(*src_idx), Operand::Reg(Register::R10)),
+                Instruction::Binary(BinaryOperator::Xor, Operand::Reg(Register::R10), Operand::Stack(*dst_idx))
+            ])
+        },
+        Instruction::Binary(BinaryOperator::Shl, Operand::Stack(src_idx), Operand::Stack(dst_idx)) => {
+            Some(vec![
+                Instruction::Mov(Operand::Stack(*src_idx), Operand::Reg(Register::CX)),
+                Instruction::Binary(BinaryOperator::Shl, Operand::Reg(Register::CL), Operand::Stack(*dst_idx))
+            ])
+        },
+        Instruction::Binary(BinaryOperator::Shr, Operand::Stack(src_idx), Operand::Stack(dst_idx)) => {
+            Some(vec![
+                Instruction::Mov(Operand::Stack(*src_idx), Operand::Reg(Register::CX)),
+                Instruction::Binary(BinaryOperator::Shr, Operand::Reg(Register::CL), Operand::Stack(*dst_idx))
+            ])
+        },
         Instruction::Idiv(Operand::Imm(c)) => {
             Some(vec![
                 Instruction::Mov(Operand::Imm(*c), Operand::Reg(Register::R10)),
@@ -47,7 +77,7 @@ fn fixup_function_body_instructions(instructions: &mut Vec<Instruction>, stack_a
     let mut new_instructions: Vec<Instruction> = vec![ Instruction::AllocateStack(stack_allocation_size) ];
 
     for it in instructions.drain(..) {
-        
+
         if let  Some(mut replacements) = fixup_instruction_operands(&it) {
             new_instructions.append(&mut replacements);
         }
@@ -70,7 +100,7 @@ fn fixup_function_instructions(func_def: &mut FunctionDefinition, stack_allocati
             fixup_function_body_instructions(instructions, stack_allocation_size)?;
         },
         _ => {
-            return Err(format!("Fixup Instructions: Expected FunctionDefinion, got '{:?}'", func_def)); 
+            return Err(format!("Fixup Instructions: Expected FunctionDefinion, got '{:?}'", func_def));
         }
     };
 

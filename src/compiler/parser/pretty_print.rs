@@ -36,8 +36,8 @@ fn pretty_print_unary_operator(unary_op: &UnaryOperator, inner_expression: &Expr
 
 fn pretty_print_binary_operator(
     binary_op: &BinaryOperator,
-    left: &Expression, 
-    right: &Expression, 
+    left: &Expression,
+    right: &Expression,
     indent: usize)
 {
     match binary_op {
@@ -55,7 +55,22 @@ fn pretty_print_binary_operator(
         },
         BinaryOperator::Remainder => {
             println!("{}Remainder(", " ".repeat(indent));
-        }
+        },
+        BinaryOperator::BitwiseAnd => {
+            println!("{}BitwiseAnd(", " ".repeat(indent));
+        },
+        BinaryOperator::BitwiseOr => {
+            println!("{}BitwiseOr(", " ".repeat(indent));
+        },
+        BinaryOperator::BitwiseXor => {
+            println!("{}BitwiseXor(", " ".repeat(indent));
+        },
+        BinaryOperator::ShiftLeft => {
+            println!("{}ShiftLeft(", " ".repeat(indent));
+        },
+        BinaryOperator::ShiftRight => {
+            println!("{}ShiftRight(", " ".repeat(indent));
+        },
     };
 
     pretty_print_expression(left, indent + 4);

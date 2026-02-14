@@ -28,6 +28,11 @@ pub enum Token {
     Asterisk,
     Slash,
     Percent,
+    Pipe,
+    Ampersand,
+    UpArrow,
+    ShiftLeft,
+    ShiftRight,
 
     EOS
 }
@@ -78,6 +83,11 @@ impl RegexTable {
             RegexTableEntry { r: Regex::new(r"^\*").unwrap(),               f: Self::parse_asterisk },
             RegexTableEntry { r: Regex::new(r"^/").unwrap(),                f: Self::parse_slash },
             RegexTableEntry { r: Regex::new(r"^%").unwrap(),                f: Self::parse_percent },
+            RegexTableEntry { r: Regex::new(r"^\|").unwrap(),               f: Self::parse_pipe },
+            RegexTableEntry { r: Regex::new(r"^&").unwrap(),                f: Self::parse_ampersand },
+            RegexTableEntry { r: Regex::new(r"^\^").unwrap(),               f: Self::parse_uparrow },
+            RegexTableEntry { r: Regex::new(r"^<<").unwrap(),               f: Self::parse_lshift },
+            RegexTableEntry { r: Regex::new(r"^>>").unwrap(),               f: Self::parse_rshift },
         ];
 
         RegexTable {
@@ -96,7 +106,7 @@ impl RegexTable {
             return kw.clone();
         }
 
-        Token::Identifier(String::from(s)) 
+        Token::Identifier(String::from(s))
     }
 
     fn parse_int_constant(&self, s: &str) -> Token { Token::IntConstant(String::from(s).parse().unwrap()) }
@@ -113,6 +123,12 @@ impl RegexTable {
     fn parse_asterisk(&self, _: &str) -> Token { Token::Asterisk }
     fn parse_slash(&self, _: &str) -> Token { Token::Slash }
     fn parse_percent(&self, _: &str) -> Token { Token::Percent }
+    fn parse_pipe(&self, _: &str) -> Token { Token::Pipe }
+    fn parse_ampersand(&self, _: &str) -> Token { Token::Ampersand }
+    fn parse_uparrow(&self, _: &str) -> Token { Token::UpArrow }
+    fn parse_lshift(&self, _: &str) -> Token { Token::ShiftLeft }
+    fn parse_rshift(&self, _: &str) -> Token { Token::ShiftRight }
+
 }
 
 
@@ -154,7 +170,7 @@ impl Lexer {
                 return Err(format!("Error reading line: {err}"));
             }
         }
-        
+
         self.current_line_number += 1;
         self.current_line_position = 0;
         self.current_line_length = line.len();
@@ -174,7 +190,7 @@ impl Lexer {
 
             if self.current_line_position >= self.current_line_length {
                 self.read_a_new_line()?;
-            
+
                 if self.end_of_stream {
                     return Ok(Token::EOS);
                 }
@@ -194,7 +210,7 @@ impl Lexer {
                         break;
                     }
                 }
-                
+
 
                 for rte in self.regex_table.regexes.iter() {
                     if let Some(token_match) = rte.r.find(&self.current_line[self.current_line_position..]) {

@@ -33,8 +33,13 @@ fn pretty_print_binary_operator(binary_op: &BinaryOperator)
 {
     match binary_op {
         BinaryOperator::Add => { print!("add"); },
-        BinaryOperator::Sub =>  { print!("sub"); },
+        BinaryOperator::Sub => { print!("sub"); },
         BinaryOperator::Mul => { print!("mul"); },
+        BinaryOperator::And => { print!("and"); },
+        BinaryOperator::Or  => { print!("or");  },
+        BinaryOperator::Xor => { print!("xor"); },
+        BinaryOperator::Shl => { print!("sal"); },
+        BinaryOperator::Shr => { print!("sar"); },
         _ => { panic!("Unexpected binary operator: '{:?}'", binary_op); }
     }
 }
@@ -98,7 +103,7 @@ fn pretty_print_function(f: &FunctionDefinition, indent: usize)
             println!("{})", " ".repeat(indent));
         },
         _ => { panic!("Invalid function definiton: '{:?}'", f); }
-    }   
+    }
 }
 
 
@@ -110,7 +115,7 @@ fn pretty_print_program(p: &Program, indent: usize)
         _ => { panic!("Invalid program definition: '{:?}'", p); }
     };
 
-    println!("{})", " ".repeat(indent));    
+    println!("{})", " ".repeat(indent));
 }
 
 

@@ -46,7 +46,7 @@ pub fn run(config: &Config, input_file_path: &str, output_file_path: &str) -> Re
         run_lexer_test(config, &mut lexer)?;
         info!("Stopped after lexer");
         return Ok(());
-    } 
+    }
 
 
     match parser::parse_program(&mut lexer) {

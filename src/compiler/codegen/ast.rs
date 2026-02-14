@@ -1,6 +1,8 @@
 #[derive(Debug, Clone)]
 pub enum Register {
     AX,
+    CL,
+    CX,
     DX,
     R10,
     R11
@@ -26,7 +28,12 @@ pub enum UnaryOperator {
 pub enum BinaryOperator {
     Add,
     Sub,
-    Mul
+    Mul,
+    Or,
+    And,
+    Xor,
+    Shl,
+    Shr
 }
 
 

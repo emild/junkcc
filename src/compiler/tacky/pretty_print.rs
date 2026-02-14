@@ -32,6 +32,21 @@ fn pretty_print_tacky_binary_operator(binary_op: &BinaryOperator)
         BinaryOperator::Remainder => {
             print!("REMAINDER");
         },
+        BinaryOperator::BitwiseAnd => {
+            print!("BINARY_AND")
+        },
+        BinaryOperator::BitwiseOr => {
+            print!("BINARY_OR")
+        },
+        BinaryOperator::BitwiseXor => {
+            print!("XOR")
+        },
+        BinaryOperator::ShiftLeft => {
+            print!("SHIFT_LEFT")
+        },
+        BinaryOperator::ShiftRight => {
+            print!("SHIFT_RIGHT")
+        }
 
         _ => {}
     };
@@ -98,7 +113,7 @@ fn pretty_print_tacky_function(f: &FunctionDefinition, indent: usize)
             println!("{})", " ".repeat(indent));
         },
         _ => ()
-    }   
+    }
 }
 
 
@@ -110,7 +125,7 @@ fn pretty_print_tacky_program(p: &Program, indent: usize)
         _ => ()
     };
 
-    println!("{})", " ".repeat(indent));    
+    println!("{})", " ".repeat(indent));
 }
 
 

@@ -10,6 +10,8 @@ fn emit_operand(op: &Operand, buf_writer: &mut BufWriter<fs::File>) -> std::io::
         Operand::Reg(r) => {
             let reg_str = match r {
                 Register::AX => "eax",
+                Register::CL => "cl",
+                Register::CX => "ecx",
                 Register::DX => "edx",
                 Register::R10 => "r10d",
                 Register::R11 => "r11d",
@@ -52,6 +54,11 @@ fn emit_binary_operator(binary_operator: &BinaryOperator, src: &Operand, dst: &O
         BinaryOperator::Add => "addl",
         BinaryOperator::Sub => "subl",
         BinaryOperator::Mul => "imull",
+        BinaryOperator::And => "andl",
+        BinaryOperator::Or  => "orl",
+        BinaryOperator::Xor => "xorl",
+        BinaryOperator::Shl => "sall",
+        BinaryOperator::Shr => "sarl",
         _ => { return Err(std::io::Error::other(format!("Emit Code: Unsupported binary operand, got '{:?}'", binary_operator))); }
     };
 

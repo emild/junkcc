@@ -29,12 +29,26 @@ pub enum BinaryOperator {
     Subtract,
     Multiply,
     Divide,
-    Remainder
+    Remainder,
+    BitwiseOr,
+    BitwiseAnd,
+    BitwiseXor,
+    ShiftLeft,
+    ShiftRight
 }
 
 impl Precedence for BinaryOperator {
     fn precedence(&self) -> u32 {
         match self {
+            BinaryOperator::BitwiseOr => 25,
+
+            BinaryOperator::BitwiseXor => 30,
+
+            BinaryOperator::BitwiseAnd => 35,
+
+            BinaryOperator::ShiftLeft|
+            BinaryOperator::ShiftRight => 40,
+
             BinaryOperator::Add|
             BinaryOperator::Subtract => 45,
 
@@ -69,7 +83,8 @@ pub enum Program {
 <exp>               ::= <factor> | <exp> <binop> <exp>
 <factor>            ::= <int> | <unop> <factor> | "(" <exp> ")"
 <unop>              ::= "+" | "-" | "~"
-<binop>             ::= "-" | "+" | "*" | "/" | "%"
+<binop>             ::= "-" | "+" | "*" | "/" | "%" |
+                        "<<" | ">>" | "|" | "&" | "^"
 <identifier>        ::= ? Token::Identifier ?
 <int>               ::= ? Token::IntConstant ?
 
