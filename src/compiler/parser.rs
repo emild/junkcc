@@ -125,16 +125,16 @@ fn parse_unary_operator(l: &mut lexer::Lexer) -> Result<UnaryOperator, String>
 fn convert_to_binary_operator(t: &Token) -> Option<BinaryOperator>
 {
     let op = match t {
-        Token::Plus       => BinaryOperator::Add,
-        Token::Minus      => BinaryOperator::Subtract,
-        Token::Asterisk   => BinaryOperator::Multiply,
-        Token::Slash      => BinaryOperator::Divide,
-        Token::Percent    => BinaryOperator::Remainder,
-        Token::Ampersand  => BinaryOperator::BitwiseAnd,
-        Token::Pipe       => BinaryOperator::BitwiseOr,
-        Token::UpArrow    => BinaryOperator::BitwiseXor,
-        Token::ShiftLeft  => BinaryOperator::ShiftLeft,
-        Token::ShiftRight => BinaryOperator::ShiftRight,
+        Token::Plus        => BinaryOperator::Add,
+        Token::Minus       => BinaryOperator::Subtract,
+        Token::Asterisk    => BinaryOperator::Multiply,
+        Token::Slash       => BinaryOperator::Divide,
+        Token::Percent     => BinaryOperator::Remainder,
+        Token::Ampersand   => BinaryOperator::BitwiseAnd,
+        Token::VerticalBar => BinaryOperator::BitwiseOr,
+        Token::Caret       => BinaryOperator::BitwiseXor,
+        Token::ShiftLeft   => BinaryOperator::ShiftLeft,
+        Token::ShiftRight  => BinaryOperator::ShiftRight,
         _ => { return None; }
     };
 
