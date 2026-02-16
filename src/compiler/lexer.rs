@@ -29,10 +29,19 @@ pub enum Token {
     Slash,
     Percent,
     Pipe,
+    DoublePipe,
     Ampersand,
+    DoubleAmpersand,
     UpArrow,
     ShiftLeft,
     ShiftRight,
+    LessOrEqual,
+    GreaterOrEqual,
+    Less,
+    Greater,
+    DoubleEqual,
+    NotEqual,
+    LogicalNot,
 
     EOS
 }
@@ -83,11 +92,20 @@ impl RegexTable {
             RegexTableEntry { r: Regex::new(r"^\*").unwrap(),               f: Self::parse_asterisk },
             RegexTableEntry { r: Regex::new(r"^/").unwrap(),                f: Self::parse_slash },
             RegexTableEntry { r: Regex::new(r"^%").unwrap(),                f: Self::parse_percent },
+            RegexTableEntry { r: Regex::new(r"^\|\|").unwrap(),             f: Self::parse_double_pipe },
+            RegexTableEntry { r: Regex::new(r"^&&").unwrap(),               f: Self::parse_double_ampersand },
             RegexTableEntry { r: Regex::new(r"^\|").unwrap(),               f: Self::parse_pipe },
             RegexTableEntry { r: Regex::new(r"^&").unwrap(),                f: Self::parse_ampersand },
             RegexTableEntry { r: Regex::new(r"^\^").unwrap(),               f: Self::parse_uparrow },
             RegexTableEntry { r: Regex::new(r"^<<").unwrap(),               f: Self::parse_lshift },
             RegexTableEntry { r: Regex::new(r"^>>").unwrap(),               f: Self::parse_rshift },
+            RegexTableEntry { r: Regex::new(r"^<=").unwrap(),               f: Self::parse_less_or_equal },
+            RegexTableEntry { r: Regex::new(r"^>=").unwrap(),               f: Self::parse_greater_or_equal },
+            RegexTableEntry { r: Regex::new(r"^<").unwrap(),                f: Self::parse_less },
+            RegexTableEntry { r: Regex::new(r"^>").unwrap(),                f: Self::parse_greater },
+            RegexTableEntry { r: Regex::new(r"^==").unwrap(),               f: Self::parse_double_equal },
+            RegexTableEntry { r: Regex::new(r"^!=").unwrap(),               f: Self::parse_not_equal },
+            RegexTableEntry { r: Regex::new(r"^!").unwrap(),                f: Self::parse_logical_not }
         ];
 
         RegexTable {
@@ -123,12 +141,20 @@ impl RegexTable {
     fn parse_asterisk(&self, _: &str) -> Token { Token::Asterisk }
     fn parse_slash(&self, _: &str) -> Token { Token::Slash }
     fn parse_percent(&self, _: &str) -> Token { Token::Percent }
+    fn parse_double_pipe(&self, _: &str) -> Token { Token::DoublePipe }
+    fn parse_double_ampersand(&self, _: &str) -> Token { Token::DoubleAmpersand }
     fn parse_pipe(&self, _: &str) -> Token { Token::Pipe }
     fn parse_ampersand(&self, _: &str) -> Token { Token::Ampersand }
     fn parse_uparrow(&self, _: &str) -> Token { Token::UpArrow }
     fn parse_lshift(&self, _: &str) -> Token { Token::ShiftLeft }
     fn parse_rshift(&self, _: &str) -> Token { Token::ShiftRight }
-
+    fn parse_less_or_equal(&self, _: &str) -> Token { Token::LessOrEqual }
+    fn parse_greater_or_equal(&self, _: &str) -> Token { Token::GreaterOrEqual }
+    fn parse_less(&self, _: &str) -> Token { Token::Less }
+    fn parse_greater(&self, _: &str) -> Token { Token::Greater }
+    fn parse_double_equal(&self, _: &str) -> Token { Token::DoubleEqual }
+    fn parse_not_equal(&self, _: &str) -> Token { Token::NotEqual }
+    fn parse_logical_not(&self, _: &str) -> Token { Token::LogicalNot }
 }
 
 
