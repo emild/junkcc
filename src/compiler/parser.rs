@@ -113,9 +113,10 @@ fn parse_unary_operator(l: &mut lexer::Lexer) -> Result<UnaryOperator, String>
     let t = l.get_token()?;
 
     let op = match t {
-        Token::Plus  => UnaryOperator::Plus,
-        Token::Minus => UnaryOperator::Negate,
-        Token::Tilde => UnaryOperator::Complement,
+        Token::Plus            => UnaryOperator::Plus,
+        Token::Minus           => UnaryOperator::Negate,
+        Token::Tilde           => UnaryOperator::Complement,
+        Token::ExclamationMark => UnaryOperator::LogicalNot,
         _ => { return Err(format!("Expected unary operator, got '{:?}'", t)); }
     };
 
@@ -125,16 +126,24 @@ fn parse_unary_operator(l: &mut lexer::Lexer) -> Result<UnaryOperator, String>
 fn convert_to_binary_operator(t: &Token) -> Option<BinaryOperator>
 {
     let op = match t {
-        Token::Plus        => BinaryOperator::Add,
-        Token::Minus       => BinaryOperator::Subtract,
-        Token::Asterisk    => BinaryOperator::Multiply,
-        Token::Slash       => BinaryOperator::Divide,
-        Token::Percent     => BinaryOperator::Remainder,
-        Token::Ampersand   => BinaryOperator::BitwiseAnd,
-        Token::VerticalBar => BinaryOperator::BitwiseOr,
-        Token::Caret       => BinaryOperator::BitwiseXor,
-        Token::ShiftLeft   => BinaryOperator::ShiftLeft,
-        Token::ShiftRight  => BinaryOperator::ShiftRight,
+        Token::Plus              => BinaryOperator::Add,
+        Token::Minus             => BinaryOperator::Subtract,
+        Token::Asterisk          => BinaryOperator::Multiply,
+        Token::Slash             => BinaryOperator::Divide,
+        Token::Percent           => BinaryOperator::Remainder,
+        Token::Ampersand         => BinaryOperator::BitwiseAnd,
+        Token::VerticalBar       => BinaryOperator::BitwiseOr,
+        Token::Caret             => BinaryOperator::BitwiseXor,
+        Token::ShiftLeft         => BinaryOperator::ShiftLeft,
+        Token::ShiftRight        => BinaryOperator::ShiftRight,
+        Token::LogicalOr         => BinaryOperator::LogicalOr,
+        Token::LogicalAnd        => BinaryOperator::LogicalAnd,
+        Token::Equal             => BinaryOperator::Equal,
+        Token::NotEqual          => BinaryOperator::NotEqual,
+        Token::OpenAngleBracket  => BinaryOperator::LessThan,
+        Token::LessOrEqual       => BinaryOperator::LessOrEqual,
+        Token::CloseAngleBracket => BinaryOperator::GreaterThan,
+        Token::GreaterOrEqual    => BinaryOperator::GreaterOrEqual,
         _ => { return None; }
     };
 
@@ -166,7 +175,8 @@ fn parse_factor(l: &mut lexer::Lexer) -> Result<Expression, String>
         },
         Token::Plus  |
         Token::Minus |
-        Token::Tilde => {
+        Token::Tilde |
+        Token::ExclamationMark => {
             let unary_operator = parse_unary_operator(l)?;
             let inner_expression = parse_factor(l)?;
             Expression::Unary(unary_operator, Box::new(inner_expression))

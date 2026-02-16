@@ -13,7 +13,8 @@ pub enum Expression {
 pub enum UnaryOperator {
     Plus,
     Complement,
-    Negate
+    Negate,
+    LogicalNot
 }
 
 impl Precedence for UnaryOperator {
@@ -34,17 +35,37 @@ pub enum BinaryOperator {
     BitwiseAnd,
     BitwiseXor,
     ShiftLeft,
-    ShiftRight
+    ShiftRight,
+    LogicalOr,
+    LogicalAnd,
+    Equal,
+    NotEqual,
+    LessThan,
+    LessOrEqual,
+    GreaterThan,
+    GreaterOrEqual
 }
 
 impl Precedence for BinaryOperator {
     fn precedence(&self) -> u32 {
         match self {
-            BinaryOperator::BitwiseOr => 25,
+            BinaryOperator::LogicalOr => 5,
 
-            BinaryOperator::BitwiseXor => 30,
+            BinaryOperator::LogicalAnd => 10,
 
-            BinaryOperator::BitwiseAnd => 35,
+            BinaryOperator::BitwiseOr => 15,
+
+            BinaryOperator::BitwiseXor => 20,
+
+            BinaryOperator::BitwiseAnd => 25,
+
+            BinaryOperator::Equal|
+            BinaryOperator::NotEqual => 30,
+
+            BinaryOperator::LessThan|
+            BinaryOperator::LessOrEqual |
+            BinaryOperator::GreaterThan |
+            BinaryOperator::GreaterOrEqual => 35,
 
             BinaryOperator::ShiftLeft|
             BinaryOperator::ShiftRight => 40,

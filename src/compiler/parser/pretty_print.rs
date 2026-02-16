@@ -26,6 +26,9 @@ fn pretty_print_unary_operator(unary_op: &UnaryOperator, inner_expression: &Expr
         },
         UnaryOperator::Negate => {
             println!("{}Minus(", " ".repeat(indent));
+        },
+        UnaryOperator::LogicalNot => {
+            println!("{}LogicalNot(", " ".repeat(indent));
         }
     }
 
@@ -71,6 +74,30 @@ fn pretty_print_binary_operator(
         BinaryOperator::ShiftRight => {
             println!("{}ShiftRight(", " ".repeat(indent));
         },
+        BinaryOperator::LogicalOr => {
+            println!("{}LogicalOr(", " ".repeat(indent));
+        },
+        BinaryOperator::LogicalAnd => {
+            println!("{}LogicalAnd(", " ".repeat(indent));
+        },
+        BinaryOperator::Equal => {
+            println!("{}Equal(", " ".repeat(indent));
+        },
+        BinaryOperator::NotEqual => {
+            println!("{}NotEqual(", " ".repeat(indent));
+        },
+        BinaryOperator::LessThan => {
+            println!("{}LessThan(", " ".repeat(indent));
+        },
+        BinaryOperator::LessOrEqual => {
+            println!("{}LessOrEqual(", " ".repeat(indent));
+        },
+        BinaryOperator::GreaterThan => {
+            println!("{}GreaterThan(", " ".repeat(indent));
+        },
+        BinaryOperator::GreaterOrEqual => {
+            println!("{}GreaterOrEqual(", " ".repeat(indent));
+        }
     };
 
     pretty_print_expression(left, indent + 4);
