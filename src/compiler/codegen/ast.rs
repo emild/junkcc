@@ -1,13 +1,26 @@
 #[derive(Debug, Clone)]
 pub enum Register {
+    AL,
     AX,
     CL,
     CX,
+    DL,
     DX,
+    R10B,
     R10,
+    R11B,
     R11
 }
 
+#[derive(Debug, Clone)]
+pub enum CC { //Condition Code
+    E,
+    NE,
+    L,
+    LE,
+    G,
+    GE
+}
 
 #[derive(Debug, Clone)]
 pub enum Operand {
@@ -42,8 +55,13 @@ pub enum Instruction {
     Mov(Operand, Operand),
     Unary(UnaryOperator, Operand),
     Binary(BinaryOperator, Operand, Operand),
+    Cmp(Operand, Operand),
     Idiv(Operand),
     Cdq,
+    Jmp(String),
+    JmpCC(CC, String),
+    SetCC(CC, Operand),
+    Label(String),
     AllocateStack(i64),
     Ret
 }

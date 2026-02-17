@@ -66,7 +66,36 @@ fn fixup_instruction_operands(instruction: &Instruction) -> Option<Vec<Instructi
                 Instruction::Binary(BinaryOperator::Mul, src.clone(), Operand::Reg(Register::R11)),
                 Instruction::Mov(Operand::Reg(Register::R11), Operand::Stack(*stack_idx))
             ])
-        }
+        },
+        Instruction::Cmp(Operand::Stack(src1_idx), Operand::Stack(src2_idx)) => {
+            Some(vec![
+                Instruction::Mov(Operand::Stack(*src1_idx), Operand::Reg(Register::R10)),
+                Instruction::Cmp(Operand::Reg(Register::R10), Operand::Stack(*src2_idx))
+            ])
+        },
+        Instruction::Cmp(src1, Operand::Imm(src2_c)) => {
+            Some(vec![
+                Instruction::Mov(Operand::Imm(*src2_c), Operand::Reg(Register::R11)),
+                Instruction::Cmp(src1.clone(), Operand::Reg(Register::R11))
+            ])
+        },
+        Instruction::SetCC(cc, Operand::Reg(r)) => {
+            if let Some(new_r) = match r {
+                Register::AX  => Some(Register::AL),
+                Register::CX  => Some(Register::CL),
+                Register::DX  => Some(Register::DL),
+                Register::R10 => Some(Register::R10B),
+                Register::R11 => Some(Register::R11B),
+                _ => None
+            } {
+                Some(vec![
+                    Instruction::SetCC(cc.clone(), Operand::Reg(new_r))
+                ])
+            }
+            else {
+                None
+            }
+        },
         _ => None
     }
 }

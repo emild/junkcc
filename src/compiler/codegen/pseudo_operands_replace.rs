@@ -9,7 +9,7 @@ struct PseudoOperandState {
 
 impl PseudoOperandState {
     pub fn new() -> PseudoOperandState {
-        PseudoOperandState { 
+        PseudoOperandState {
             pseudo_op_table: HashMap::new(),
             current_stack_index: 0
         }
@@ -21,9 +21,9 @@ impl PseudoOperandState {
             Operand::Pseudo(var_name) => {
                 let stack_index = self.pseudo_op_table.entry(var_name.clone()).or_insert_with(
                     ||
-                    { 
+                    {
                         self.current_stack_index -= 4;
-                        self.current_stack_index 
+                        self.current_stack_index
                     });
                 Operand::Stack(*stack_index)
             }
@@ -39,7 +39,7 @@ fn replace_pseudo_operands_in_function_body(instructions: &mut Vec<Instruction>)
 {
 
     let mut pseudo_operand_state = PseudoOperandState::new();
-    
+
     for it in instructions.iter_mut() {
         let replace_instruction = match it {
             Instruction::Mov(src, dst ) => {
@@ -59,6 +59,15 @@ fn replace_pseudo_operands_in_function_body(instructions: &mut Vec<Instruction>)
             Instruction::Idiv(divisor) => {
                 let new_divisor = pseudo_operand_state.replace_operand(&divisor);
                 Some(Instruction::Idiv(new_divisor))
+            },
+            Instruction::Cmp(src1, src2) => {
+                let new_src1 = pseudo_operand_state.replace_operand(&src1);
+                let new_src2 = pseudo_operand_state.replace_operand(&src2);
+                Some(Instruction::Cmp(new_src1, new_src2))
+            },
+            Instruction::SetCC(cc, dst ) => {
+                let new_dst = pseudo_operand_state.replace_operand(&dst);
+                Some(Instruction::SetCC(cc.clone(), new_dst))
             }
             _ => None
         };

@@ -45,6 +45,30 @@ fn pretty_print_binary_operator(binary_op: &BinaryOperator)
 }
 
 
+fn pretty_print_conditional_jump(cc: &CC)
+{
+    match cc {
+        CC::E  => print!("je"),
+        CC::NE => print!("jne"),
+        CC::L  => print!("jl"),
+        CC::LE => print!("jle"),
+        CC::G  => print!("jg"),
+        CC::GE => print!("jge")
+    }
+}
+
+fn pretty_print_setcc(cc: &CC)
+{
+    match cc {
+        CC::E  => print!("sete"),
+        CC::NE => print!("setne"),
+        CC::L  => print!("setl"),
+        CC::LE => print!("setle"),
+        CC::G  => print!("setg"),
+        CC::GE => print!("setge")
+    }
+}
+
 fn pretty_print_instructions(instructions: &Vec<Instruction>, indent: usize)
 {
     for ins in instructions {
@@ -78,12 +102,37 @@ fn pretty_print_instructions(instructions: &Vec<Instruction>, indent: usize)
                 pretty_print_operand(&dest);
                 println!("");
             },
+            Instruction::Cmp(src1, src2 ) => {
+                print!("{}cmp src1=", " ".repeat(indent));
+                pretty_print_operand(&src1);
+                print!(", ");
+                pretty_print_operand(&src2);
+                println!("");
+            },
             Instruction::Cdq => {
                 println!("{}cdq", " ".repeat(indent));
             },
             Instruction::Idiv(divisor) => {
                 print!("{}idiv divisor=", " ".repeat(indent));
                 pretty_print_operand(divisor);
+                println!("");
+            },
+            Instruction::Jmp(label) => {
+                println!("{}jmp {}", " ".repeat(indent), label);
+            },
+            Instruction::JmpCC(cc, label) => {
+                print!("{}", " ".repeat(indent));
+                pretty_print_conditional_jump(&cc);
+                println!(" {}", label);
+            },
+            Instruction::Label(label) => {
+                println!("{}:", label);
+            },
+            Instruction::SetCC(cc, dest) => {
+                print!("{}", " ".repeat(indent));
+                pretty_print_setcc(&cc);
+                print!(" ");
+                pretty_print_operand(&dest);
                 println!("");
             }
             _ => { panic!("Unknown instruction: '{:?}'", ins); }
