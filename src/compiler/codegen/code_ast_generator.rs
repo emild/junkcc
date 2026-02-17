@@ -36,7 +36,9 @@ fn generate_code_for_tacky_unary_instruction(
     let unary_op_instruction = match tacky_unary_op {
         tacky::ast::UnaryOperator::Complement   => Instruction::Unary(UnaryOperator::Not, unary_op_dst),
         tacky::ast::UnaryOperator::Negate       => Instruction::Unary(UnaryOperator::Neg, unary_op_dst),
-        tacky::ast::UnaryOperator::Plus         => { return Ok(()); }
+        tacky::ast::UnaryOperator::Plus         => { return Ok(()); },
+
+        _ => { panic!("codegen::generate_code_for_unary_instruction: Unimplemented Unary Operand: {:?}", tacky_unary_op); }
     };
     instructions.push(unary_op_instruction);
 
@@ -120,7 +122,9 @@ fn generate_code_for_tacky_binary_instruction(
         tacky::ast::BinaryOperator::BitwiseOr => generate_code_for_binary_instruction(&BinaryOperator::Or, &src1, &src2, &dst, instructions)?,
         tacky::ast::BinaryOperator::BitwiseXor => generate_code_for_binary_instruction(&BinaryOperator::Xor, &src1, &src2, &dst, instructions)?,
         tacky::ast::BinaryOperator::ShiftLeft => generate_code_for_binary_instruction(&BinaryOperator::Shl, &src1, &src2, &dst, instructions)?,
-        tacky::ast::BinaryOperator::ShiftRight => generate_code_for_binary_instruction(&BinaryOperator::Shr, &src1, &src2, &dst, instructions)?
+        tacky::ast::BinaryOperator::ShiftRight => generate_code_for_binary_instruction(&BinaryOperator::Shr, &src1, &src2, &dst, instructions)?,
+
+        _ => { panic!("codegen::generate_binary_instruction(): Unimplemented binop: {:?}", bin_op); }
     };
 
     Ok(result)

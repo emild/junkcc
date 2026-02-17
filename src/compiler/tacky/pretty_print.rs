@@ -46,6 +46,24 @@ fn pretty_print_tacky_binary_operator(binary_op: &BinaryOperator)
         },
         BinaryOperator::ShiftRight => {
             print!("SHIFT_RIGHT")
+        },
+        BinaryOperator::Equal => {
+            print!("CHECK_EQUAL")
+        },
+        BinaryOperator::NotEqual => {
+            print!("CHECK_NOT_EQUAL")
+        },
+        BinaryOperator::LessThan => {
+            print!("CHECK_LESS_THAN")
+        },
+        BinaryOperator::LessOrEqual => {
+            print!("CHECK_LESS_OR_EQUAL")
+        },
+        BinaryOperator::GreaterThan => {
+            print!("CHECK_GREATER_THAN")
+        },
+        BinaryOperator::GreaterOrEqual => {
+            print!("CHECK_GREATER_OR_EQUAL")
         }
 
         _ => {}
@@ -95,6 +113,32 @@ fn pretty_print_tacky_instructions(instructions: &Vec<Instruction>, indent: usiz
                 print!(", ");
                 pretty_print_tacky_val(&src2);
                 println!(")");
+            },
+            Instruction::Copy(src, dst) => {
+                print!("{}", " ".repeat(indent));
+                pretty_print_tacky_val(&dst);
+                print!(" = COPY(");
+                pretty_print_tacky_val(&src);
+                println!(")");
+            },
+            Instruction::Jump(target) => {
+                print!("{}", " ".repeat(indent));
+                println!("JUMP {}", target);
+            },
+            Instruction::JumpIfZero(value, target) => {
+                print!("{}", " ".repeat(indent));
+                print!("JUMP_IF_ZERO ");
+                pretty_print_tacky_val(value);
+                println!(", {}", target);
+            },
+            Instruction::JumpIfNotZero(value, target) => {
+                print!("{}", " ".repeat(indent));
+                print!("JUMP_IF_NOT_ZERO ");
+                pretty_print_tacky_val(value);
+                println!(", {}", target);
+            },
+            Instruction::Label(label) => {
+                println!("{}:", label);
             },
             _ => {}
         };

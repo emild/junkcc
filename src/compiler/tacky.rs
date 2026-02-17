@@ -1,4 +1,4 @@
-use std::sync::atomic::{AtomicUsize, Ordering};
+use std::{os::fd::IntoRawFd, sync::atomic::{AtomicUsize, Ordering}};
 
 pub mod ast;
 mod pretty_print;
@@ -9,6 +9,8 @@ use super::parser;
 
 static TMP_NAME_INDEX: AtomicUsize = AtomicUsize::new(0);
 
+static TMP_LABEL_INDEX: AtomicUsize = AtomicUsize::new(0);
+
 fn make_temp_name() -> String
 {
     let index = TMP_NAME_INDEX.fetch_add(1, Ordering::SeqCst);
@@ -17,12 +19,22 @@ fn make_temp_name() -> String
     temp_name
 }
 
+fn make_temp_label(prefix: &str) -> String
+{
+    let index = TMP_LABEL_INDEX.fetch_add(1, Ordering::SeqCst);
+    let label = format!("l_{}_{}", prefix, index);
+
+    label
+}
+
+
 fn emit_tacky_unary_operator(unop: &parser::ast::UnaryOperator) -> Result<UnaryOperator, String>
 {
     match unop {
         parser::ast::UnaryOperator::Plus => Ok(UnaryOperator::Plus),
         parser::ast::UnaryOperator::Complement => Ok(UnaryOperator::Complement),
         parser::ast::UnaryOperator::Negate => Ok(UnaryOperator::Negate),
+        parser::ast::UnaryOperator::LogicalNot => Ok(UnaryOperator::LogicalNot),
         _ => { return Err(format!("TACKY Conversion: Expected unary operator, got '{:?}'", unop)); }
     }
 }
@@ -31,16 +43,22 @@ fn emit_tacky_unary_operator(unop: &parser::ast::UnaryOperator) -> Result<UnaryO
 fn emit_tacky_binary_operator(binop: &parser::ast::BinaryOperator) -> Result<BinaryOperator, String>
 {
     match binop {
-        parser::ast::BinaryOperator::Add => Ok(BinaryOperator::Add),
-        parser::ast::BinaryOperator::Subtract => Ok(BinaryOperator::Subtract),
-        parser::ast::BinaryOperator::Multiply => Ok(BinaryOperator::Multiply),
-        parser::ast::BinaryOperator::Divide => Ok(BinaryOperator::Divide),
-        parser::ast::BinaryOperator::Remainder => Ok(BinaryOperator::Remainder),
-        parser::ast::BinaryOperator::BitwiseOr => Ok(BinaryOperator::BitwiseOr),
-        parser::ast::BinaryOperator::BitwiseAnd => Ok(BinaryOperator::BitwiseAnd),
-        parser::ast::BinaryOperator::BitwiseXor => Ok(BinaryOperator::BitwiseXor),
-        parser::ast::BinaryOperator::ShiftLeft => Ok(BinaryOperator::ShiftLeft),
-        parser::ast::BinaryOperator::ShiftRight => Ok(BinaryOperator::ShiftRight),
+        parser::ast::BinaryOperator::Add            => Ok(BinaryOperator::Add),
+        parser::ast::BinaryOperator::Subtract       => Ok(BinaryOperator::Subtract),
+        parser::ast::BinaryOperator::Multiply       => Ok(BinaryOperator::Multiply),
+        parser::ast::BinaryOperator::Divide         => Ok(BinaryOperator::Divide),
+        parser::ast::BinaryOperator::Remainder      => Ok(BinaryOperator::Remainder),
+        parser::ast::BinaryOperator::BitwiseOr      => Ok(BinaryOperator::BitwiseOr),
+        parser::ast::BinaryOperator::BitwiseAnd     => Ok(BinaryOperator::BitwiseAnd),
+        parser::ast::BinaryOperator::BitwiseXor     => Ok(BinaryOperator::BitwiseXor),
+        parser::ast::BinaryOperator::ShiftLeft      => Ok(BinaryOperator::ShiftLeft),
+        parser::ast::BinaryOperator::ShiftRight     => Ok(BinaryOperator::ShiftRight),
+        parser::ast::BinaryOperator::Equal          => Ok(BinaryOperator::Equal),
+        parser::ast::BinaryOperator::NotEqual       => Ok(BinaryOperator::NotEqual),
+        parser::ast::BinaryOperator::LessThan       => Ok(BinaryOperator::LessThan),
+        parser::ast::BinaryOperator::LessOrEqual    => Ok(BinaryOperator::LessOrEqual),
+        parser::ast::BinaryOperator::GreaterThan    => Ok(BinaryOperator::GreaterThan),
+        parser::ast::BinaryOperator::GreaterOrEqual => Ok(BinaryOperator::GreaterOrEqual),
 
         _ => { return Err(format!("TACKY Conversion: Expected binary operator, got '{:?}'", binop)); }
     }
@@ -61,6 +79,42 @@ fn emit_tacky_expression(expr: &parser::ast::Expression, instructions: &mut Vec<
             instructions.push(Instruction::Unary(tacky_un_op, src, dst.clone()));
 
             dst
+        },
+        parser::ast::Expression::Binary(parser::ast::BinaryOperator::LogicalAnd, expr1, expr2) => {
+            let result_name = make_temp_name();
+            let result = Val::Var(result_name);
+            let lbl_expr_is_false = make_temp_label("and_expr_false");
+            let lbl_expr_end = make_temp_label("and_expr_end");
+
+            let left = emit_tacky_expression(expr1, instructions)?;
+            instructions.push(Instruction::JumpIfZero(left.clone(), lbl_expr_is_false.clone()));
+            let right = emit_tacky_expression(expr2, instructions)?;
+            instructions.push(Instruction::JumpIfZero(right.clone(), lbl_expr_is_false.clone()));
+            instructions.push(Instruction::Copy(Val::IntConstant(1), result.clone()));
+            instructions.push(Instruction::Jump(lbl_expr_end.clone()));
+            instructions.push(Instruction::Label(lbl_expr_is_false.clone()));
+            instructions.push(Instruction::Copy(Val::IntConstant(0), result.clone()));
+            instructions.push(Instruction::Label(lbl_expr_end.clone()));
+
+            result
+        },
+        parser::ast::Expression::Binary(parser::ast::BinaryOperator::LogicalOr, expr1, expr2) => {
+            let result_name = make_temp_name();
+            let result = Val::Var(result_name);
+            let lbl_expr_is_true = make_temp_label("or_expr_true");
+            let lbl_expr_end = make_temp_label("or_expr_end");
+
+            let left = emit_tacky_expression(expr1, instructions)?;
+            instructions.push(Instruction::JumpIfNotZero(left.clone(), lbl_expr_is_true.clone()));
+            let right = emit_tacky_expression(expr2, instructions)?;
+            instructions.push(Instruction::JumpIfNotZero(right.clone(), lbl_expr_is_true.clone()));
+            instructions.push(Instruction::Copy(Val::IntConstant(0), result.clone()));
+            instructions.push(Instruction::Jump(lbl_expr_end.clone()));
+            instructions.push(Instruction::Label(lbl_expr_is_true.clone()));
+            instructions.push(Instruction::Copy(Val::IntConstant(1), result.clone()));
+            instructions.push(Instruction::Label(lbl_expr_end.clone()));
+
+            result
         },
         parser::ast::Expression::Binary(binop, expr1, expr2 ) => {
             let src1 = emit_tacky_expression(expr1, instructions)?;

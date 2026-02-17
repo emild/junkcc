@@ -13,7 +13,12 @@ pub enum FunctionDefinition {
 pub enum Instruction {
     Return(Val),
     Unary(UnaryOperator, Val /* src */, Val /* dst */),
-    Binary(BinaryOperator, Val /* src 1 */, Val /* src 2 */, Val /* dst */)
+    Binary(BinaryOperator, Val /* src 1 */, Val /* src 2 */, Val /* dst */),
+    Copy(Val /* src */, Val /* dst */),
+    Jump(String /* Target label */),
+    JumpIfNotZero(Val /* Value to test */, String /* Target label */),
+    JumpIfZero(Val /* Value to test */, String /* Targer label */),
+    Label(String)
 }
 
 #[derive(Debug, Clone)]
@@ -26,7 +31,8 @@ pub enum Val {
 pub enum UnaryOperator {
     Complement,
     Negate,
-    Plus
+    Plus,
+    LogicalNot
 }
 
 #[derive(Debug)]
@@ -40,5 +46,11 @@ pub enum BinaryOperator {
     BitwiseAnd,
     BitwiseXor,
     ShiftLeft,
-    ShiftRight
+    ShiftRight,
+    Equal,
+    NotEqual,
+    LessThan,
+    LessOrEqual,
+    GreaterThan,
+    GreaterOrEqual
 }

@@ -103,9 +103,11 @@ pub enum Program {
 <statement>         ::= "return" <exp> ";"
 <exp>               ::= <factor> | <exp> <binop> <exp>
 <factor>            ::= <int> | <unop> <factor> | "(" <exp> ")"
-<unop>              ::= "+" | "-" | "~"
+<unop>              ::= "+" | "-" | "~" | "!"
 <binop>             ::= "-" | "+" | "*" | "/" | "%" |
-                        "<<" | ">>" | "|" | "&" | "^"
+                        "<<" | ">>" | "|" | "&" | "^" |
+                        "&&" | "||" |
+                        "==" | "!=" | "<" | " <=" | ">" | ">="
 <identifier>        ::= ? Token::Identifier ?
 <int>               ::= ? Token::IntConstant ?
 
