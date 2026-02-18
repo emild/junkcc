@@ -39,8 +39,8 @@ pub enum Token {
     GreaterOrEqual,
     OpenAngleBracket,
     CloseAngleBracket,
-    Equal,
-    NotEqual,
+    EqualTo,
+    NotEqualTo,
     ExclamationMark,
 
     EOS
