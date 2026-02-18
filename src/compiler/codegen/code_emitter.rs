@@ -9,11 +9,15 @@ fn emit_operand(op: &Operand, buf_writer: &mut BufWriter<fs::File>) -> std::io::
     match op {
         Operand::Reg(r) => {
             let reg_str = match r {
+                Register::AL => "al",
                 Register::AX => "eax",
                 Register::CL => "cl",
                 Register::CX => "ecx",
+                Register::DL => "dl",
                 Register::DX => "edx",
+                Register::R10B => "r10b",
                 Register::R10 => "r10d",
+                Register::R11B => "r11b",
                 Register::R11 => "r11d",
                 _ => { return Err(std::io::Error::other(format!("Code emit: Unsupported register: '{:?}'", r))); }
             };
@@ -72,6 +76,55 @@ fn emit_binary_operator(binary_operator: &BinaryOperator, src: &Operand, dst: &O
 }
 
 
+fn emit_cc(cc: &CC, buf_writer: &mut BufWriter<fs::File>) -> std::io::Result<()>
+{
+    let cc_str = match cc {
+        CC::E  => "e",
+        CC::NE => "ne",
+        CC::L  => "l",
+        CC::LE => "le",
+        CC::G  => "g",
+        CC::GE => "ge"
+    };
+
+    write!(buf_writer, "{}", cc_str)?;
+
+    Ok(())
+}
+
+
+fn emit_label(label: &String, buf_writer: &mut BufWriter<fs::File>) -> std::io::Result<()>
+{
+    write!(buf_writer, "L.{}", label)?;
+
+    Ok(())
+}
+
+
+fn emit_setcc_instruction(cc: &CC, dest: &Operand, buf_writer: &mut BufWriter<fs::File>) -> std::io::Result<()>
+{
+    write!(buf_writer, "set")?;
+    emit_cc(&cc, buf_writer)?;
+    write!(buf_writer, " ")?;
+    emit_operand(dest, buf_writer)?;
+    writeln!(buf_writer, "")?;
+
+    Ok(())
+}
+
+
+fn emit_jmpcc_instruction(cc: &CC, label: &String, buf_writer: &mut BufWriter<fs::File>) -> std::io::Result<()>
+{
+    write!(buf_writer, "j")?;
+    emit_cc(&cc, buf_writer)?;
+    write!(buf_writer, " ")?;
+    emit_label(label, buf_writer)?;
+    writeln!(buf_writer, "")?;
+
+    Ok(())
+}
+
+
 fn emit_body(instructions: &Vec<Instruction>, buf_writer: &mut BufWriter<fs::File>) -> std::io::Result<()>
 {
     for ins in instructions {
@@ -105,6 +158,29 @@ fn emit_body(instructions: &Vec<Instruction>, buf_writer: &mut BufWriter<fs::Fil
                 write!(buf_writer, "{}idivl ", " ".repeat(16))?;
                 emit_operand(divisor, buf_writer)?;
                 writeln!(buf_writer, "")?;
+            },
+            Instruction::Cmp(src1, src2) => {
+                write!(buf_writer, "{}cmpl ", " ".repeat(16))?;
+                emit_operand(src1, buf_writer)?;
+                write!(buf_writer, ", ")?;
+                emit_operand(src2, buf_writer)?;
+                writeln!(buf_writer, "")?;
+            },
+            Instruction::SetCC(cc, dest ) => {
+                write!(buf_writer, "{}", " ".repeat(16))?;
+                emit_setcc_instruction(&cc, &dest, buf_writer)?;
+            },
+            Instruction::Jmp(label) => {
+                write!(buf_writer, "{}jmp ", " ".repeat(16))?;
+                emit_label(label, buf_writer)?;
+                writeln!(buf_writer, "")?;
+            },
+            Instruction::JmpCC(cc, label) => {
+                write!(buf_writer, "{}", " ".repeat(16))?;
+                emit_jmpcc_instruction(cc, label, buf_writer)?;
+            },
+            Instruction::Label(label) => {
+                writeln!(buf_writer, "L.{}:", label)?;
             },
             _ => {
                 return Err(std::io::Error::other(format!("Unsupported instruction '{:?}'", ins)));
