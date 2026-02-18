@@ -15,33 +15,34 @@ pub enum Token {
     KwVoid,
     KwReturn,
 
-    OpenParenthesis,
-    CloseParenthesis,
-    OpenBrace,
-    CloseBrace,
-    Semicolon,
-    Decrement,
-    Minus,
-    Tilde,
-    Plus,
-    Increment,
-    Asterisk,
-    Slash,
-    Percent,
-    VerticalBar,
-    LogicalOr,
-    Ampersand,
-    LogicalAnd,
-    Caret,
-    ShiftLeft,
-    ShiftRight,
-    LessOrEqual,
-    GreaterOrEqual,
-    OpenAngleBracket,
-    CloseAngleBracket,
-    EqualTo,
-    NotEqualTo,
-    ExclamationMark,
+    OpenParenthesis,        // (
+    CloseParenthesis,       // )
+    OpenBrace,              // {
+    CloseBrace,             // }
+    Semicolon,              // ;
+    Decrement,              // --
+    Minus,                  // -
+    Tilde,                  // ~
+    Plus,                   // +
+    Increment,              // ++
+    Asterisk,               // *
+    Slash,                  // /
+    Percent,                // %
+    VerticalBar,            // |
+    LogicalOr,              // ||
+    Ampersand,              // &
+    LogicalAnd,             // &&
+    Caret,                  // ^
+    ShiftLeft,              // <<
+    ShiftRight,             // >>
+    LessOrEqual,            // <=
+    GreaterOrEqual,         // >=
+    OpenAngleBracket,       // <
+    CloseAngleBracket,      // >
+    EqualTo,                // ==
+    NotEqualTo,             // !=
+    ExclamationMark,        // !
+    EqualSign,              // =
 
     EOS
 }
@@ -103,9 +104,11 @@ impl RegexTable {
             RegexTableEntry { r: Regex::new(r"^>=").unwrap(),               f: |_, _| Token::GreaterOrEqual },
             RegexTableEntry { r: Regex::new(r"^<").unwrap(),                f: |_, _| Token::OpenAngleBracket },
             RegexTableEntry { r: Regex::new(r"^>").unwrap(),                f: |_, _| Token::CloseAngleBracket },
-            RegexTableEntry { r: Regex::new(r"^==").unwrap(),               f: |_, _| Token::Equal },
-            RegexTableEntry { r: Regex::new(r"^!=").unwrap(),               f: |_, _| Token::NotEqual },
-            RegexTableEntry { r: Regex::new(r"^!").unwrap(),                f: |_, _| Token::ExclamationMark }
+            // '==' must come before plain '='
+            RegexTableEntry { r: Regex::new(r"^==").unwrap(),               f: |_, _| Token::EqualTo },
+            RegexTableEntry { r: Regex::new(r"^!=").unwrap(),               f: |_, _| Token::NotEqualTo },
+            RegexTableEntry { r: Regex::new(r"^!").unwrap(),                f: |_, _| Token::ExclamationMark },
+            RegexTableEntry { r: Regex::new(r"^=").unwrap(),                f: |_, _| Token::EqualSign }
         ];
 
         RegexTable {
