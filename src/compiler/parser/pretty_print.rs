@@ -6,14 +6,21 @@ fn pretty_print_expression(expr: &Expression, indent: usize)
         Expression::IntConstant(c) => {
             println!("{}Constant({})", " ".repeat(indent), c);
         },
+        Expression::Var(var_name) => {
+            println!("{}Var({})", " ".repeat(indent), var_name);
+        },
         Expression::Unary(unary_op, inner_expression) => {
             pretty_print_unary_operator(unary_op, inner_expression, indent);
+        },
+        Expression::Assignment(left, right) => {
+            pretty_print_assignment(left, right, indent);
         },
         Expression::Binary(binary_op, left, right) => {
             pretty_print_binary_operator(binary_op, left, right, indent);
         }
     }
 }
+
 
 fn pretty_print_unary_operator(unary_op: &UnaryOperator, inner_expression: &Expression, indent: usize)
 {
@@ -97,6 +104,9 @@ fn pretty_print_binary_operator(
         },
         BinaryOperator::GreaterOrEqual => {
             println!("{}GreaterOrEqual(", " ".repeat(indent));
+        },
+        BinaryOperator::Assign => {
+            println!("{}Assign(", " ".repeat(indent));
         }
     };
 
@@ -107,6 +117,10 @@ fn pretty_print_binary_operator(
 
 }
 
+fn pretty_print_assignment(left: &Expression, right: &Expression, indent: usize)
+{
+    pretty_print_binary_operator(&BinaryOperator::Assign, left, right, indent);
+}
 
 fn pretty_print_statement(s: &Statement, indent: usize)
 {
@@ -115,18 +129,58 @@ fn pretty_print_statement(s: &Statement, indent: usize)
             println!("{}Return(", " ".repeat(indent));
             pretty_print_expression(&expr, indent + 4);
             println!("{})", " ".repeat(indent));
+        },
+        Statement::Expr(expr) => {
+            println!("{}Expr(", " ".repeat(indent));
+            pretty_print_expression(expr, indent + 4);
+            println!("{})", " ".repeat(indent));
+        },
+        Statement::Null => {
+            println!("{}NOP()", " ".repeat(indent));
         }
     }
 }
 
+
+fn pretty_print_declaration(decl: &Declaration, indent: usize)
+{
+    match decl {
+        Declaration::Declarant(var_name, Some(expr_init) ) => {
+            println!("{}Var {} = (", " ".repeat(indent),  var_name);
+            pretty_print_expression(expr_init, indent + 4);
+            println!("{})", " ".repeat(indent));
+        },
+        Declaration::Declarant(var_name,None ) => {
+            println!("{}var {}", " ".repeat(indent),  var_name);
+        }
+    }
+}
+
+
+fn pretty_print_block_item(block_item: &BlockItem, indent: usize)
+{
+    match block_item {
+        BlockItem::D(decl) => {
+            pretty_print_declaration(decl, indent);
+        },
+        BlockItem::S(stmnt) => {
+            pretty_print_statement(stmnt, indent);
+        }
+    }
+}
+
+
 fn pretty_print_function(f: &FunctionDefinition, indent: usize)
 {
     match f {
-        FunctionDefinition::Function(func_name, stmt) => {
+        FunctionDefinition::Function(func_name, block) => {
             println!("{}Function(", " ".repeat(indent));
             println!("{}name={func_name}", " ".repeat(indent + 4));
-            print!("{}body=(", " ".repeat(indent + 4));
-            pretty_print_statement(&stmt, indent + 4);
+            println!("{}body=(", " ".repeat(indent + 4));
+            for block_item in block {
+                pretty_print_block_item(block_item, indent + 8);
+            }
+            println!("{})", " ".repeat(indent+4));
             println!("{})", " ".repeat(indent));
         },
         _ => ()

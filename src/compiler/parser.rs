@@ -10,11 +10,14 @@ fn parse_function(l: &mut lexer::Lexer) -> Result<FunctionDefinition, String>
     let mut t  = l.get_token()?;
 
     //return type
-    let _ = match t {
+    match t {
         Token::EOS => { return Err(format!("Expected return type, got end of file")); },
-        Token::KwInt => (),
-        _ => { return Err(format!("Expected return type, got {:?}", t)); }
-    };
+        _ => {
+            if !is_type(&t) {
+                return Err(format!("Expected return type, got {:?}", t));
+            }
+        }
+    }
 
     //name
     t = l.get_token()?;
@@ -24,7 +27,7 @@ fn parse_function(l: &mut lexer::Lexer) -> Result<FunctionDefinition, String>
         _ => { return Err(format!("Expected function name, got {:?}", t)); }
     };
 
-    //(
+    // (
     t = l.get_token()?;
     let _ = match t {
         Token::EOS => { return Err(format!("Expected '(', got end of file")); },
@@ -36,19 +39,19 @@ fn parse_function(l: &mut lexer::Lexer) -> Result<FunctionDefinition, String>
     //void or )
     t = l.get_token()?;
     let is_void = match t {
-        Token::EOS => { return Err(format!("Expected arg type or ')', got end of file")); },
+        Token::EOS => { return Err(format!("Expected arg type or '))', got end of file")); },
         Token::KwVoid => true,
         Token::CloseParenthesis => false,
-        _ => { return Err(format!("Expected arg type or ')', got {:?}", t)); }
+        _ => { return Err(format!("Expected arg type or '))', got {:?}", t)); }
     };
 
     //)
     if is_void {
         t = l.get_token()?;
         let _ = match t {
-            Token::EOS => { return Err(format!("Expected ')', got end of file")); },
+            Token::EOS => { return Err(format!("Expected '))', got end of file")); },
             Token::CloseParenthesis => (),
-            _ => { return Err(format!("Expected ')', got {:?}", t)); }
+            _ => { return Err(format!("Expected '))', got {:?}", t)); }
         };
     }
 
@@ -60,31 +63,108 @@ fn parse_function(l: &mut lexer::Lexer) -> Result<FunctionDefinition, String>
         _ => { return Err(format!("Expected '{{', got {:?}", t)); }
     };
 
-    let stmnt = parse_statement(l)?;
+    let mut block = vec![];
+    loop {
+        if let Ok(Token::CloseBrace) = l.peek_token() {
+            break;
+        }
 
-    //}
+        let block_item = parse_block_item(l)?;
+        block.push(block_item);
+    }
+
+    // }
     t = l.get_token()?;
-    let _ = match t {
+    match t {
         Token::EOS => { return Err(format!("Expected '}}', got end of file")); },
         Token::CloseBrace => (),
         _ => { return Err(format!("Expected '}}', got {:?}", t)); }
     };
 
-    Ok(FunctionDefinition::Function(func_name, stmnt))
+    Ok(FunctionDefinition::Function(func_name, block))
+}
+
+
+fn is_type(t: &Token) -> bool
+{
+    match t {
+        Token::KwInt => true,
+        _ => false
+    }
+}
+
+
+fn parse_block_item(l: &mut lexer::Lexer) -> Result<BlockItem, String>
+{
+    let t = l.peek_token()?;
+
+    if is_type(&t) {
+        let decl = parse_declaration(l)?;
+        Ok(BlockItem::D(decl))
+    }
+    else {
+        let stmnt = parse_statement(l)?;
+        Ok(BlockItem::S(stmnt))
+    }
+}
+
+
+fn parse_declaration(l: &mut lexer::Lexer) -> Result<Declaration, String>
+{
+    let t = l.get_token()?;
+
+    match t {
+        Token::EOS => { return Err(format!("Expected declaration, got end of file")); },
+        _ => {
+            if !is_type(&t) {
+                return Err(format!("Expected type, got '{:?}'", t));
+            }
+        }
+    }
+
+    let t = l.get_token()?;
+    let var_name = match t {
+        Token::EOS => { return Err(format!("Expected ID, got end of file")); },
+        Token::Identifier(id) => id,
+        _ => { return Err(format!("Expected ID, got '{:?}'", t)); }
+    };
+
+    let t = l.peek_token()?;
+    let initial_value = match t {
+        Token::EqualSign => {
+            l.get_token()?; //consume the '='
+            let expr = parse_expression(l, 0)?;
+            Some(expr)
+        },
+        _ => {
+            None
+        }
+    };
+
+    let t = l.get_token()?;
+    match t {
+        Token::Semicolon => { return Ok(Declaration::Declarant(var_name, initial_value)); }
+        _ => { return Err(format!("Missing ';' at end of declaration (got '{:?}')", t)); }
+    }
 }
 
 
 fn parse_statement(l: &mut lexer::Lexer) -> Result<Statement, String>
 {
-    let mut t = l.get_token()?;
+    let mut t = l.peek_token()?;
     let stmnt = match t {
         Token::EOS => { return Err(format!("Unexpected end of file")); },
         Token::KwReturn => {
+            l.get_token()?; //Consume the return keyword
             let ex = parse_expression(l, 0)?;
             Statement::Return(ex)
         },
+        Token::Semicolon => {
+            Statement::Null
+        },
         _ => {
-            return Err(format!("Expected statement, got {:?}", t));
+            let ex = parse_expression(l, 0)?;
+            Statement::Expr(ex)
         }
     };
 
@@ -98,6 +178,7 @@ fn parse_statement(l: &mut lexer::Lexer) -> Result<Statement, String>
     Ok(stmnt)
 }
 
+
 fn parse_int_constant(l: &mut lexer::Lexer) -> Result<i32, String>
 {
     let t = l.get_token()?;
@@ -107,6 +188,18 @@ fn parse_int_constant(l: &mut lexer::Lexer) -> Result<i32, String>
         _ => Err(format!("Expected int constant, got {:?}", t))
     }
 }
+
+
+fn parse_identifier(l: &mut lexer::Lexer) -> Result<String, String>
+{
+    let t = l.get_token()?;
+    match t {
+        Token::EOS => Err(format!("Expected identifier, got end of file")),
+        Token::Identifier(id) => Ok(id),
+        _ => Err(format!("Expected identifier, got '{:?}'", t))
+    }
+}
+
 
 fn parse_unary_operator(l: &mut lexer::Lexer) -> Result<UnaryOperator, String>
 {
@@ -138,12 +231,13 @@ fn convert_to_binary_operator(t: &Token) -> Option<BinaryOperator>
         Token::ShiftRight        => BinaryOperator::ShiftRight,
         Token::LogicalOr         => BinaryOperator::LogicalOr,
         Token::LogicalAnd        => BinaryOperator::LogicalAnd,
-        Token::EqualTo             => BinaryOperator::Equal,
-        Token::NotEqualTo          => BinaryOperator::NotEqual,
+        Token::EqualTo           => BinaryOperator::Equal,
+        Token::NotEqualTo        => BinaryOperator::NotEqual,
         Token::OpenAngleBracket  => BinaryOperator::LessThan,
         Token::LessOrEqual       => BinaryOperator::LessOrEqual,
         Token::CloseAngleBracket => BinaryOperator::GreaterThan,
         Token::GreaterOrEqual    => BinaryOperator::GreaterOrEqual,
+        Token::EqualSign         => BinaryOperator::Assign,
         _ => { return None; }
     };
 
@@ -173,6 +267,10 @@ fn parse_factor(l: &mut lexer::Lexer) -> Result<Expression, String>
             let c = parse_int_constant(l)?;
             Expression::IntConstant(c)
         },
+        Token::Identifier(_) => {
+            let var_name = parse_identifier(l)?;
+            Expression::Var(var_name)
+        }
         Token::Plus  |
         Token::Minus |
         Token::Tilde |
@@ -216,14 +314,22 @@ fn parse_expression(l: &mut lexer::Lexer, min_precedence: u32) -> Result<Express
         if let Some(binary_operator) = convert_to_binary_operator(&t) {
             let curr_precedence = binary_operator.precedence();
             if curr_precedence >= min_precedence {
-                let binary_operator = parse_binary_operator(l)?;
-                let right = parse_expression(l, curr_precedence + 1)?;
-                left = Expression::Binary(binary_operator, Box::new(left), Box::new(right));
+                if binary_operator == BinaryOperator::Assign {
+                    parse_binary_operator(l)?;
+                    let right = parse_expression(l, curr_precedence)?;
+                    left = Expression::Assignment(Box::new(left), Box::new(right))
+                }
+                else {
+                    let binary_operator = parse_binary_operator(l)?;
+                    let right = parse_expression(l, curr_precedence + 1)?;
+                    left = Expression::Binary(binary_operator, Box::new(left), Box::new(right));
+                }
                 t = l.peek_token()?;
 
                 continue;
             }
         }
+
 
         break;
     }

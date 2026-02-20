@@ -153,8 +153,8 @@ fn emit_tacky_statement(stmnt: &parser::ast::Statement) -> Result<Vec<Instructio
 fn emit_tacky_function_definition(func_def: &parser::ast::FunctionDefinition) -> Result<FunctionDefinition, String>
 {
     match func_def {
-        parser::ast::FunctionDefinition::Function(name, stmnt) => {
-            let instructions = emit_tacky_statement(&stmnt)?;
+        parser::ast::FunctionDefinition::Function(name, block) => {
+            let instructions = vec![]; //emit_tacky_statement(&stmnt)?;
             Ok(FunctionDefinition::Function(name.clone(), instructions))
         },
         _ => { return Err(format!("TACKY Conversion: expected function definition, got '{:?}'", *func_def)); }

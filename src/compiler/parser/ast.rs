@@ -5,8 +5,10 @@ pub trait Precedence {
 #[derive(Debug)]
 pub enum Expression {
     IntConstant(i32),
+    Var(String),
     Unary(UnaryOperator, Box<Expression>),
-    Binary(BinaryOperator, Box<Expression>, Box<Expression>)
+    Binary(BinaryOperator, Box<Expression>, Box<Expression>),
+    Assignment(Box<Expression>, Box<Expression>)
 }
 
 #[derive(Debug)]
@@ -24,7 +26,7 @@ impl Precedence for UnaryOperator {
 }
 
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum BinaryOperator {
     Add,
     Subtract,
@@ -43,12 +45,15 @@ pub enum BinaryOperator {
     LessThan,
     LessOrEqual,
     GreaterThan,
-    GreaterOrEqual
+    GreaterOrEqual,
+    Assign
 }
 
 impl Precedence for BinaryOperator {
     fn precedence(&self) -> u32 {
         match self {
+            BinaryOperator::Assign => 1,
+
             BinaryOperator::LogicalOr => 5,
 
             BinaryOperator::LogicalAnd => 10,
@@ -82,12 +87,26 @@ impl Precedence for BinaryOperator {
 
 #[derive(Debug)]
 pub enum Statement {
-    Return(Expression)
+    Return(Expression),
+    Expr(Expression),
+    Null
+}
+
+#[derive(Debug)]
+pub enum Declaration {
+    Declarant(String /* id */, Option<Expression> /* initializer */)
+}
+
+
+#[derive(Debug)]
+pub enum BlockItem {
+    D(Declaration),
+    S(Statement)
 }
 
 #[derive(Debug)]
 pub enum FunctionDefinition {
-    Function(String /* name */, Statement /* body */)
+    Function(String /* name */, Vec<BlockItem> /* body */)
 }
 
 #[derive(Debug)]
@@ -99,15 +118,18 @@ pub enum Program {
 /*                    GRAMMAR
 
 <program>           ::= <function>
-<function>          ::= "int" <identifier> "(" ["void"] ")" "{" <statement> "}"
-<statement>         ::= "return" <exp> ";"
+<function>          ::= "int" <identifier> "(" ["void"] ")" "{" { <block_item> } "}"
+<block_item>        ::= <statement>|<declaration>
+<declaration>       ::= "int" <identifier> [ "=" <exp> ] ";"
+<statement>         ::= "return" <exp> ";" | <exp> ";" | ";"
 <exp>               ::= <factor> | <exp> <binop> <exp>
-<factor>            ::= <int> | <unop> <factor> | "(" <exp> ")"
+<factor>            ::= <int> | <identifier> | <unop> <factor> | "(" <exp> ")"
 <unop>              ::= "+" | "-" | "~" | "!"
 <binop>             ::= "-" | "+" | "*" | "/" | "%" |
                         "<<" | ">>" | "|" | "&" | "^" |
                         "&&" | "||" |
-                        "==" | "!=" | "<" | " <=" | ">" | ">="
+                        "==" | "!=" | "<" | " <=" | ">" | ">=" |
+                        "="
 <identifier>        ::= ? Token::Identifier ?
 <int>               ::= ? Token::IntConstant ?
 
