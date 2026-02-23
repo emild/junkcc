@@ -11,7 +11,7 @@ pub enum Expression {
     Assignment(Box<Expression>, Box<Expression>)
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum UnaryOperator {
     Plus,
     Complement,
@@ -26,7 +26,7 @@ impl Precedence for UnaryOperator {
 }
 
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub enum BinaryOperator {
     Add,
     Subtract,

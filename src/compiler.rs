@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::path;
 
 use log::{info, trace, warn, error};
@@ -54,6 +55,14 @@ pub fn run(config: &Config, input_file_path: &str, output_file_path: &str) -> Re
             parser::pretty_print_ast(&prog_ast);
             if config.stop_after_parser {
                 info!("Stopped after parser");
+                return Ok(());
+            }
+
+            let mut var_map = HashMap::new();
+            let prog_ast = parser::resolve_program(&prog_ast, &mut var_map)?;
+            parser::pretty_print_ast(&prog_ast);
+            if config.stop_after_semantic_analysis {
+                info!("Stopped after semantic analysis");
                 return Ok(());
             }
 
