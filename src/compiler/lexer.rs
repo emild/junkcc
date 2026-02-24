@@ -44,6 +44,18 @@ pub enum Token {
     ExclamationMark,        // !
     EqualSign,              // =
 
+    //Compound Assignments
+    AddAssign,              // +=
+    SubAssign,              // -=
+    MulAssign,              // *=
+    DivAssign,              // /=
+    ModAssign,              // %=
+    BitwiseOrAssign,        // |=
+    BitwiseAndAssign,       // &=
+    BitwiseXorAssign,       // ^=
+    ShiftLeftAssign,        // <<=
+    ShiftRightAssign,       // >>=
+
     EOS
 }
 
@@ -83,21 +95,39 @@ impl RegexTable {
             RegexTableEntry { r: Regex::new(r"^\{").unwrap(),               f: |_, _| Token::OpenBrace },
             RegexTableEntry { r: Regex::new(r"^\}").unwrap(),               f: |_, _| Token::CloseBrace },
             RegexTableEntry { r: Regex::new(r"^;").unwrap(),                f: |_, _| Token::Semicolon },
-            //The entry below (decrement, i.e. '--') must be before the one for minus, i.e. '-'
+            // '--' and '-=' must be before '-'
             RegexTableEntry { r: Regex::new(r"^--").unwrap(),               f: |_, _| Token::Decrement },
+            RegexTableEntry { r: Regex::new(r"^-=").unwrap(),               f: |_, _| Token::SubAssign },
             RegexTableEntry { r: Regex::new(r"^-").unwrap(),                f: |_, _| Token::Minus },
             RegexTableEntry { r: Regex::new(r"^~").unwrap(),                f: |_, _| Token::Tilde },
-            //The entry below (increment, i.e. '++') must be before the one for plus, i.e. '+'
+            // '++' and '+=' must be before '+'
             RegexTableEntry { r: Regex::new(r"^[+][+]").unwrap(),           f: |_, _| Token::Increment },
+            RegexTableEntry { r: Regex::new(r"^[+]=").unwrap(),             f: |_, _| Token::AddAssign },
             RegexTableEntry { r: Regex::new(r"^[+]").unwrap(),              f: |_, _| Token::Plus },
+            // '*=' must be before '*'
+            RegexTableEntry { r: Regex::new(r"^\*=").unwrap(),              f: |_, _| Token::MulAssign },
             RegexTableEntry { r: Regex::new(r"^\*").unwrap(),               f: |_, _| Token::Asterisk },
+            // '/=' must be before '/'
+            RegexTableEntry { r: Regex::new(r"^/=").unwrap(),               f: |_, _| Token::DivAssign },
             RegexTableEntry { r: Regex::new(r"^/").unwrap(),                f: |_, _| Token::Slash },
+            // '%=' must be before '%'
+            RegexTableEntry { r: Regex::new(r"^%=").unwrap(),               f: |_, _| Token::ModAssign },
             RegexTableEntry { r: Regex::new(r"^%").unwrap(),                f: |_, _| Token::Percent },
+            // '||' and '|=' must be before '|'
             RegexTableEntry { r: Regex::new(r"^\|\|").unwrap(),             f: |_, _| Token::LogicalOr },
-            RegexTableEntry { r: Regex::new(r"^&&").unwrap(),               f: |_, _| Token::LogicalAnd },
+            RegexTableEntry { r: Regex::new(r"^\|=").unwrap(),              f: |_, _| Token::BitwiseOrAssign },
             RegexTableEntry { r: Regex::new(r"^\|").unwrap(),               f: |_, _| Token::VerticalBar },
+            // '&&' and '&=' must be before '&'
+            RegexTableEntry { r: Regex::new(r"^&&").unwrap(),               f: |_, _| Token::LogicalAnd },
+            RegexTableEntry { r: Regex::new(r"^&=").unwrap(),               f: |_, _| Token::BitwiseAndAssign },
             RegexTableEntry { r: Regex::new(r"^&").unwrap(),                f: |_, _| Token::Ampersand },
+            // '^=' must be before '^'
+            RegexTableEntry { r: Regex::new(r"^\^=").unwrap(),              f: |_, _| Token::BitwiseXorAssign },
             RegexTableEntry { r: Regex::new(r"^\^").unwrap(),               f: |_, _| Token::Caret },
+            //'<<=' must be before '<<'
+            RegexTableEntry { r: Regex::new(r"^<<=").unwrap(),              f: |_, _| Token::ShiftLeftAssign },
+            //'>>=' must be before '>>'
+            RegexTableEntry { r: Regex::new(r"^>>=").unwrap(),              f: |_, _| Token::ShiftRightAssign },
             RegexTableEntry { r: Regex::new(r"^<<").unwrap(),               f: |_, _| Token::ShiftLeft },
             RegexTableEntry { r: Regex::new(r"^>>").unwrap(),               f: |_, _| Token::ShiftRight },
             RegexTableEntry { r: Regex::new(r"^<=").unwrap(),               f: |_, _| Token::LessOrEqual },
