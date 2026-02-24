@@ -4,6 +4,8 @@ pub mod ast;
 mod pretty_print;
 
 use ast::*;
+use crate::compiler::parser::ast::{Declaration, Expression};
+
 use super::parser;
 
 
@@ -71,6 +73,19 @@ fn emit_tacky_expression(expr: &parser::ast::Expression, instructions: &mut Vec<
         parser::ast::Expression::IntConstant(c) => {
             Val::IntConstant(*c)
         },
+        parser::ast::Expression::Var(var_name) => {
+            Val::Var(var_name.clone())
+        },
+        parser::ast::Expression::Assignment(dst, src ) => {
+            match &**dst {
+                parser::ast::Expression::Var(var_name) => {
+                    let tacky_src = emit_tacky_expression(&*src, instructions)?;
+                    instructions.push(Instruction::Copy(tacky_src, Val::Var(var_name.clone())));
+                    Val::Var(var_name.clone())
+                },
+                _ => { return Err(format!("Tacky: non-lvalue on the left of '='")); }
+            }
+        },
         parser::ast::Expression::Unary(unop, inner_expression) => {
             let src = emit_tacky_expression(&inner_expression, instructions)?;
             let dst_name = make_temp_name();
@@ -134,19 +149,50 @@ fn emit_tacky_expression(expr: &parser::ast::Expression, instructions: &mut Vec<
 }
 
 
-fn emit_tacky_statement(stmnt: &parser::ast::Statement) -> Result<Vec<Instruction>, String>
+
+fn emit_tacky_statement(stmnt: &parser::ast::Statement, instructions: &mut Vec<Instruction>) -> Result<(), String>
 {
     match stmnt {
         parser::ast::Statement::Return(expr) => {
-            let mut instructions = vec![];
-            let val = emit_tacky_expression(&expr, &mut instructions)?;
+            let val = emit_tacky_expression(&expr, instructions)?;
             instructions.push(Instruction::Return(val));
-
-            Ok(instructions)
         },
-
-        _ => { return Err(format!("TACKY Conversion: expected statement, got '{:?}'", stmnt))}
+        parser::ast::Statement::Expr(expr) => {
+            emit_tacky_expression(expr, instructions)?;
+        },
+        parser::ast::Statement::Null => {}
     }
+
+    Ok(())
+}
+
+
+fn emit_tacky_declaration(decl: &parser::ast::Declaration, instructions: &mut Vec<Instruction>) -> Result<(), String>
+{
+    match decl {
+        parser::ast::Declaration::Declarant(var_name, Some(init_expr) ) => {
+            let init_val = emit_tacky_expression(init_expr, instructions)?;
+            instructions.push(Instruction::Copy(init_val, Val::Var(var_name.clone())));
+        },
+        parser::ast::Declaration::Declarant(_, None) => {}
+    };
+
+    Ok(())
+}
+
+
+fn emit_tacky_block_item(block_item: &parser::ast::BlockItem, instructions: &mut Vec<Instruction>) -> Result<(), String>
+{
+    match block_item {
+        parser::ast::BlockItem::S(stmnt) => {
+            emit_tacky_statement(stmnt, instructions)?;
+        },
+        parser::ast::BlockItem::D(decl) => {
+            emit_tacky_declaration(decl, instructions)?;
+        }
+    };
+
+    Ok(())
 }
 
 
@@ -154,7 +200,13 @@ fn emit_tacky_function_definition(func_def: &parser::ast::FunctionDefinition) ->
 {
     match func_def {
         parser::ast::FunctionDefinition::Function(name, block) => {
-            let instructions = vec![]; //emit_tacky_statement(&stmnt)?;
+            let mut instructions = vec![];
+
+            for block_item in block {
+                emit_tacky_block_item(block_item, &mut instructions)?;
+            }
+
+            instructions.push(Instruction::Return(Val::IntConstant(0)));
             Ok(FunctionDefinition::Function(name.clone(), instructions))
         },
         _ => { return Err(format!("TACKY Conversion: expected function definition, got '{:?}'", *func_def)); }
