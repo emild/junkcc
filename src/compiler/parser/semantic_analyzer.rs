@@ -31,6 +31,68 @@ fn resolve_expression(expr: &Expression, var_map: &mut HashMap<String, String>) 
             }
         },
 
+        Expression::CompoundAssignment(binop,left, right) => {
+            match **left {
+                Expression::Var(_) => {
+                    let resolved_left = resolve_expression(&left, var_map)?;
+                    let resolved_right = resolve_expression(right, var_map)?;
+
+                    Ok(Expression::CompoundAssignment(binop.clone(), Box::new(resolved_left), Box::new(resolved_right)))
+                },
+                _ => {
+                    return Err(format!("Non lval on the left side of compound assignment"));
+                }
+            }
+        },
+
+        Expression::PreIncrement(expr)  => {
+            match **expr {
+                Expression::Var(_) => {
+                    let resolved_expr = resolve_expression(expr, var_map)?;
+                    Ok(Expression::PreIncrement(Box::new(resolved_expr)))
+                },
+                _ => {
+                    return Err(format!("Non lval in pre-increment"));
+                }
+            }
+        },
+
+        Expression::PreDecrement(expr) => {
+            match **expr {
+                Expression::Var(_) => {
+                    let resolved_expr = resolve_expression(expr, var_map)?;
+                    Ok(Expression::PreDecrement(Box::new(resolved_expr)))
+                },
+                _ => {
+                    return Err(format!("Non lval in pre-decrement"));
+                }
+            }
+        },
+
+        Expression::PostIncrement(expr) => {
+            match **expr {
+                Expression::Var(_) => {
+                    let resolved_expr = resolve_expression(expr, var_map)?;
+                    Ok(Expression::PostIncrement(Box::new(resolved_expr)))
+                },
+                _ => {
+                    return Err(format!("Non lval in post-increment"));
+                }
+            }
+        },
+
+        Expression::PostDecrement(expr) => {
+            match **expr {
+                Expression::Var(_) => {
+                    let resolved_expr = resolve_expression(expr, var_map)?;
+                    Ok(Expression::PostDecrement(Box::new(resolved_expr)))
+                },
+                _ => {
+                    return Err(format!("Non lval in post-decrement"));
+                }
+            }
+        },
+
         Expression::Var(var_name) => {
             let resolved_var_name = var_map.get(var_name);
 
@@ -57,6 +119,7 @@ fn resolve_expression(expr: &Expression, var_map: &mut HashMap<String, String>) 
         Expression::IntConstant(c) => {
             Ok(Expression::IntConstant(*c))
         }
+
     }
 }
 
