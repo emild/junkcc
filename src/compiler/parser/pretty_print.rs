@@ -12,11 +12,26 @@ fn pretty_print_expression(expr: &Expression, indent: usize)
         Expression::Unary(unary_op, inner_expression) => {
             pretty_print_unary_operator(unary_op, inner_expression, indent);
         },
+        Expression::PreIncrement(inner_expression) => {
+            pretty_print_unary_operator(&UnaryOperator::PreIncrement, inner_expression, indent)
+        },
+        Expression::PreDecrement(inner_expression) => {
+            pretty_print_unary_operator(&UnaryOperator::PreDecrement, inner_expression, indent)
+        },
+        Expression::PostIncrement(inner_expression) => {
+            pretty_print_unary_operator(&UnaryOperator::PostIncrement, inner_expression, indent)
+        },
+        Expression::PostDecrement(inner_expression) => {
+            pretty_print_unary_operator(&UnaryOperator::PostDecrement, inner_expression, indent)
+        },
         Expression::Assignment(left, right) => {
             pretty_print_assignment(left, right, indent);
         },
         Expression::Binary(binary_op, left, right) => {
             pretty_print_binary_operator(binary_op, left, right, indent);
+        },
+        Expression::CompoundAssignment(binary_op, left, right) => {
+            pretty_print_compound_assignment(binary_op, left, right, indent);
         }
     }
 }
@@ -36,6 +51,18 @@ fn pretty_print_unary_operator(unary_op: &UnaryOperator, inner_expression: &Expr
         },
         UnaryOperator::LogicalNot => {
             println!("{}LogicalNot(", " ".repeat(indent));
+        },
+        UnaryOperator::PreIncrement => {
+            println!("{}PreIncrement(", " ".repeat(indent));
+        },
+        UnaryOperator::PreDecrement => {
+            println!("{}PreDecrement(", " ".repeat(indent));
+        },
+        UnaryOperator::PostIncrement => {
+            println!("{}PostIncrement(", " ".repeat(indent));
+        },
+        UnaryOperator::PostDecrement => {
+            println!("{}PostDecrement(", " ".repeat(indent));
         }
     }
 
@@ -107,6 +134,36 @@ fn pretty_print_binary_operator(
         },
         BinaryOperator::Assign => {
             println!("{}Assign(", " ".repeat(indent));
+        },
+        BinaryOperator::AddAssign => {
+            println!("{}AddAssign(", " ".repeat(indent));
+        },
+        BinaryOperator::SubtractAssign => {
+            println!("{}SubtractAssign(", " ".repeat(indent));
+        },
+        BinaryOperator::MultiplyAssign => {
+            println!("{}MultiplyAssign(", " ".repeat(indent));
+        },
+        BinaryOperator::DivideAssign => {
+            println!("{}DivideAssign(", " ".repeat(indent));
+        },
+        BinaryOperator::RemainderAssign => {
+            println!("{}RemainderAssign(", " ".repeat(indent));
+        },
+        BinaryOperator::BitwiseAndAssign => {
+            println!("{}BitwiseAndAssign(", " ".repeat(indent));
+        },
+        BinaryOperator::BitwiseOrAssign => {
+            println!("{}BitwiseOrAssign(", " ".repeat(indent));
+        },
+        BinaryOperator::BitwiseXorAssign => {
+            println!("{}BitwiseXorAssign(", " ".repeat(indent));
+        },
+        BinaryOperator::ShiftLeftAssign => {
+            println!("{}ShiftLeftAssign(", " ".repeat(indent));
+        },
+        BinaryOperator::ShiftRightAssign => {
+            println!("{}ShiftRightAssign(", " ".repeat(indent));
         }
     };
 
@@ -120,6 +177,11 @@ fn pretty_print_binary_operator(
 fn pretty_print_assignment(left: &Expression, right: &Expression, indent: usize)
 {
     pretty_print_binary_operator(&BinaryOperator::Assign, left, right, indent);
+}
+
+fn pretty_print_compound_assignment(binary_op: &BinaryOperator, left: &Expression, right: &Expression, indent: usize)
+{
+    pretty_print_binary_operator(binary_op, left, right, indent);
 }
 
 fn pretty_print_statement(s: &Statement, indent: usize)

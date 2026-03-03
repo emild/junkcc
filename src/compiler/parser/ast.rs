@@ -7,8 +7,13 @@ pub enum Expression {
     IntConstant(i32),
     Var(String),
     Unary(UnaryOperator, Box<Expression>),
+    PreIncrement(Box<Expression>),
+    PreDecrement(Box<Expression>),
+    PostIncrement(Box<Expression>),
+    PostDecrement(Box<Expression>),
     Binary(BinaryOperator, Box<Expression>, Box<Expression>),
-    Assignment(Box<Expression>, Box<Expression>)
+    Assignment(Box<Expression>, Box<Expression>),
+    CompoundAssignment(BinaryOperator, Box<Expression>, Box<Expression>)
 }
 
 #[derive(Debug, Clone)]
@@ -16,7 +21,11 @@ pub enum UnaryOperator {
     Plus,
     Complement,
     Negate,
-    LogicalNot
+    LogicalNot,
+    PreIncrement,
+    PreDecrement,
+    PostIncrement,
+    PostDecrement
 }
 
 impl Precedence for UnaryOperator {
@@ -46,13 +55,33 @@ pub enum BinaryOperator {
     LessOrEqual,
     GreaterThan,
     GreaterOrEqual,
-    Assign
+    Assign,
+    AddAssign,
+    SubtractAssign,
+    MultiplyAssign,
+    DivideAssign,
+    RemainderAssign,
+    BitwiseAndAssign,
+    BitwiseOrAssign,
+    BitwiseXorAssign,
+    ShiftLeftAssign,
+    ShiftRightAssign
 }
 
 impl Precedence for BinaryOperator {
     fn precedence(&self) -> u32 {
         match self {
-            BinaryOperator::Assign => 1,
+            BinaryOperator::Assign |
+            BinaryOperator::AddAssign |
+            BinaryOperator::SubtractAssign |
+            BinaryOperator::MultiplyAssign |
+            BinaryOperator::DivideAssign |
+            BinaryOperator::RemainderAssign |
+            BinaryOperator::BitwiseAndAssign |
+            BinaryOperator::BitwiseOrAssign |
+            BinaryOperator::BitwiseXorAssign |
+            BinaryOperator::ShiftLeftAssign |
+            BinaryOperator::ShiftRightAssign => 1,
 
             BinaryOperator::LogicalOr => 5,
 
@@ -123,13 +152,18 @@ pub enum Program {
 <declaration>       ::= "int" <identifier> [ "=" <exp> ] ";"
 <statement>         ::= "return" <exp> ";" | <exp> ";" | ";"
 <exp>               ::= <factor> | <exp> <binop> <exp>
-<factor>            ::= <int> | <identifier> | <unop> <factor> | "(" <exp> ")"
-<unop>              ::= "+" | "-" | "~" | "!"
-<binop>             ::= "-" | "+" | "*" | "/" | "%" |
-                        "<<" | ">>" | "|" | "&" | "^" |
+<factor>            ::= <int> | <identifier> | <unop> <factor> | "(" <exp> ")" |
+                        <inc_dec> <factor> | <factor> <inc_dec>
+<unop>              ::= "+"  | "-" | "~" | "!"
+<inc_dec>           ::= "++" | "--"
+<binop>             ::= "-"  | "+" | "*" | "/" | "%" |
+                        "<<" | ">>" | "|"  | "&"  | "^"  |
                         "&&" | "||" |
-                        "==" | "!=" | "<" | " <=" | ">" | ">=" |
-                        "="
+                        "==" | "!=" | "<"  | "<=" | ">"  | ">=" |
+                        "="  | "+=" | "-=" | "*=" | "/=" | "%=" |
+                        "|=" | "&=" |
+                        "<<="| ">>="
+
 <identifier>        ::= ? Token::Identifier ?
 <int>               ::= ? Token::IntConstant ?
 

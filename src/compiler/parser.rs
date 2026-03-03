@@ -1,3 +1,4 @@
+use log::{info, trace, warn, error};
 pub mod ast;
 mod pretty_print;
 mod semantic_analyzer;
@@ -217,6 +218,42 @@ fn parse_unary_operator(l: &mut lexer::Lexer) -> Result<UnaryOperator, String>
     Ok(op)
 }
 
+fn parse_increment(l: &mut lexer::Lexer, pre: bool) -> Result<UnaryOperator, String>
+{
+    let t = l.get_token()?;
+
+    match t {
+        Token::Increment => {
+            if pre {
+                Ok(UnaryOperator::PreIncrement)
+            }
+            else {
+                Ok(UnaryOperator::PostIncrement)
+            }
+        }
+        _ => { return Err(format!("Expected '++', got '{:?}'", t)); }
+    }
+}
+
+
+fn parse_decrement(l: &mut lexer::Lexer, pre: bool) -> Result<UnaryOperator, String>
+{
+    let t = l.get_token()?;
+
+    match t {
+        Token::Decrement => {
+            if pre {
+                Ok(UnaryOperator::PreDecrement)
+            }
+            else {
+                Ok(UnaryOperator::PostDecrement)
+            }
+        }
+        _ => { return Err(format!("Expected '--', got '{:?}'", t)); }
+    }
+}
+
+
 fn convert_to_binary_operator(t: &Token) -> Option<BinaryOperator>
 {
     let op = match t {
@@ -239,6 +276,17 @@ fn convert_to_binary_operator(t: &Token) -> Option<BinaryOperator>
         Token::CloseAngleBracket => BinaryOperator::GreaterThan,
         Token::GreaterOrEqual    => BinaryOperator::GreaterOrEqual,
         Token::EqualSign         => BinaryOperator::Assign,
+        Token::AddAssign         => BinaryOperator::AddAssign,
+        Token::SubAssign         => BinaryOperator::SubtractAssign,
+        Token::MulAssign         => BinaryOperator::MultiplyAssign,
+        Token::DivAssign         => BinaryOperator::DivideAssign,
+        Token::ModAssign         => BinaryOperator::RemainderAssign,
+        Token::BitwiseOrAssign   => BinaryOperator::BitwiseOrAssign,
+        Token::BitwiseAndAssign  => BinaryOperator::BitwiseAndAssign,
+        Token::BitwiseXorAssign  => BinaryOperator::BitwiseXorAssign,
+        Token::ShiftLeftAssign   => BinaryOperator::ShiftLeftAssign,
+        Token::ShiftRightAssign  => BinaryOperator::ShiftRightAssign,
+
         _ => { return None; }
     };
 
@@ -262,7 +310,7 @@ fn parse_factor(l: &mut lexer::Lexer) -> Result<Expression, String>
 {
     let t = l.peek_token()?;
 
-    let expr = match t {
+    let mut expr = match t {
         Token::EOS => { return Err(format!("Expected factor, got end of file")); },
         Token::IntConstant(_) => {
             let c = parse_int_constant(l)?;
@@ -279,6 +327,16 @@ fn parse_factor(l: &mut lexer::Lexer) -> Result<Expression, String>
             let unary_operator = parse_unary_operator(l)?;
             let inner_expression = parse_factor(l)?;
             Expression::Unary(unary_operator, Box::new(inner_expression))
+        },
+        Token::Increment => {
+            parse_increment(l, true)?;
+            let inner_expression = parse_factor(l)?;
+            Expression::PreIncrement(Box::new(inner_expression))
+        },
+        Token::Decrement => {
+            parse_decrement(l, true)?;
+            let inner_expression = parse_factor(l)?;
+            Expression::PreDecrement(Box::new(inner_expression))
         },
         Token::OpenParenthesis => {
             let mut t = l.get_token()?;
@@ -300,9 +358,27 @@ fn parse_factor(l: &mut lexer::Lexer) -> Result<Expression, String>
         _ => { return Err(format!("Malformed factor, got {:?}", t)); }
     };
 
-    Ok(expr)
+    let postfix_expr = loop {
+        let next_t = l.peek_token()?;
+        match next_t {
+            Token::Increment => {
+                parse_increment(l, false)?;
+                expr = Expression::PostIncrement(Box::new(expr));
+            },
+            Token::Decrement => {
+                parse_decrement(l, false)?;
+                expr = Expression::PostDecrement(Box::new(expr));
+            }
+
+            _ => { break expr; }
+        }
+    };
+
+
+    Ok(postfix_expr)
 
 }
+
 
 
 
@@ -315,16 +391,33 @@ fn parse_expression(l: &mut lexer::Lexer, min_precedence: u32) -> Result<Express
         if let Some(binary_operator) = convert_to_binary_operator(&t) {
             let curr_precedence = binary_operator.precedence();
             if curr_precedence >= min_precedence {
-                if binary_operator == BinaryOperator::Assign {
+                match binary_operator {
+                BinaryOperator::Assign => {
                     parse_binary_operator(l)?;
                     let right = parse_expression(l, curr_precedence)?;
                     left = Expression::Assignment(Box::new(left), Box::new(right))
-                }
-                else {
+                },
+                BinaryOperator::AddAssign |
+                BinaryOperator::SubtractAssign |
+                BinaryOperator::MultiplyAssign |
+                BinaryOperator::DivideAssign |
+                BinaryOperator::RemainderAssign |
+                BinaryOperator::BitwiseAndAssign |
+                BinaryOperator::BitwiseOrAssign |
+                BinaryOperator::BitwiseXorAssign |
+                BinaryOperator::ShiftLeftAssign |
+                BinaryOperator::ShiftRightAssign
+                => {
+                    parse_binary_operator(l)?;
+                    let right = parse_expression(l, curr_precedence)?;
+                    left = Expression::CompoundAssignment(binary_operator, Box::new(left), Box::new(right))
+                },
+                _ => {
                     let binary_operator = parse_binary_operator(l)?;
                     let right = parse_expression(l, curr_precedence + 1)?;
                     left = Expression::Binary(binary_operator, Box::new(left), Box::new(right));
                 }
+            }
                 t = l.peek_token()?;
 
                 continue;
