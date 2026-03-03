@@ -66,6 +66,64 @@ fn emit_tacky_binary_operator(binop: &parser::ast::BinaryOperator) -> Result<Bin
     }
 }
 
+fn get_noncompound_operator(compond_binary_operator: &parser::ast::BinaryOperator) -> Result<parser::ast::BinaryOperator, String>
+{
+    let noncompund_binop = match compond_binary_operator {
+        parser::ast::BinaryOperator::AddAssign => parser::ast::BinaryOperator::Add,
+        parser::ast::BinaryOperator::SubtractAssign => parser::ast::BinaryOperator::Subtract,
+        parser::ast::BinaryOperator::MultiplyAssign => parser::ast::BinaryOperator::Multiply,
+        parser::ast::BinaryOperator::DivideAssign => parser::ast::BinaryOperator::Divide,
+        parser::ast::BinaryOperator::RemainderAssign => parser::ast::BinaryOperator::Remainder,
+        parser::ast::BinaryOperator::BitwiseAndAssign => parser::ast::BinaryOperator::BitwiseAnd,
+        parser::ast::BinaryOperator::BitwiseOrAssign => parser::ast::BinaryOperator::BitwiseOr,
+        parser::ast::BinaryOperator::BitwiseXorAssign => parser::ast::BinaryOperator::BitwiseXor,
+        parser::ast::BinaryOperator::ShiftLeftAssign => parser::ast::BinaryOperator::ShiftLeft,
+        parser::ast::BinaryOperator::ShiftRightAssign => parser::ast::BinaryOperator::ShiftRight,
+        _ => { return Err(format!("Expected compound assignment operator. got: '{:?}'", compond_binary_operator)); }
+    };
+
+    Ok(noncompund_binop)
+}
+
+
+fn get_inc_dec_operator(expr: &parser::ast::Expression) -> Result<BinaryOperator, String>
+{
+    let bin_op = match expr {
+        Expression::PostIncrement(_) |
+        Expression::PreIncrement(_) => BinaryOperator::Add,
+
+        Expression::PostDecrement(_) |
+        Expression::PreDecrement(_) => BinaryOperator::Subtract,
+
+        _ => { return Err(format!("Expected ++ or --, got {:?}", expr)); }
+    };
+
+    Ok(bin_op)
+}
+
+fn emit_tacky_pre_inc_dec(bin_op: BinaryOperator, var_name: &String, instructions: &mut Vec<Instruction>) -> Result<Val, String>
+{
+    let dst = Val::Var(var_name.clone());
+    let src = Val::IntConstant(1);
+    instructions.push(Instruction::Binary(bin_op, dst.clone(), src, dst.clone()));
+
+    Ok(dst)
+}
+
+
+fn emit_tacky_post_inc_dec(bin_op: BinaryOperator, var_name: &String, instructions: &mut Vec<Instruction>) -> Result<Val, String>
+{
+    let dst = Val::Var(var_name.clone());
+    let new_dst_name = make_temp_name();
+    let new_dst = Val::Var(new_dst_name);
+    instructions.push(Instruction::Copy(dst.clone(), new_dst.clone()));
+
+    let src = Val::IntConstant(1);
+    instructions.push(Instruction::Binary(bin_op, dst.clone(), src, dst.clone()));
+
+    Ok(new_dst)
+}
+
 
 fn emit_tacky_expression(expr: &parser::ast::Expression, instructions: &mut Vec<Instruction>) -> Result<Val, String>
 {
@@ -85,6 +143,53 @@ fn emit_tacky_expression(expr: &parser::ast::Expression, instructions: &mut Vec<
                 },
                 _ => { return Err(format!("Tacky: non-lvalue on the left of '='")); }
             }
+        },
+        parser::ast::Expression::CompoundAssignment(binary_operator, dst, src ) => {
+            match &**dst {
+                parser::ast::Expression::Var(var_name) => {
+                    let tacky_src = emit_tacky_expression(&*src, instructions)?;
+                    let tacky_dst = Val::Var(var_name.clone());
+                    let noncompound_operator = get_noncompound_operator(binary_operator)?;
+                    let tmp_dst_name = make_temp_name();
+                    let tmp_dst = Val::Var(tmp_dst_name);
+                    let tacky_bin_op = emit_tacky_binary_operator(&noncompound_operator)?;
+                    instructions.push(Instruction::Binary(tacky_bin_op, tacky_dst.clone(), tacky_src, tmp_dst.clone()));
+                    instructions.push(Instruction::Copy(tmp_dst, tacky_dst.clone()));
+
+                    tacky_dst
+                },
+                _ => { return Err(format!("Tacky: non-lvalue on the left of '{:?}='", binary_operator)); }
+            }
+        },
+        parser::ast::Expression::PreIncrement(inner_expression) |
+        parser::ast::Expression::PreDecrement(inner_expression) => {
+            let inc_dec_binary_op = get_inc_dec_operator(expr)?;
+            let dst = emit_tacky_expression(inner_expression, instructions)?;
+            match &dst {
+                Val::Var(var_name) => {
+                    emit_tacky_pre_inc_dec(inc_dec_binary_op, var_name, instructions)?;
+                },
+                _ => {
+                    { return Err(format!("Tacky: non-lvalue argument for pre-increment/pre-decrement")); }
+                }
+            };
+
+            dst
+        },
+        parser::ast::Expression::PostIncrement(inner_expression) |
+        parser::ast::Expression::PostDecrement(inner_expression) => {
+            let inc_dec_binary_op = get_inc_dec_operator(expr)?;
+            let dst = emit_tacky_expression(inner_expression, instructions)?;
+            let new_dst = match &dst {
+                Val::Var(var_name) => {
+                    emit_tacky_post_inc_dec(inc_dec_binary_op, var_name, instructions)?
+                },
+                _ => {
+                    { return Err(format!("Tacky: non-lvalue argument for pre-increment/pre-decrement")); }
+                }
+            };
+
+            new_dst
         },
         parser::ast::Expression::Unary(unop, inner_expression) => {
             let src = emit_tacky_expression(&inner_expression, instructions)?;
