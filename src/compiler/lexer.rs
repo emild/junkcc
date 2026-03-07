@@ -14,6 +14,8 @@ pub enum Token {
     KwInt,
     KwVoid,
     KwReturn,
+    KwIf,
+    KwElse,
 
     OpenParenthesis,        // (
     CloseParenthesis,       // )
@@ -43,6 +45,8 @@ pub enum Token {
     NotEqualTo,             // !=
     ExclamationMark,        // !
     EqualSign,              // =
+    QuestionMark,           // ?
+    Colon,                  // :
 
     //Compound Assignments
     AddAssign,              // +=
@@ -90,11 +94,13 @@ impl RegexTable {
         let regexes = vec![
             RegexTableEntry { r: Regex::new(r"^[a-zA-Z_]\w*\b").unwrap(),   f: Self::parse_id },
             RegexTableEntry { r: Regex::new(r"^[0-9]+\b").unwrap(),         f: Self::parse_int_constant },
+            RegexTableEntry { r: Regex::new(r"^\?").unwrap(),               f: |_, _| Token::QuestionMark },
             RegexTableEntry { r: Regex::new(r"^\(").unwrap(),               f: |_, _| Token::OpenParenthesis },
             RegexTableEntry { r: Regex::new(r"^\)").unwrap(),               f: |_, _| Token::CloseParenthesis },
             RegexTableEntry { r: Regex::new(r"^\{").unwrap(),               f: |_, _| Token::OpenBrace },
             RegexTableEntry { r: Regex::new(r"^\}").unwrap(),               f: |_, _| Token::CloseBrace },
             RegexTableEntry { r: Regex::new(r"^;").unwrap(),                f: |_, _| Token::Semicolon },
+            RegexTableEntry { r: Regex::new(r"^:").unwrap(),                f: |_, _| Token::Colon },
             // '--' and '-=' must be before '-'
             RegexTableEntry { r: Regex::new(r"^--").unwrap(),               f: |_, _| Token::Decrement },
             RegexTableEntry { r: Regex::new(r"^-=").unwrap(),               f: |_, _| Token::SubAssign },
@@ -145,6 +151,8 @@ impl RegexTable {
             white_space_regex: Regex::new(r"\s*").unwrap(),
             regexes,
             keyword_table: HashMap::from([
+                ("else",        Token::KwElse),
+                ("if",          Token::KwIf),
                 ("int",         Token::KwInt),
                 ("return",      Token::KwReturn),
                 ("void",        Token::KwVoid)
