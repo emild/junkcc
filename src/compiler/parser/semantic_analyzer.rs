@@ -44,7 +44,6 @@ fn resolve_expression(expr: &Expression, var_map: &mut HashMap<String, String>) 
                 }
             }
         },
-
         Expression::PreIncrement(expr)  => {
             match **expr {
                 Expression::Var(_) => {
@@ -103,6 +102,14 @@ fn resolve_expression(expr: &Expression, var_map: &mut HashMap<String, String>) 
             Ok(Expression::Var(resolved_var_name.unwrap().clone()))
         },
 
+        Expression::Conditional(cond, true_exp, false_exp) => {
+            let resolved_cond = resolve_expression(cond, var_map)?;
+            let resolved_true_exp = resolve_expression(true_exp, var_map)?;
+            let resolved_false_exp = resolve_expression(false_exp, var_map)?;
+
+            Ok(Expression::Conditional(Box::new(resolved_cond), Box::new(resolved_true_exp), Box::new(resolved_false_exp)))
+        },
+
         Expression::Binary(binary_op,left, right , ) => {
             let resolved_left = resolve_expression(left, var_map)?;
             let resolved_right = resolve_expression(right, var_map)?;
@@ -130,6 +137,18 @@ fn resolve_statement(stmnt: &Statement, var_map: &mut HashMap<String, String>) -
         Statement::Return(expr) => {
             let resolved_expression = resolve_expression(expr, var_map)?;
             Ok(Statement::Return(resolved_expression))
+        },
+        Statement::If(cond, then_stmnt , else_stmnt) => {
+            let resolved_cond = resolve_expression(cond, var_map)?;
+            let resolved_then_stmnt = resolve_statement(then_stmnt, var_map)?;
+            let resolved_else_stmnt = if let Some(else_stmnt) = else_stmnt {
+                let resolved_else_stmnt = resolve_statement(else_stmnt, var_map)?;
+                Some(Box::new(resolved_else_stmnt))
+            }
+            else {
+                None
+            };
+            Ok(Statement::If(resolved_cond, Box::new(resolved_then_stmnt), resolved_else_stmnt))
         },
         Statement::Expr(expr) => {
             let resolved_expression = resolve_expression(expr, var_map)?;

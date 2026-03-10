@@ -151,6 +151,19 @@ fn parse_declaration(l: &mut lexer::Lexer) -> Result<Declaration, String>
 }
 
 
+fn check_semicolon(l: &mut lexer::Lexer) -> Result<(), String>
+{
+    let t = l.get_token()?;
+    match t {
+        Token::EOS => { return Err(format!("Expected ';', got end of file")); },
+        Token::Semicolon => {},
+        _ => { return Err(format!("Expected ';', got {:?}", t)); }
+    };
+
+    Ok(())
+}
+
+
 fn parse_statement(l: &mut lexer::Lexer) -> Result<Statement, String>
 {
     let mut t = l.peek_token()?;
@@ -159,22 +172,43 @@ fn parse_statement(l: &mut lexer::Lexer) -> Result<Statement, String>
         Token::KwReturn => {
             l.get_token()?; //Consume the return keyword
             let ex = parse_expression(l, 0)?;
+            check_semicolon(l)?;
             Statement::Return(ex)
         },
+        Token::KwIf => {
+            l.get_token()?; //Consume the if keyword
+            let open_paren = l.get_token()?;
+            if open_paren != Token::OpenParenthesis {
+                return Err(format!("Expected '(' after if, got {:?}", open_paren));
+            }
+
+            let cond = parse_expression(l, 0)?;
+            let close_paren = l.get_token()?;
+            if close_paren != Token::CloseParenthesis {
+                return Err(format!("Expected ')' after condition, got {:?}", close_paren));
+            }
+            let then_stmnt = parse_statement(l)?;
+            let else_stmnt = match l.peek_token() {
+                Err(e) => { return Err(e); }
+                Ok(Token::EOS) => { return Err(format!("Error: Unexpected end of file after if")); },
+                Ok(Token::KwElse) => {
+                    l.get_token()?; //Consume the else token
+                    let else_stmnt = parse_statement(l)?;
+                    Some(Box::new(else_stmnt))
+                },
+                _ => None
+            };
+            Statement::If(cond, Box::new(then_stmnt), else_stmnt)
+        },
         Token::Semicolon => {
+            check_semicolon(l)?;
             Statement::Null
         },
         _ => {
             let ex = parse_expression(l, 0)?;
+            check_semicolon(l)?;
             Statement::Expr(ex)
         }
-    };
-
-    t = l.get_token()?;
-    match t {
-        Token::EOS => { return Err(format!("Expected ';', got end of file")); },
-        Token::Semicolon => {},
-        _ => { return Err(format!("Expected ';', got {:?}", t)); }
     };
 
     Ok(stmnt)
@@ -286,6 +320,7 @@ fn convert_to_binary_operator(t: &Token) -> Option<BinaryOperator>
         Token::BitwiseXorAssign  => BinaryOperator::BitwiseXorAssign,
         Token::ShiftLeftAssign   => BinaryOperator::ShiftLeftAssign,
         Token::ShiftRightAssign  => BinaryOperator::ShiftRightAssign,
+        Token::QuestionMark      => BinaryOperator::ConditionalMiddle,
 
         _ => { return None; }
     };
@@ -380,6 +415,21 @@ fn parse_factor(l: &mut lexer::Lexer) -> Result<Expression, String>
 }
 
 
+fn parse_conditional_middle(l: &mut lexer::Lexer) -> Result<Expression, String>
+{
+    let mut t = l.get_token()?; //consume '?'
+    if t != Token::QuestionMark {
+        return Err(format!("Failed to read '?'"));
+    }
+
+    let true_exp = parse_expression(l, 0)?;
+    t = l.get_token()?;
+    if t != Token::Colon {
+        return Err(format!("Expected ':' after true_expression operand of conditional operator"));
+    }
+
+    Ok(true_exp)
+}
 
 
 fn parse_expression(l: &mut lexer::Lexer, min_precedence: u32) -> Result<Expression, String>
@@ -392,38 +442,42 @@ fn parse_expression(l: &mut lexer::Lexer, min_precedence: u32) -> Result<Express
             let curr_precedence = binary_operator.precedence();
             if curr_precedence >= min_precedence {
                 match binary_operator {
-                BinaryOperator::Assign => {
-                    parse_binary_operator(l)?;
-                    let right = parse_expression(l, curr_precedence)?;
-                    left = Expression::Assignment(Box::new(left), Box::new(right))
-                },
-                BinaryOperator::AddAssign |
-                BinaryOperator::SubtractAssign |
-                BinaryOperator::MultiplyAssign |
-                BinaryOperator::DivideAssign |
-                BinaryOperator::RemainderAssign |
-                BinaryOperator::BitwiseAndAssign |
-                BinaryOperator::BitwiseOrAssign |
-                BinaryOperator::BitwiseXorAssign |
-                BinaryOperator::ShiftLeftAssign |
-                BinaryOperator::ShiftRightAssign
-                => {
-                    parse_binary_operator(l)?;
-                    let right = parse_expression(l, curr_precedence)?;
-                    left = Expression::CompoundAssignment(binary_operator, Box::new(left), Box::new(right))
-                },
-                _ => {
-                    let binary_operator = parse_binary_operator(l)?;
-                    let right = parse_expression(l, curr_precedence + 1)?;
-                    left = Expression::Binary(binary_operator, Box::new(left), Box::new(right));
+                    BinaryOperator::Assign => {
+                        parse_binary_operator(l)?;
+                        let right = parse_expression(l, curr_precedence)?;
+                        left = Expression::Assignment(Box::new(left), Box::new(right))
+                    },
+                    BinaryOperator::AddAssign |
+                    BinaryOperator::SubtractAssign |
+                    BinaryOperator::MultiplyAssign |
+                    BinaryOperator::DivideAssign |
+                    BinaryOperator::RemainderAssign |
+                    BinaryOperator::BitwiseAndAssign |
+                    BinaryOperator::BitwiseOrAssign |
+                    BinaryOperator::BitwiseXorAssign |
+                    BinaryOperator::ShiftLeftAssign |
+                    BinaryOperator::ShiftRightAssign
+                    => {
+                        parse_binary_operator(l)?;
+                        let right = parse_expression(l, curr_precedence)?;
+                        left = Expression::CompoundAssignment(binary_operator, Box::new(left), Box::new(right))
+                    },
+                    BinaryOperator::ConditionalMiddle => {
+                        let true_exp = parse_conditional_middle(l)?;
+                        let false_exp = parse_expression(l, curr_precedence)?;
+                        left = Expression::Conditional(Box::new(left), Box::new(true_exp), Box::new(false_exp));
+                    },
+                    _ => {
+                        let binary_operator = parse_binary_operator(l)?;
+                        let right = parse_expression(l, curr_precedence + 1)?;
+                        left = Expression::Binary(binary_operator, Box::new(left), Box::new(right));
+                    }
                 }
-            }
                 t = l.peek_token()?;
 
                 continue;
             }
         }
-
 
         break;
     }

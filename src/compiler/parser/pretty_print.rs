@@ -1,3 +1,5 @@
+use std::f32::consts::E;
+
 use super::ast::*;
 
 fn pretty_print_expression(expr: &Expression, indent: usize)
@@ -32,6 +34,9 @@ fn pretty_print_expression(expr: &Expression, indent: usize)
         },
         Expression::CompoundAssignment(binary_op, left, right) => {
             pretty_print_compound_assignment(binary_op, left, right, indent);
+        },
+        Expression::Conditional(cond, true_exp, false_exp) => {
+            pretty_print_conditional(cond, true_exp, false_exp, indent);
         }
     }
 }
@@ -164,6 +169,9 @@ fn pretty_print_binary_operator(
         },
         BinaryOperator::ShiftRightAssign => {
             println!("{}ShiftRightAssign(", " ".repeat(indent));
+        },
+        BinaryOperator::ConditionalMiddle => {
+            panic!("ConditionalMiddle shall NOT appear in the AST!");
         }
     };
 
@@ -184,12 +192,43 @@ fn pretty_print_compound_assignment(binary_op: &BinaryOperator, left: &Expressio
     pretty_print_binary_operator(binary_op, left, right, indent);
 }
 
+fn pretty_print_conditional(cond: &Expression, true_exp: &Expression, false_exp: &Expression, indent: usize)
+{
+    println!("{}Conditional(", " ".repeat(indent));
+    println!("{}Cond=(", " ".repeat(indent + 4));
+    pretty_print_expression(cond, indent + 8);
+    println!("{})", " ".repeat(indent + 4));
+    println!("{}True_exp=(", " ".repeat(indent + 4));
+    pretty_print_expression(true_exp, indent + 8);
+    println!("{})", " ".repeat(indent + 4));
+    println!("{}False_exp=(", " ".repeat(indent + 4));
+    pretty_print_expression(false_exp, indent + 8);
+    println!("{})", " ".repeat(indent + 4));
+    println!("{})", " ".repeat(indent));
+}
+
+
 fn pretty_print_statement(s: &Statement, indent: usize)
 {
     match s {
         Statement::Return(expr) => {
             println!("{}Return(", " ".repeat(indent));
             pretty_print_expression(&expr, indent + 4);
+            println!("{})", " ".repeat(indent));
+        },
+        Statement::If(cond,then_stmnt , else_stmnt) => {
+            println!("{}If(", " ".repeat(indent));
+            println!("{}Cond=(", " ".repeat(indent + 4));
+            pretty_print_expression(cond, indent + 8);
+            println!("{})", " ".repeat(indent + 4));
+            println!("{}Then(", " ".repeat(indent + 4));
+            pretty_print_statement(then_stmnt, indent + 8);
+            println!("{})", " ".repeat(indent + 4));
+            if let Some(else_stmnt) = else_stmnt {
+                println!("{}Else(", " ".repeat(indent + 4));
+                pretty_print_statement(else_stmnt, indent + 8);
+                println!("{})", " ".repeat(indent + 4));
+            }
             println!("{})", " ".repeat(indent));
         },
         Statement::Expr(expr) => {

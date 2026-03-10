@@ -265,7 +265,8 @@ fn emit_tacky_statement(stmnt: &parser::ast::Statement, instructions: &mut Vec<I
         parser::ast::Statement::Expr(expr) => {
             emit_tacky_expression(expr, instructions)?;
         },
-        parser::ast::Statement::Null => {}
+        parser::ast::Statement::Null => {},
+        _ => { panic!("emit_tacky_statement: Not implemented for '{:?}' !", stmnt); }
     }
 
     Ok(())

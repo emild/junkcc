@@ -13,7 +13,8 @@ pub enum Expression {
     PostDecrement(Box<Expression>),
     Binary(BinaryOperator, Box<Expression>, Box<Expression>),
     Assignment(Box<Expression>, Box<Expression>),
-    CompoundAssignment(BinaryOperator, Box<Expression>, Box<Expression>)
+    CompoundAssignment(BinaryOperator, Box<Expression>, Box<Expression>),
+    Conditional(Box<Expression> /* condition */, Box<Expression> /* true */, Box<Expression> /* false */)
 }
 
 #[derive(Debug, Clone)]
@@ -65,7 +66,8 @@ pub enum BinaryOperator {
     BitwiseOrAssign,
     BitwiseXorAssign,
     ShiftLeftAssign,
-    ShiftRightAssign
+    ShiftRightAssign,
+    ConditionalMiddle //Not a real binary operator
 }
 
 impl Precedence for BinaryOperator {
@@ -82,6 +84,8 @@ impl Precedence for BinaryOperator {
             BinaryOperator::BitwiseXorAssign |
             BinaryOperator::ShiftLeftAssign |
             BinaryOperator::ShiftRightAssign => 1,
+
+            BinaryOperator::ConditionalMiddle => 3,
 
             BinaryOperator::LogicalOr => 5,
 
@@ -117,6 +121,7 @@ impl Precedence for BinaryOperator {
 #[derive(Debug)]
 pub enum Statement {
     Return(Expression),
+    If(Expression, Box<Statement> /* then */, Option<Box<Statement>> /* else */),
     Expr(Expression),
     Null
 }
@@ -151,7 +156,7 @@ pub enum Program {
 <block_item>        ::= <statement>|<declaration>
 <declaration>       ::= "int" <identifier> [ "=" <exp> ] ";"
 <statement>         ::= "return" <exp> ";" | <exp> ";" | ";"
-<exp>               ::= <factor> | <exp> <binop> <exp>
+<exp>               ::= <factor> | <exp> <binop> <exp> | <exp> "?" <exp> ":" <exp>
 <factor>            ::= <int> | <identifier> | <unop> <factor> | "(" <exp> ")" |
                         <inc_dec> <factor> | <factor> <inc_dec>
 <unop>              ::= "+"  | "-" | "~" | "!"
