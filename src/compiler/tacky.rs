@@ -245,9 +245,26 @@ fn emit_tacky_expression(expr: &parser::ast::Expression, instructions: &mut Vec<
             instructions.push(Instruction::Binary(tacky_bin_op, src1, src2, dst.clone()));
 
             dst
+        },
+        parser::ast::Expression::Conditional(cond, true_exp, false_exp) => {
+            let result_name = make_temp_name();
+            let result = Val::Var(result_name);
+            let cond_val = emit_tacky_expression(cond, instructions)?;
+            let lbl_cond_zero = make_temp_label("l_cond_zero");
+            let lbl_cond_end = make_temp_label("l_cond_end");
+            instructions.push(Instruction::JumpIfZero(cond_val, lbl_cond_zero.clone()));
+            let true_val = emit_tacky_expression(true_exp, instructions)?;
+            instructions.push(Instruction::Copy(true_val, result.clone()));
+            instructions.push(Instruction::Jump(lbl_cond_end.clone()));
+            instructions.push(Instruction::Label(lbl_cond_zero));
+            let false_val = emit_tacky_expression(false_exp, instructions)?;
+            instructions.push(Instruction::Copy(false_val, result.clone()));
+            instructions.push(Instruction::Label(lbl_cond_end));
+
+            result
         }
 
-        _ => { return Err(format!("TACKY Conversion: expected expression, got '{:?}'", expr)); }
+   //     _ => { return Err(format!("TACKY Conversion: expected expression, got '{:?}'", expr)); }
     };
 
     Ok(val)
@@ -262,11 +279,31 @@ fn emit_tacky_statement(stmnt: &parser::ast::Statement, instructions: &mut Vec<I
             let val = emit_tacky_expression(&expr, instructions)?;
             instructions.push(Instruction::Return(val));
         },
+        parser::ast::Statement::If(cond, then_stmnt, None) => {
+            //if without else
+            let cond_val = emit_tacky_expression(cond, instructions)?;
+            let lbl_zero = make_temp_label("l_zero");
+            instructions.push(Instruction::JumpIfZero(cond_val, lbl_zero.clone()));
+            emit_tacky_statement(then_stmnt, instructions)?;
+            instructions.push(Instruction::Label(lbl_zero));
+        },
+        parser::ast::Statement::If(cond, then_stmnt, Some(else_stmnt)) => {
+            //if with else
+            let cond_val = emit_tacky_expression(cond, instructions)?;
+            let lbl_zero = make_temp_label("l_zero");
+            let lbl_end = make_temp_label("l_end");
+            instructions.push(Instruction::JumpIfZero(cond_val, lbl_zero.clone()));
+            emit_tacky_statement(then_stmnt, instructions)?;
+            instructions.push(Instruction::Jump(lbl_end.clone()));
+            instructions.push(Instruction::Label(lbl_zero));
+            emit_tacky_statement(else_stmnt, instructions)?;
+            instructions.push(Instruction::Label(lbl_end));
+        },
         parser::ast::Statement::Expr(expr) => {
             emit_tacky_expression(expr, instructions)?;
         },
         parser::ast::Statement::Null => {},
-        _ => { panic!("emit_tacky_statement: Not implemented for '{:?}' !", stmnt); }
+       // _ => { panic!("emit_tacky_statement: Not implemented for '{:?}' !", stmnt); }
     }
 
     Ok(())
