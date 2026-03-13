@@ -72,7 +72,7 @@ pub struct Lexer {
     current_line_length: usize,
     end_of_stream: bool,
     regex_table: RegexTable,
-    cached_token: Option<Token>
+    cached_tokens: Vec<Token>
 }
 
 
@@ -193,7 +193,7 @@ impl Lexer {
             current_line_length: 0,
             end_of_stream: false,
             regex_table: RegexTable::new(),
-            cached_token: None
+            cached_tokens: vec![]
         })
     }
 
@@ -275,7 +275,7 @@ impl Lexer {
 
     pub fn get_token(&mut self) -> Result<Token, String>
     {
-        let token = match self.cached_token.take() {
+        let token = match self.cached_tokens.pop() {
             Some(cached_token) => cached_token,
             None => self.fetch_token()?
         };
@@ -287,9 +287,16 @@ impl Lexer {
     {
         let token = self.get_token()?;
 
-        self.cached_token.replace(token.clone());
+        self.cached_tokens.push(token.clone());
 
         Ok(token)
+    }
+
+    pub fn putback_token(&mut self, token: Token) -> Result<(), String>
+    {
+        self.cached_tokens.push(token);
+
+        Ok(())
     }
 
     pub fn get_current_line_number(&self) -> usize { self.current_line_number }
