@@ -120,7 +120,13 @@ impl Precedence for BinaryOperator {
 
 #[derive(Debug)]
 pub enum Statement {
+    Stmnt(Option<Vec<String>> /* labels */, UnlabeledStatement)
+}
+
+#[derive(Debug)]
+pub enum UnlabeledStatement {
     Return(Expression),
+    Goto(String),
     If(Expression, Box<Statement> /* then */, Option<Box<Statement>> /* else */),
     Expr(Expression),
     Null
@@ -155,7 +161,11 @@ pub enum Program {
 <function>          ::= "int" <identifier> "(" ["void"] ")" "{" { <block_item> } "}"
 <block_item>        ::= <statement>|<declaration>
 <declaration>       ::= "int" <identifier> [ "=" <exp> ] ";"
-<statement>         ::= "return" <exp> ";" | <exp> ";" | ";"
+<label>             ::= <id> ":"
+<statement>         ::= [<label> *] <unlbld_statement>
+<unlbld_statement>  ::= "return" <exp> ";" | <exp> ";" |
+                        ";" | if <exp> <statement> ["else" <statement> ] |
+                        "goto" <id> ";"
 <exp>               ::= <factor> | <exp> <binop> <exp> | <exp> "?" <exp> ":" <exp>
 <factor>            ::= <int> | <identifier> | <unop> <factor> | "(" <exp> ")" |
                         <inc_dec> <factor> | <factor> <inc_dec>

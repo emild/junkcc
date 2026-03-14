@@ -3,7 +3,16 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 
 use super::ast::*;
 
+static GOTO_LABEL_NAME_INDEX: AtomicUsize = AtomicUsize::new(0);
 static LOCAL_TMP_NAME_INDEX: AtomicUsize = AtomicUsize::new(0);
+
+fn make_unique_global_goto_label(label: &str) -> String
+{
+    let index = GOTO_LABEL_NAME_INDEX.fetch_add(1, Ordering::SeqCst);
+    let global_label = format!("goto_lbl_{}.{}", label, index);
+
+    global_label
+}
 
 fn make_unique_global_name(var_name: &str) -> String
 {
@@ -131,31 +140,90 @@ fn resolve_expression(expr: &Expression, var_map: &mut HashMap<String, String>) 
 }
 
 
-fn resolve_statement(stmnt: &Statement, var_map: &mut HashMap<String, String>) -> Result<Statement, String>
+fn resolve_statement(stmnt: &Statement, var_map: &mut HashMap<String, String>, labels: &HashMap<String, String>) -> Result<Statement, String>
 {
     match stmnt {
-        Statement::Return(expr) => {
-            let resolved_expression = resolve_expression(expr, var_map)?;
-            Ok(Statement::Return(resolved_expression))
+        Statement::Stmnt(None, unlabeled_stmnt) => {
+            let resolved_unlabled_stmnt = resolve_unlabeled_statement(unlabeled_stmnt, var_map, labels)?;
+            return Ok(Statement::Stmnt(None, resolved_unlabled_stmnt));
         },
-        Statement::If(cond, then_stmnt , else_stmnt) => {
+        Statement::Stmnt(Some(stmnt_labels), unlabeled_stmnt) => {
+            let resolved_unlabled_stmnt = resolve_unlabeled_statement(unlabeled_stmnt, var_map, labels)?;
+            let resolved_stmnt_labels = stmnt_labels.iter().map(|stmnt_label| labels.get(stmnt_label).unwrap().clone()).collect();
+
+            return Ok(Statement::Stmnt(Some(resolved_stmnt_labels), resolved_unlabled_stmnt));
+        }
+    };
+}
+
+fn check_statement_goto_labels(stmnt: &Statement, labels: &mut HashMap<String, String>) -> Result<(), String>
+{
+    match stmnt {
+        Statement::Stmnt(None, unlabeled_stmnt) => {
+            check_unlabeled_statement_goto_labels(unlabeled_stmnt, labels)?;
+        },
+        Statement::Stmnt(Some(stmnt_labels),unlabeled_stmnt ) => {
+            for stmnt_label in stmnt_labels {
+                if labels.contains_key(stmnt_label) {
+                    return Err(format!("Duplicate label: '{stmnt_label}'"));
+                }
+                let global_label = make_unique_global_goto_label(stmnt_label);
+                labels.insert(stmnt_label.clone(), global_label);
+            }
+            check_unlabeled_statement_goto_labels(unlabeled_stmnt, labels)?;
+        }
+    }
+
+    Ok(())
+}
+
+fn resolve_unlabeled_statement(stmnt: &UnlabeledStatement, var_map: &mut HashMap<String, String>, labels: &HashMap<String, String>) -> Result<UnlabeledStatement, String>
+{
+    match stmnt {
+        UnlabeledStatement::Return(expr) => {
+            let resolved_expression = resolve_expression(expr, var_map)?;
+            Ok(UnlabeledStatement::Return(resolved_expression))
+        },
+        UnlabeledStatement::Goto(label) => {
+            if !labels.contains_key(label) {
+                return Err(format!("Label '{}' not found", label));
+            }
+            Ok(UnlabeledStatement::Goto(labels.get(label).unwrap().clone()))
+        },
+        UnlabeledStatement::If(cond, then_stmnt , else_stmnt) => {
             let resolved_cond = resolve_expression(cond, var_map)?;
-            let resolved_then_stmnt = resolve_statement(then_stmnt, var_map)?;
+            let resolved_then_stmnt = resolve_statement(then_stmnt, var_map, labels)?;
             let resolved_else_stmnt = if let Some(else_stmnt) = else_stmnt {
-                let resolved_else_stmnt = resolve_statement(else_stmnt, var_map)?;
+                let resolved_else_stmnt = resolve_statement(else_stmnt, var_map, labels)?;
                 Some(Box::new(resolved_else_stmnt))
             }
             else {
                 None
             };
-            Ok(Statement::If(resolved_cond, Box::new(resolved_then_stmnt), resolved_else_stmnt))
+            Ok(UnlabeledStatement::If(resolved_cond, Box::new(resolved_then_stmnt), resolved_else_stmnt))
         },
-        Statement::Expr(expr) => {
+        UnlabeledStatement::Expr(expr) => {
             let resolved_expression = resolve_expression(expr, var_map)?;
-            Ok(Statement::Expr(resolved_expression))
+            Ok(UnlabeledStatement::Expr(resolved_expression))
         },
-        Statement::Null => Ok(Statement::Null)
+        UnlabeledStatement::Null => Ok(UnlabeledStatement::Null)
     }
+}
+
+fn check_unlabeled_statement_goto_labels(unlabeled_stmnt: &UnlabeledStatement, labels: &mut HashMap<String, String>) -> Result<(), String>
+{
+    match unlabeled_stmnt {
+        UnlabeledStatement::If(_,then_stmnt , None) => {
+            check_statement_goto_labels(then_stmnt, labels)?;
+        },
+        UnlabeledStatement::If(_,then_stmnt , Some(else_stmnt)) => {
+            check_statement_goto_labels(then_stmnt, labels)?;
+            check_statement_goto_labels(else_stmnt, labels)?;
+        },
+        _ => {}
+    }
+
+    Ok(())
 }
 
 fn resolve_declaration(decl: &Declaration, var_map: &mut HashMap<String, String>) -> Result<Declaration, String>
@@ -184,7 +252,7 @@ fn resolve_declaration(decl: &Declaration, var_map: &mut HashMap<String, String>
 }
 
 
-fn resolve_block_item(block_item: &BlockItem, var_map: &mut HashMap<String, String>) -> Result<BlockItem, String>
+fn resolve_block_item(block_item: &BlockItem, var_map: &mut HashMap<String, String>, labels: &HashMap<String, String>) -> Result<BlockItem, String>
 {
     match block_item {
         BlockItem::D(decl) => {
@@ -192,23 +260,45 @@ fn resolve_block_item(block_item: &BlockItem, var_map: &mut HashMap<String, Stri
             Ok(BlockItem::D(resolved_decl))
         },
         BlockItem::S(stmnt) => {
-            let resolved_stmnt = resolve_statement(stmnt, var_map)?;
+            let resolved_stmnt = resolve_statement(stmnt, var_map, labels)?;
             Ok(BlockItem::S(resolved_stmnt))
         }
     }
 }
 
 
-fn resolve_block(block: &Vec<BlockItem>, var_map: &mut HashMap<String, String>) -> Result<Vec<BlockItem>, String>
+fn check_block_item_goto_labels(block_item: &BlockItem, labels: &mut HashMap<String, String>) -> Result<(), String>
+{
+    match block_item {
+        BlockItem::D(decl) => {
+            Ok(())
+        },
+        BlockItem::S(stmnt) => {
+            check_statement_goto_labels(stmnt, labels)?;
+            Ok(())
+        }
+    }
+}
+
+fn resolve_block(block: &Vec<BlockItem>, var_map: &mut HashMap<String, String>, labels: &HashMap<String, String>) -> Result<Vec<BlockItem>, String>
 {
     let mut resolved_block = vec![];
 
     for block_item in block {
-        let resolved_block_item = resolve_block_item(&block_item, var_map)?;
+        let resolved_block_item = resolve_block_item(&block_item, var_map, labels)?;
         resolved_block.push(resolved_block_item);
     }
 
     Ok(resolved_block)
+}
+
+fn check_block_goto_labels(block: &Vec<BlockItem>, labels: &mut HashMap<String, String>) -> Result<(), String>
+{
+    for block_item in block {
+        check_block_item_goto_labels(block_item, labels)?;
+    }
+
+    Ok(())
 }
 
 
@@ -216,7 +306,9 @@ fn resolve_function(func_def: &FunctionDefinition, var_map: &mut HashMap<String,
 {
     match func_def {
         FunctionDefinition::Function(name, block ) => {
-            let resolved_block = resolve_block(block, var_map)?;
+            let mut labels = HashMap::new();
+            check_block_goto_labels(&block, &mut labels)?;
+            let resolved_block = resolve_block(block, var_map, &labels)?;
             Ok(FunctionDefinition::Function(name.clone(), resolved_block))
         }
     }

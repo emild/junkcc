@@ -207,16 +207,43 @@ fn pretty_print_conditional(cond: &Expression, true_exp: &Expression, false_exp:
     println!("{})", " ".repeat(indent));
 }
 
+fn pretty_print_labels(labels: &Vec<String>, indent: usize)
+{
+    for label in labels {
+        println!("{}{}:", " ".repeat(indent), label);
+    }
+}
+
 
 fn pretty_print_statement(s: &Statement, indent: usize)
 {
+
+    let (labels, unlabeled_stmnt) = match s {
+        Statement::Stmnt(None, unlabeled_stmnt) => {
+            (&vec![], unlabeled_stmnt)
+        },
+        Statement::Stmnt(Some(labels), unlabeled_stmnt ) => {
+            (labels, unlabeled_stmnt)
+        }
+    };
+
+    pretty_print_labels(labels, indent);
+    pretty_print_unlabeled_statement(unlabeled_stmnt, indent);
+}
+
+
+fn pretty_print_unlabeled_statement(s: &UnlabeledStatement, indent: usize)
+{
     match s {
-        Statement::Return(expr) => {
+        UnlabeledStatement::Return(expr) => {
             println!("{}Return(", " ".repeat(indent));
             pretty_print_expression(&expr, indent + 4);
             println!("{})", " ".repeat(indent));
         },
-        Statement::If(cond,then_stmnt , else_stmnt) => {
+        UnlabeledStatement::Goto(label) => {
+            println!("{}Goto {}", " ".repeat(indent), label);
+        },
+        UnlabeledStatement::If(cond,then_stmnt , else_stmnt) => {
             println!("{}If(", " ".repeat(indent));
             println!("{}Cond=(", " ".repeat(indent + 4));
             pretty_print_expression(cond, indent + 8);
@@ -231,12 +258,12 @@ fn pretty_print_statement(s: &Statement, indent: usize)
             }
             println!("{})", " ".repeat(indent));
         },
-        Statement::Expr(expr) => {
+        UnlabeledStatement::Expr(expr) => {
             println!("{}Expr(", " ".repeat(indent));
             pretty_print_expression(expr, indent + 4);
             println!("{})", " ".repeat(indent));
         },
-        Statement::Null => {
+        UnlabeledStatement::Null => {
             println!("{}NOP()", " ".repeat(indent));
         }
     }

@@ -163,17 +163,63 @@ fn check_semicolon(l: &mut lexer::Lexer) -> Result<(), String>
     Ok(())
 }
 
-
 fn parse_statement(l: &mut lexer::Lexer) -> Result<Statement, String>
 {
+    let mut labels = vec![];
+
+    loop {
+        let t = l.get_token()?;
+        match t {
+            Token::Identifier(label) => {
+                let colon = l.get_token()?;
+                if colon != Token::Colon {
+                    l.putback_token(colon)?;
+                    l.putback_token(Token::Identifier(label))?;
+                    break;
+                }
+
+                labels.push(label);
+            },
+            _ => {
+                l.putback_token(t)?;
+                break;
+            }
+        }
+    }
+
+    let unlabeled_statement = parse_unlabeled_statement(l)?;
+    if labels.is_empty() {
+        Ok(Statement::Stmnt(None, unlabeled_statement))
+    }
+    else {
+        Ok(Statement::Stmnt(Some(labels), unlabeled_statement))
+    }
+
+}
+
+
+fn parse_unlabeled_statement(l: &mut lexer::Lexer) -> Result<UnlabeledStatement, String>
+{
     let mut t = l.peek_token()?;
+
     let stmnt = match t {
         Token::EOS => { return Err(format!("Unexpected end of file")); },
         Token::KwReturn => {
             l.get_token()?; //Consume the return keyword
             let ex = parse_expression(l, 0)?;
             check_semicolon(l)?;
-            Statement::Return(ex)
+            UnlabeledStatement::Return(ex)
+        },
+        Token::KwGoto => {
+            l.get_token()?; //Consume the goto keyword
+            let t = l.get_token()?;
+            let label = match t {
+                Token::Identifier(label) => label,
+                _ => { return Err(format!("Expected label, got {:?}", t)); }
+            };
+            check_semicolon(l)?;
+
+            UnlabeledStatement::Goto(label)
         },
         Token::KwIf => {
             l.get_token()?; //Consume the if keyword
@@ -198,16 +244,16 @@ fn parse_statement(l: &mut lexer::Lexer) -> Result<Statement, String>
                 },
                 _ => None
             };
-            Statement::If(cond, Box::new(then_stmnt), else_stmnt)
+            UnlabeledStatement::If(cond, Box::new(then_stmnt), else_stmnt)
         },
         Token::Semicolon => {
             check_semicolon(l)?;
-            Statement::Null
+            UnlabeledStatement::Null
         },
         _ => {
             let ex = parse_expression(l, 0)?;
             check_semicolon(l)?;
-            Statement::Expr(ex)
+            UnlabeledStatement::Expr(ex)
         }
     };
 

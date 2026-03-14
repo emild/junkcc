@@ -16,6 +16,7 @@ pub enum Token {
     KwReturn,
     KwIf,
     KwElse,
+    KwGoto,
 
     OpenParenthesis,        // (
     CloseParenthesis,       // )
@@ -155,7 +156,8 @@ impl RegexTable {
                 ("if",          Token::KwIf),
                 ("int",         Token::KwInt),
                 ("return",      Token::KwReturn),
-                ("void",        Token::KwVoid)
+                ("void",        Token::KwVoid),
+                ("goto",        Token::KwGoto)
             ])
         }
     }

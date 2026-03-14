@@ -271,15 +271,34 @@ fn emit_tacky_expression(expr: &parser::ast::Expression, instructions: &mut Vec<
 }
 
 
-
 fn emit_tacky_statement(stmnt: &parser::ast::Statement, instructions: &mut Vec<Instruction>) -> Result<(), String>
 {
     match stmnt {
-        parser::ast::Statement::Return(expr) => {
+        parser::ast::Statement::Stmnt(None, unlabeled_stmnt) => {
+            emit_tacky_unlabeled_statement(unlabeled_stmnt, instructions)?;
+        },
+        parser::ast::Statement::Stmnt(Some(labels), unlabeled_stmnt) => {
+            for label in labels {
+                instructions.push(Instruction::Label(label.clone()));
+            }
+            emit_tacky_unlabeled_statement(unlabeled_stmnt, instructions)?;
+        }
+    };
+    Ok(())
+}
+
+
+fn emit_tacky_unlabeled_statement(stmnt: &parser::ast::UnlabeledStatement, instructions: &mut Vec<Instruction>) -> Result<(), String>
+{
+    match stmnt {
+        parser::ast::UnlabeledStatement::Return(expr) => {
             let val = emit_tacky_expression(&expr, instructions)?;
             instructions.push(Instruction::Return(val));
         },
-        parser::ast::Statement::If(cond, then_stmnt, None) => {
+        parser::ast::UnlabeledStatement::Goto(label) => {
+            instructions.push(Instruction::Jump(label.clone()));
+        }
+        parser::ast::UnlabeledStatement::If(cond, then_stmnt, None) => {
             //if without else
             let cond_val = emit_tacky_expression(cond, instructions)?;
             let lbl_zero = make_temp_label("l_zero");
@@ -287,7 +306,7 @@ fn emit_tacky_statement(stmnt: &parser::ast::Statement, instructions: &mut Vec<I
             emit_tacky_statement(then_stmnt, instructions)?;
             instructions.push(Instruction::Label(lbl_zero));
         },
-        parser::ast::Statement::If(cond, then_stmnt, Some(else_stmnt)) => {
+        parser::ast::UnlabeledStatement::If(cond, then_stmnt, Some(else_stmnt)) => {
             //if with else
             let cond_val = emit_tacky_expression(cond, instructions)?;
             let lbl_zero = make_temp_label("l_zero");
@@ -299,10 +318,10 @@ fn emit_tacky_statement(stmnt: &parser::ast::Statement, instructions: &mut Vec<I
             emit_tacky_statement(else_stmnt, instructions)?;
             instructions.push(Instruction::Label(lbl_end));
         },
-        parser::ast::Statement::Expr(expr) => {
+        parser::ast::UnlabeledStatement::Expr(expr) => {
             emit_tacky_expression(expr, instructions)?;
         },
-        parser::ast::Statement::Null => {},
+        parser::ast::UnlabeledStatement::Null => {},
        // _ => { panic!("emit_tacky_statement: Not implemented for '{:?}' !", stmnt); }
     }
 
