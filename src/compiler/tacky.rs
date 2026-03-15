@@ -318,7 +318,9 @@ fn emit_tacky_unlabeled_statement(stmnt: &parser::ast::UnlabeledStatement, instr
             emit_tacky_statement(else_stmnt, instructions)?;
             instructions.push(Instruction::Label(lbl_end));
         },
-        parser::ast::UnlabeledStatement::Compound(block) => { panic!("Not implemented yet!"); }
+        parser::ast::UnlabeledStatement::Compound(block) => {
+            emit_tacky_block(block, instructions)?;
+        },
         parser::ast::UnlabeledStatement::Expr(expr) => {
             emit_tacky_expression(expr, instructions)?;
         },
@@ -358,6 +360,19 @@ fn emit_tacky_block_item(block_item: &parser::ast::BlockItem, instructions: &mut
     Ok(())
 }
 
+fn emit_tacky_block(block: &parser::ast::Block, instructions: &mut Vec<Instruction>) -> Result<(), String>
+{
+    match block {
+        parser::ast::Block::Blk(block_items) => {
+            for block_item in block_items {
+                emit_tacky_block_item(block_item, instructions)?;
+            }
+        }
+    }
+
+    Ok(())
+}
+
 
 fn emit_tacky_function_definition(func_def: &parser::ast::FunctionDefinition) -> Result<FunctionDefinition, String>
 {
@@ -365,10 +380,7 @@ fn emit_tacky_function_definition(func_def: &parser::ast::FunctionDefinition) ->
         parser::ast::FunctionDefinition::Function(name, block) => {
             let mut instructions = vec![];
 
-            panic!("Not implemented yet!");
-            /*for block_item in block {
-                emit_tacky_block_item(block_item, &mut instructions)?;
-            }*/
+            emit_tacky_block(block, &mut instructions)?;
 
             instructions.push(Instruction::Return(Val::IntConstant(0)));
             Ok(FunctionDefinition::Function(name.clone(), instructions))
