@@ -318,6 +318,7 @@ fn emit_tacky_unlabeled_statement(stmnt: &parser::ast::UnlabeledStatement, instr
             emit_tacky_statement(else_stmnt, instructions)?;
             instructions.push(Instruction::Label(lbl_end));
         },
+        parser::ast::UnlabeledStatement::Compound(block) => { panic!("Not implemented yet!"); }
         parser::ast::UnlabeledStatement::Expr(expr) => {
             emit_tacky_expression(expr, instructions)?;
         },
@@ -364,9 +365,10 @@ fn emit_tacky_function_definition(func_def: &parser::ast::FunctionDefinition) ->
         parser::ast::FunctionDefinition::Function(name, block) => {
             let mut instructions = vec![];
 
-            for block_item in block {
+            panic!("Not implemented yet!");
+            /*for block_item in block {
                 emit_tacky_block_item(block_item, &mut instructions)?;
-            }
+            }*/
 
             instructions.push(Instruction::Return(Val::IntConstant(0)));
             Ok(FunctionDefinition::Function(name.clone(), instructions))

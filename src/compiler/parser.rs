@@ -57,31 +57,7 @@ fn parse_function(l: &mut lexer::Lexer) -> Result<FunctionDefinition, String>
         };
     }
 
-    //{
-    t = l.get_token()?;
-    let _ = match t {
-        Token::EOS => { return Err(format!("Expected '{{', got end of file")); },
-        Token::OpenBrace => (),
-        _ => { return Err(format!("Expected '{{', got {:?}", t)); }
-    };
-
-    let mut block = vec![];
-    loop {
-        if let Ok(Token::CloseBrace) = l.peek_token() {
-            break;
-        }
-
-        let block_item = parse_block_item(l)?;
-        block.push(block_item);
-    }
-
-    // }
-    t = l.get_token()?;
-    match t {
-        Token::EOS => { return Err(format!("Expected '}}', got end of file")); },
-        Token::CloseBrace => (),
-        _ => { return Err(format!("Expected '}}', got {:?}", t)); }
-    };
+    let block = parse_block(l)?;
 
     Ok(FunctionDefinition::Function(func_name, block))
 }
@@ -108,6 +84,37 @@ fn parse_block_item(l: &mut lexer::Lexer) -> Result<BlockItem, String>
         let stmnt = parse_statement(l)?;
         Ok(BlockItem::S(stmnt))
     }
+}
+
+fn parse_block(l: &mut lexer::Lexer) -> Result<Block, String>
+{
+    //{
+    let mut t = l.get_token()?;
+    let _ = match t {
+        Token::EOS => { return Err(format!("Expected '{{', got end of file")); },
+        Token::OpenBrace => (),
+        _ => { return Err(format!("Expected '{{', got {:?}", t)); }
+    };
+
+    let mut block = vec![];
+    loop {
+        if let Ok(Token::CloseBrace) = l.peek_token() {
+            break;
+        }
+
+        let block_item = parse_block_item(l)?;
+        block.push(block_item);
+    }
+
+    // }
+    t = l.get_token()?;
+    match t {
+        Token::EOS => { return Err(format!("Expected '}}', got end of file")); },
+        Token::CloseBrace => (),
+        _ => { return Err(format!("Expected '}}', got {:?}", t)); }
+    };
+
+    Ok(Block::Blk(block))
 }
 
 
@@ -245,6 +252,10 @@ fn parse_unlabeled_statement(l: &mut lexer::Lexer) -> Result<UnlabeledStatement,
                 _ => None
             };
             UnlabeledStatement::If(cond, Box::new(then_stmnt), else_stmnt)
+        },
+        Token::OpenBrace => {
+            let block = parse_block(l)?;
+            UnlabeledStatement::Compound(block)
         },
         Token::Semicolon => {
             check_semicolon(l)?;

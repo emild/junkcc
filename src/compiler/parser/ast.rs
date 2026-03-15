@@ -128,6 +128,7 @@ pub enum UnlabeledStatement {
     Return(Expression),
     Goto(String),
     If(Expression, Box<Statement> /* then */, Option<Box<Statement>> /* else */),
+    Compound(Block),
     Expr(Expression),
     Null
 }
@@ -145,8 +146,13 @@ pub enum BlockItem {
 }
 
 #[derive(Debug)]
+pub enum Block {
+    Blk(Vec<BlockItem>)
+}
+
+#[derive(Debug)]
 pub enum FunctionDefinition {
-    Function(String /* name */, Vec<BlockItem> /* body */)
+    Function(String /* name */, Block /* body */)
 }
 
 #[derive(Debug)]
@@ -158,14 +164,15 @@ pub enum Program {
 /*                    GRAMMAR
 
 <program>           ::= <function>
-<function>          ::= "int" <identifier> "(" ["void"] ")" "{" { <block_item> } "}"
+<function>          ::= "int" <identifier> "(" ["void"] ")" block
 <block_item>        ::= <statement>|<declaration>
 <declaration>       ::= "int" <identifier> [ "=" <exp> ] ";"
 <label>             ::= <id> ":"
+<block>             ::= "{" [<block_item> *] "}"
 <statement>         ::= [<label> *] <unlbld_statement>
 <unlbld_statement>  ::= "return" <exp> ";" | <exp> ";" |
                         ";" | if <exp> <statement> ["else" <statement> ] |
-                        "goto" <id> ";"
+                        <block> | "goto" <id> ";"
 <exp>               ::= <factor> | <exp> <binop> <exp> | <exp> "?" <exp> ":" <exp>
 <factor>            ::= <int> | <identifier> | <unop> <factor> | "(" <exp> ")" |
                         <inc_dec> <factor> | <factor> <inc_dec>

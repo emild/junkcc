@@ -1,5 +1,3 @@
-use std::f32::consts::E;
-
 use super::ast::*;
 
 fn pretty_print_expression(expr: &Expression, indent: usize)
@@ -258,6 +256,9 @@ fn pretty_print_unlabeled_statement(s: &UnlabeledStatement, indent: usize)
             }
             println!("{})", " ".repeat(indent));
         },
+        UnlabeledStatement::Compound(block) => {
+            pretty_print_block(block, indent);
+        }
         UnlabeledStatement::Expr(expr) => {
             println!("{}Expr(", " ".repeat(indent));
             pretty_print_expression(expr, indent + 4);
@@ -297,6 +298,18 @@ fn pretty_print_block_item(block_item: &BlockItem, indent: usize)
     }
 }
 
+fn pretty_print_block(b: &Block, indent: usize)
+{
+    println!("{}block=(", " ".repeat(indent));
+    match b {
+        Block::Blk(block_items) => {
+            for block_item in block_items {
+                pretty_print_block_item(block_item, indent + 4);
+            }
+        }
+    };
+    println!("{})", " ".repeat(indent));
+}
 
 fn pretty_print_function(f: &FunctionDefinition, indent: usize)
 {
@@ -304,11 +317,7 @@ fn pretty_print_function(f: &FunctionDefinition, indent: usize)
         FunctionDefinition::Function(func_name, block) => {
             println!("{}Function(", " ".repeat(indent));
             println!("{}name={func_name}", " ".repeat(indent + 4));
-            println!("{}body=(", " ".repeat(indent + 4));
-            for block_item in block {
-                pretty_print_block_item(block_item, indent + 8);
-            }
-            println!("{})", " ".repeat(indent+4));
+            pretty_print_block(block, indent + 4);
             println!("{})", " ".repeat(indent));
         },
         _ => ()

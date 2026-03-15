@@ -202,11 +202,12 @@ fn resolve_unlabeled_statement(stmnt: &UnlabeledStatement, var_map: &mut HashMap
             };
             Ok(UnlabeledStatement::If(resolved_cond, Box::new(resolved_then_stmnt), resolved_else_stmnt))
         },
+        UnlabeledStatement::Compound(block) => { panic!("Not implemented yet"); },
         UnlabeledStatement::Expr(expr) => {
             let resolved_expression = resolve_expression(expr, var_map)?;
             Ok(UnlabeledStatement::Expr(resolved_expression))
         },
-        UnlabeledStatement::Null => Ok(UnlabeledStatement::Null)
+        UnlabeledStatement::Null => Ok(UnlabeledStatement::Null),
     }
 }
 
@@ -280,23 +281,30 @@ fn check_block_item_goto_labels(block_item: &BlockItem, labels: &mut HashMap<Str
     }
 }
 
-fn resolve_block(block: &Vec<BlockItem>, var_map: &mut HashMap<String, String>, labels: &HashMap<String, String>) -> Result<Vec<BlockItem>, String>
+fn resolve_block(block: &Block, var_map: &mut HashMap<String, String>, labels: &HashMap<String, String>) -> Result<Block, String>
 {
-    let mut resolved_block = vec![];
+    let mut resolved_block_items = vec![];
 
-    for block_item in block {
-        let resolved_block_item = resolve_block_item(&block_item, var_map, labels)?;
-        resolved_block.push(resolved_block_item);
+    match block {
+        Block::Blk(block_items) => {
+            for block_item in block_items {
+                let resolved_block_item = resolve_block_item(&block_item, var_map, labels)?;
+                resolved_block_items.push(resolved_block_item);
+            }
+        }
     }
-
-    Ok(resolved_block)
+    Ok(Block::Blk(resolved_block_items))
 }
 
-fn check_block_goto_labels(block: &Vec<BlockItem>, labels: &mut HashMap<String, String>) -> Result<(), String>
+fn check_block_goto_labels(block: &Block, labels: &mut HashMap<String, String>) -> Result<(), String>
 {
-    for block_item in block {
-        check_block_item_goto_labels(block_item, labels)?;
-    }
+    match block {
+        Block::Blk(block_items) => {
+            for block_item in block_items {
+                check_block_item_goto_labels(block_item, labels)?;
+            }
+        }
+    };
 
     Ok(())
 }
