@@ -185,6 +185,7 @@ fn parse_statement(l: &mut lexer::Lexer) -> Result<Statement, String>
                     break;
                 }
 
+                trace!("FOUND LABEL: '{}'", label);
                 labels.push(label);
             },
             _ => {
@@ -207,7 +208,7 @@ fn parse_statement(l: &mut lexer::Lexer) -> Result<Statement, String>
 
 fn parse_unlabeled_statement(l: &mut lexer::Lexer) -> Result<UnlabeledStatement, String>
 {
-    let mut t = l.peek_token()?;
+    let t = l.peek_token()?;
 
     let stmnt = match t {
         Token::EOS => { return Err(format!("Unexpected end of file")); },

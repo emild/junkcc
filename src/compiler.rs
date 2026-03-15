@@ -58,8 +58,7 @@ pub fn run(config: &Config, input_file_path: &str, output_file_path: &str) -> Re
                 return Ok(());
             }
 
-            let mut var_map = HashMap::new();
-            let prog_ast = parser::resolve_program(&prog_ast, &mut var_map)?;
+            let prog_ast = parser::resolve_program(&prog_ast)?;
             parser::pretty_print_ast(&prog_ast);
             if config.stop_after_semantic_analysis {
                 info!("Stopped after semantic analysis");

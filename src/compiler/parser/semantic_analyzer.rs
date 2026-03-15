@@ -6,6 +6,11 @@ use super::ast::*;
 static GOTO_LABEL_NAME_INDEX: AtomicUsize = AtomicUsize::new(0);
 static LOCAL_TMP_NAME_INDEX: AtomicUsize = AtomicUsize::new(0);
 
+pub struct LocalVariableInfo {
+    global_name: String,
+    defined_in_current_block: bool
+}
+
 fn make_unique_global_goto_label(label: &str) -> String
 {
     let index = GOTO_LABEL_NAME_INDEX.fetch_add(1, Ordering::SeqCst);
@@ -23,7 +28,7 @@ fn make_unique_global_name(var_name: &str) -> String
 }
 
 
-fn resolve_expression(expr: &Expression, var_map: &mut HashMap<String, String>) -> Result<Expression, String>
+fn resolve_expression(expr: &Expression, var_map: &mut HashMap<String, LocalVariableInfo>) -> Result<Expression, String>
 {
     match expr {
         Expression::Assignment(left, right ) => {
@@ -102,13 +107,13 @@ fn resolve_expression(expr: &Expression, var_map: &mut HashMap<String, String>) 
         },
 
         Expression::Var(var_name) => {
-            let resolved_var_name = var_map.get(var_name);
+            let var_info = var_map.get(var_name);
 
-            if resolved_var_name.is_none() {
+            if var_info.is_none() {
                 return Err(format!("Use of undeclared variable '{}'", var_name));
             }
 
-            Ok(Expression::Var(resolved_var_name.unwrap().clone()))
+            Ok(Expression::Var(var_info.unwrap().global_name.clone()))
         },
 
         Expression::Conditional(cond, true_exp, false_exp) => {
@@ -140,7 +145,7 @@ fn resolve_expression(expr: &Expression, var_map: &mut HashMap<String, String>) 
 }
 
 
-fn resolve_statement(stmnt: &Statement, var_map: &mut HashMap<String, String>, labels: &HashMap<String, String>) -> Result<Statement, String>
+fn resolve_statement(stmnt: &Statement, var_map: &mut HashMap<String, LocalVariableInfo>, labels: &HashMap<String, String>) -> Result<Statement, String>
 {
     match stmnt {
         Statement::Stmnt(None, unlabeled_stmnt) => {
@@ -177,7 +182,7 @@ fn check_statement_goto_labels(stmnt: &Statement, labels: &mut HashMap<String, S
     Ok(())
 }
 
-fn resolve_unlabeled_statement(stmnt: &UnlabeledStatement, var_map: &mut HashMap<String, String>, labels: &HashMap<String, String>) -> Result<UnlabeledStatement, String>
+fn resolve_unlabeled_statement(stmnt: &UnlabeledStatement, var_map: &mut HashMap<String, LocalVariableInfo>, labels: &HashMap<String, String>) -> Result<UnlabeledStatement, String>
 {
     match stmnt {
         UnlabeledStatement::Return(expr) => {
@@ -202,7 +207,18 @@ fn resolve_unlabeled_statement(stmnt: &UnlabeledStatement, var_map: &mut HashMap
             };
             Ok(UnlabeledStatement::If(resolved_cond, Box::new(resolved_then_stmnt), resolved_else_stmnt))
         },
-        UnlabeledStatement::Compound(block) => { panic!("Not implemented yet"); },
+        UnlabeledStatement::Compound(block) => {
+            let mut new_var_map = HashMap::new();
+            for (local_var_name, local_var_info) in var_map {
+                new_var_map.insert(
+                    local_var_name.clone(),
+                    LocalVariableInfo {global_name: local_var_info.global_name.clone(), defined_in_current_block: false }
+                );
+            }
+
+            let resolved_block = resolve_block(block, &mut new_var_map, labels)?;
+            Ok(UnlabeledStatement::Compound(resolved_block))
+        },
         UnlabeledStatement::Expr(expr) => {
             let resolved_expression = resolve_expression(expr, var_map)?;
             Ok(UnlabeledStatement::Expr(resolved_expression))
@@ -221,23 +237,31 @@ fn check_unlabeled_statement_goto_labels(unlabeled_stmnt: &UnlabeledStatement, l
             check_statement_goto_labels(then_stmnt, labels)?;
             check_statement_goto_labels(else_stmnt, labels)?;
         },
+        UnlabeledStatement::Compound(Block::Blk(block_items)) => {
+            for block_item in block_items {
+                check_block_item_goto_labels(block_item, labels)?;
+            }
+        },
         _ => {}
     }
 
     Ok(())
 }
 
-fn resolve_declaration(decl: &Declaration, var_map: &mut HashMap<String, String>) -> Result<Declaration, String>
+fn resolve_declaration(decl: &Declaration, var_map: &mut HashMap<String, LocalVariableInfo>) -> Result<Declaration, String>
 {
     match decl {
         Declaration::Declarant(var_name, initializer) => {
-            if var_map.contains_key(var_name) {
-                return Err(format!("Variable '{}' is already defined", var_name));
+            if let Some(local_var_info) = var_map.get(var_name) && local_var_info.defined_in_current_block {
+                return Err(format!("Variable '{}' is already defined in the current scope", var_name));
             }
 
             let temp_name = make_unique_global_name(var_name);
 
-            var_map.insert(var_name.clone(), temp_name.clone());
+            var_map.insert(
+                var_name.clone(),
+                LocalVariableInfo { global_name: temp_name.clone(), defined_in_current_block: true }
+            );
 
             let resolved_initializer = match initializer {
                 Some(init_expression) => {
@@ -253,7 +277,7 @@ fn resolve_declaration(decl: &Declaration, var_map: &mut HashMap<String, String>
 }
 
 
-fn resolve_block_item(block_item: &BlockItem, var_map: &mut HashMap<String, String>, labels: &HashMap<String, String>) -> Result<BlockItem, String>
+fn resolve_block_item(block_item: &BlockItem, var_map: &mut HashMap<String, LocalVariableInfo>, labels: &HashMap<String, String>) -> Result<BlockItem, String>
 {
     match block_item {
         BlockItem::D(decl) => {
@@ -281,7 +305,7 @@ fn check_block_item_goto_labels(block_item: &BlockItem, labels: &mut HashMap<Str
     }
 }
 
-fn resolve_block(block: &Block, var_map: &mut HashMap<String, String>, labels: &HashMap<String, String>) -> Result<Block, String>
+fn resolve_block(block: &Block, var_map: &mut HashMap<String, LocalVariableInfo>, labels: &HashMap<String, String>) -> Result<Block, String>
 {
     let mut resolved_block_items = vec![];
 
@@ -310,7 +334,7 @@ fn check_block_goto_labels(block: &Block, labels: &mut HashMap<String, String>) 
 }
 
 
-fn resolve_function(func_def: &FunctionDefinition, var_map: &mut HashMap<String, String>) -> Result<FunctionDefinition, String>
+fn resolve_function(func_def: &FunctionDefinition, var_map: &mut HashMap<String, LocalVariableInfo>) -> Result<FunctionDefinition, String>
 {
     match func_def {
         FunctionDefinition::Function(name, block ) => {
@@ -323,11 +347,12 @@ fn resolve_function(func_def: &FunctionDefinition, var_map: &mut HashMap<String,
 }
 
 
-pub fn resolve_program(prog: &Program, var_map: &mut HashMap<String, String>) -> Result<Program, String>
+pub fn resolve_program(prog: &Program) -> Result<Program, String>
 {
     match prog {
         Program::ProgramDefinition(func_def) => {
-            let resolved_func_def = resolve_function(func_def, var_map)?;
+            let mut var_map = HashMap::new();
+            let resolved_func_def = resolve_function(func_def, &mut var_map)?;
             Ok(Program::ProgramDefinition(resolved_func_def))
         }
     }
