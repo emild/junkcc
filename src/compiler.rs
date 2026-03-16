@@ -1,6 +1,3 @@
-use std::collections::HashMap;
-use std::path;
-
 use log::{info, trace, warn, error};
 
 use crate::config::Config;
