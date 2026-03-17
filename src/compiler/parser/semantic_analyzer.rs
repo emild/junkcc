@@ -224,6 +224,7 @@ fn resolve_unlabeled_statement(stmnt: &UnlabeledStatement, var_map: &mut HashMap
             Ok(UnlabeledStatement::Expr(resolved_expression))
         },
         UnlabeledStatement::Null => Ok(UnlabeledStatement::Null),
+        _ => { panic!("Semantic Analyzer: {:?} Not implemented yet!", stmnt); }
     }
 }
 

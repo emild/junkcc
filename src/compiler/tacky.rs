@@ -325,7 +325,7 @@ fn emit_tacky_unlabeled_statement(stmnt: &parser::ast::UnlabeledStatement, instr
             emit_tacky_expression(expr, instructions)?;
         },
         parser::ast::UnlabeledStatement::Null => {},
-       // _ => { panic!("emit_tacky_statement: Not implemented for '{:?}' !", stmnt); }
+        _ => { panic!("emit_tacky_statement: Not implemented for '{:?}' !", stmnt); }
     }
 
     Ok(())

@@ -124,10 +124,22 @@ pub enum Statement {
 }
 
 #[derive(Debug)]
+pub enum ForInit {
+    InitDecl(Declaration),
+    InitExp(Option<Expression>)
+}
+
+
+#[derive(Debug)]
 pub enum UnlabeledStatement {
     Return(Expression),
     Goto(String),
     If(Expression, Box<Statement> /* then */, Option<Box<Statement>> /* else */),
+    Break(Option<String> /* loop label */),
+    Continue(Option<String> /* loop label */),
+    While(Expression /* condition */, Box<Statement> /* body */, Option<String> /* loop label */),
+    DoWhile(Box<Statement> /* body */, Expression /* condition */, Option<String> /* loop label */),
+    For(ForInit, Option<Expression> /* condition */, Option<Expression> /* post */, Box<Statement> /* body */, Option<String> /* loop label */),
     Compound(Block),
     Expr(Expression),
     Null
@@ -170,9 +182,18 @@ pub enum Program {
 <label>             ::= <id> ":"
 <block>             ::= "{" [<block_item> *] "}"
 <statement>         ::= [<label> *] <unlbld_statement>
-<unlbld_statement>  ::= "return" <exp> ";" | <exp> ";" |
-                        ";" | if <exp> <statement> ["else" <statement> ] |
-                        <block> | "goto" <id> ";"
+<unlbld_statement>  ::= ";" |
+                        <exp> ";" |
+                        "return" <exp> ";" |
+                        "goto" <id> ";"   |
+                        "break" ";" |
+                        "continue" ";"  |
+                        "if" "(" <exp> ")" <statement> ["else" <statement> ] |
+                        "while" "(" <exp> ")" <statement> |
+                        "do" <statement> "while" "(" <exp> ")" |
+                        "for" "(" for_init ";" [<exp>] ";" [<exp>] ")" <statement>  |
+                        <block>
+<for_init>          ::= <declaration> | [<exp>]
 <exp>               ::= <factor> | <exp> <binop> <exp> | <exp> "?" <exp> ":" <exp>
 <factor>            ::= <int> | <identifier> | <unop> <factor> | "(" <exp> ")" |
                         <inc_dec> <factor> | <factor> <inc_dec>

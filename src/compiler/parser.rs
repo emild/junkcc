@@ -30,31 +30,20 @@ fn parse_function(l: &mut lexer::Lexer) -> Result<FunctionDefinition, String>
     };
 
     // (
-    t = l.get_token()?;
-    let _ = match t {
-        Token::EOS => { return Err(format!("Expected '(', got end of file")); },
-        Token::OpenParenthesis => (),
-        _ => { return Err(format!("Expected '(', got {:?}", t)); }
-    };
-
+    check_open_paren(l)?;
 
     //void or )
     t = l.get_token()?;
     let is_void = match t {
-        Token::EOS => { return Err(format!("Expected arg type or '))', got end of file")); },
+        Token::EOS => { return Err(format!("Expected arg type or ')', got end of file")); },
         Token::KwVoid => true,
         Token::CloseParenthesis => false,
-        _ => { return Err(format!("Expected arg type or '))', got {:?}", t)); }
+        _ => { return Err(format!("Expected arg type or ')', got {:?}", t)); }
     };
 
     //)
     if is_void {
-        t = l.get_token()?;
-        let _ = match t {
-            Token::EOS => { return Err(format!("Expected '))', got end of file")); },
-            Token::CloseParenthesis => (),
-            _ => { return Err(format!("Expected '))', got {:?}", t)); }
-        };
+        check_close_paren(l)?;
     }
 
     let block = parse_block(l)?;
@@ -170,6 +159,32 @@ fn check_semicolon(l: &mut lexer::Lexer) -> Result<(), String>
     Ok(())
 }
 
+fn check_open_paren(l: &mut lexer::Lexer) -> Result<(), String>
+{
+    let t = l.get_token()?;
+    match t {
+        Token::EOS => { return Err(format!("Expected '(', got end of file")); },
+        Token::OpenParenthesis => {},
+        _ => { return Err(format!("Expected '(', got {:?}", t)); }
+    };
+
+    Ok(())
+}
+
+
+fn check_close_paren(l: &mut lexer::Lexer) -> Result<(), String>
+{
+    let t = l.get_token()?;
+    match t {
+        Token::EOS => { return Err(format!("Expected ')', got end of file")); },
+        Token::CloseParenthesis => {},
+        _ => { return Err(format!("Expected ')', got {:?}", t)); }
+    };
+
+    Ok(())
+}
+
+
 fn parse_statement(l: &mut lexer::Lexer) -> Result<Statement, String>
 {
     let mut labels = vec![];
@@ -206,6 +221,42 @@ fn parse_statement(l: &mut lexer::Lexer) -> Result<Statement, String>
 }
 
 
+fn parse_condition(l: &mut lexer::Lexer) -> Result<Expression, String>
+{
+    check_open_paren(l)?;
+    let cond = parse_expression(l, 0)?;
+    check_close_paren(l)?;
+
+    Ok(cond)
+}
+
+
+fn parse_for_init(l: &mut lexer::Lexer) -> Result<ForInit, String>
+{
+    let t = l.peek_token()?;
+
+    let for_init = match t {
+        Token::Semicolon => {
+            check_semicolon(l)?;
+            ForInit::InitExp(None)
+        },
+        _ => {
+            if is_type(&t) {
+                let decl = parse_declaration(l)?;
+                ForInit::InitDecl(decl)
+            }
+            else {
+                let expr = parse_expression(l, 0)?;
+                check_semicolon(l)?;
+                ForInit::InitExp(Some(expr))
+            }
+        }
+    };
+
+    Ok(for_init)
+}
+
+
 fn parse_unlabeled_statement(l: &mut lexer::Lexer) -> Result<UnlabeledStatement, String>
 {
     let t = l.peek_token()?;
@@ -231,16 +282,7 @@ fn parse_unlabeled_statement(l: &mut lexer::Lexer) -> Result<UnlabeledStatement,
         },
         Token::KwIf => {
             l.get_token()?; //Consume the if keyword
-            let open_paren = l.get_token()?;
-            if open_paren != Token::OpenParenthesis {
-                return Err(format!("Expected '(' after if, got {:?}", open_paren));
-            }
-
-            let cond = parse_expression(l, 0)?;
-            let close_paren = l.get_token()?;
-            if close_paren != Token::CloseParenthesis {
-                return Err(format!("Expected ')' after condition, got {:?}", close_paren));
-            }
+            let cond = parse_condition(l)?;
             let then_stmnt = parse_statement(l)?;
             let else_stmnt = match l.peek_token() {
                 Err(e) => { return Err(e); }
@@ -257,6 +299,54 @@ fn parse_unlabeled_statement(l: &mut lexer::Lexer) -> Result<UnlabeledStatement,
         Token::OpenBrace => {
             let block = parse_block(l)?;
             UnlabeledStatement::Compound(block)
+        },
+        Token::KwBreak => {
+            l.get_token()?; //Consume the break keyword
+            check_semicolon(l)?;
+            UnlabeledStatement::Break(None)
+        },
+        Token::KwContinue => {
+            l.get_token()?; //Consume the continue keyword
+            check_semicolon(l)?;
+            UnlabeledStatement::Continue(None)
+        },
+        Token::KwWhile => {
+            l.get_token()?; //Consume the while keyword
+            let cond = parse_condition(l)?;
+            let body = parse_statement(l)?;
+            UnlabeledStatement::While(cond, Box::new(body), None)
+        },
+        Token::KwDo => {
+            l.get_token()?; //Consume the do keyword
+            let body = parse_statement(l)?;
+            let t = l.get_token()?;
+            if t != Token::KwWhile {
+                return Err(format!("Expected 'while', got '{:?}'", t));
+            }
+            let cond = parse_expression(l, 0)?;
+            check_semicolon(l)?;
+            UnlabeledStatement::DoWhile(Box::new(body), cond, None)
+        },
+        Token::KwFor => {
+            l.get_token()?; //Consume the for keyword
+            check_open_paren(l)?;
+            let for_init = parse_for_init(l)?;
+            let mut t = l.peek_token()?;
+            let mut cond = None;
+            if t != Token::Semicolon {
+                let expr = parse_expression(l, 0)?;
+                cond = Some(expr);
+            }
+            check_semicolon(l)?;
+            t = l.peek_token()?;
+            let mut post = None;
+            if t != Token::CloseParenthesis {
+                let expr = parse_expression(l, 0)?;
+                post = Some(expr);
+            }
+            check_close_paren(l)?;
+            let body = parse_statement(l)?;
+            UnlabeledStatement::For(for_init, cond, post, Box::new(body), None)
         },
         Token::Semicolon => {
             check_semicolon(l)?;

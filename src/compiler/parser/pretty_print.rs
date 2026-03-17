@@ -212,6 +212,18 @@ fn pretty_print_labels(labels: &Vec<String>, indent: usize)
     }
 }
 
+fn pretty_print_for_init(for_init: &ForInit, indent: usize)
+{
+    match for_init {
+        ForInit::InitExp(None) => (),
+        ForInit::InitExp(Some(expr)) => {
+            pretty_print_expression(expr, indent);
+        },
+        ForInit::InitDecl(decl) => {
+            pretty_print_declaration(decl, indent);
+        }
+    }
+}
 
 fn pretty_print_statement(s: &Statement, indent: usize)
 {
@@ -258,7 +270,55 @@ fn pretty_print_unlabeled_statement(s: &UnlabeledStatement, indent: usize)
         },
         UnlabeledStatement::Compound(block) => {
             pretty_print_block(block, indent);
-        }
+        },
+        UnlabeledStatement::Break(_) => {
+            println!("{}Break", " ".repeat(indent));
+        },
+        UnlabeledStatement::Continue(_) => {
+            println!("{}Continue", " ".repeat(indent));
+        },
+        UnlabeledStatement::While(cond, body, _) => {
+            println!("{}While(", " ".repeat(indent));
+            println!("{}Cond=(", " ".repeat(indent + 4));
+            pretty_print_expression(cond, indent + 8);
+            println!("{})", " ".repeat(indent + 4));
+            println!("{}Body=(", " ".repeat(indent + 4));
+            pretty_print_statement(body, indent + 8);
+            println!("{})", " ".repeat(indent + 4));
+            println!("{})", " ".repeat(indent));
+        },
+        UnlabeledStatement::DoWhile(body, cond, _) => {
+            println!("{}Do(", " ".repeat(indent));
+            println!("{}Body=(", " ".repeat(indent + 4));
+            pretty_print_statement(body, indent + 8);
+            println!("{})", " ".repeat(indent + 4));
+            println!("{}While(", " ".repeat(indent + 4));
+            println!("{}Cond=(", " ".repeat(indent + 8));
+            pretty_print_expression(cond, indent + 12);
+            println!("{})", " ".repeat(indent + 8));
+            println!("{})", " ".repeat(indent + 4));
+            println!("{})", " ".repeat(indent));
+        },
+        UnlabeledStatement::For(for_init, cond, post, body, _) => {
+            println!("{}For(", " ".repeat(indent));
+            println!("{}Init=(", " ".repeat(indent + 4));
+            pretty_print_for_init(for_init, indent + 8);
+            println!("{})", " ".repeat(indent + 4));
+            println!("{}Cond=(", " ".repeat(indent + 4));
+            if let Some(expr)  = cond {
+                pretty_print_expression(expr, indent + 8);
+            }
+            println!("{})", " ".repeat(indent + 4));
+            println!("{}Post=(", " ".repeat(indent + 4));
+            if let Some(expr) = post {
+                pretty_print_expression(expr, indent + 8);
+            }
+            println!("{})", " ".repeat(indent + 4));
+            println!("{}Body=(", " ".repeat(indent + 4));
+            pretty_print_statement(body, indent + 8);
+            println!("{})", " ".repeat(indent + 4));
+            println!("{})", " ".repeat(indent));
+        },
         UnlabeledStatement::Expr(expr) => {
             println!("{}Expr(", " ".repeat(indent));
             pretty_print_expression(expr, indent + 4);
