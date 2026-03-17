@@ -17,6 +17,11 @@ pub enum Token {
     KwIf,
     KwElse,
     KwGoto,
+    KwDo,
+    KwWhile,
+    KwFor,
+    KwBreak,
+    KwContinue,
 
     OpenParenthesis,        // (
     CloseParenthesis,       // )
@@ -157,7 +162,12 @@ impl RegexTable {
                 ("int",         Token::KwInt),
                 ("return",      Token::KwReturn),
                 ("void",        Token::KwVoid),
-                ("goto",        Token::KwGoto)
+                ("goto",        Token::KwGoto),
+                ("do",          Token::KwDo ),
+                ("while",       Token::KwWhile),
+                ("for",         Token::KwFor),
+                ("break",       Token::KwBreak),
+                ("continue",    Token::KwContinue)
             ])
         }
     }
