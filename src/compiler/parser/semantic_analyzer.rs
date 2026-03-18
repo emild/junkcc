@@ -1,9 +1,11 @@
 use std::collections::HashMap;
+use std::iter::StepBy;
 use std::sync::atomic::{AtomicUsize, Ordering};
 
 use super::ast::*;
 
 static GOTO_LABEL_NAME_INDEX: AtomicUsize = AtomicUsize::new(0);
+static LOOP_LABEL_NAME_INDEX: AtomicUsize = AtomicUsize::new(0);
 static LOCAL_TMP_NAME_INDEX: AtomicUsize = AtomicUsize::new(0);
 
 pub struct LocalVariableInfo {
@@ -15,6 +17,27 @@ fn make_unique_global_goto_label(label: &str) -> String
 {
     let index = GOTO_LABEL_NAME_INDEX.fetch_add(1, Ordering::SeqCst);
     let global_label = format!("goto_lbl_{}.{}", label, index);
+
+    global_label
+}
+
+#[derive(PartialEq, Eq, Hash)]
+enum LoopType {
+    While,
+    DoWhile,
+    For
+}
+
+fn make_unique_global_loop_label(loop_type: &LoopType) -> String
+{
+    let loop_type_str = HashMap::from([
+        (LoopType::While, "while"),
+        (LoopType::DoWhile, "do_while"),
+        (LoopType::For, "for")
+    ]);
+
+    let index = LOOP_LABEL_NAME_INDEX.fetch_add(1, Ordering::SeqCst);
+    let global_label = format!("{}_loop.{}", loop_type_str.get(loop_type).unwrap(), index);
 
     global_label
 }
@@ -161,26 +184,71 @@ fn resolve_statement(stmnt: &Statement, var_map: &mut HashMap<String, LocalVaria
     };
 }
 
-fn check_statement_goto_labels(stmnt: &Statement, labels: &mut HashMap<String, String>) -> Result<(), String>
+fn check_statement_goto_labels(stmnt: &Statement, goto_labels: &mut HashMap<String, String>) -> Result<(), String>
 {
     match stmnt {
         Statement::Stmnt(None, unlabeled_stmnt) => {
-            check_unlabeled_statement_goto_labels(unlabeled_stmnt, labels)?;
+            check_unlabeled_statement_goto_labels(unlabeled_stmnt, goto_labels)?;
         },
         Statement::Stmnt(Some(stmnt_labels),unlabeled_stmnt ) => {
             for stmnt_label in stmnt_labels {
-                if labels.contains_key(stmnt_label) {
+                if goto_labels.contains_key(stmnt_label) {
                     return Err(format!("Duplicate label: '{stmnt_label}'"));
                 }
                 let global_label = make_unique_global_goto_label(stmnt_label);
-                labels.insert(stmnt_label.clone(), global_label);
+                goto_labels.insert(stmnt_label.clone(), global_label);
             }
-            check_unlabeled_statement_goto_labels(unlabeled_stmnt, labels)?;
+            check_unlabeled_statement_goto_labels(unlabeled_stmnt, goto_labels)?;
         }
     }
 
     Ok(())
 }
+
+
+fn label_statement_loops(stmnt: &mut Statement, loop_label: &Option<String>) -> Result<(), String>
+{
+    match stmnt {
+        Statement::Stmnt(_, unlabeled_stmnt) => {
+            label_unlabled_statement_loops(unlabeled_stmnt, loop_label)?;
+        }
+    };
+
+    Ok(())
+}
+
+// Copies a var map. but resets defined_in_current_block to false
+fn copy_var_map(var_map: &HashMap<String, LocalVariableInfo>) -> HashMap<String, LocalVariableInfo>
+{
+    let mut new_var_map = HashMap::new();
+    for (local_var_name, local_var_info) in var_map {
+        new_var_map.insert(
+            local_var_name.clone(),
+            LocalVariableInfo {global_name: local_var_info.global_name.clone(), defined_in_current_block: false }
+        );
+    }
+
+    new_var_map
+}
+
+
+fn resolve_for_init(for_init: &ForInit, var_map: &mut HashMap<String, LocalVariableInfo>) -> Result<ForInit, String>
+{
+    let resolved_for_init = match for_init {
+        ForInit::InitExp(None) => ForInit::InitExp(None),
+        ForInit::InitExp(Some(expr)) => {
+            let resolved_expr = resolve_expression(expr, var_map)?;
+            ForInit::InitExp(Some(resolved_expr))
+        },
+        ForInit::InitDecl(decl) => {
+            let resolved_decl = resolve_declaration(decl, var_map)?;
+            ForInit::InitDecl(resolved_decl)
+        }
+    };
+
+    Ok(resolved_for_init)
+}
+
 
 fn resolve_unlabeled_statement(stmnt: &UnlabeledStatement, var_map: &mut HashMap<String, LocalVariableInfo>, labels: &HashMap<String, String>) -> Result<UnlabeledStatement, String>
 {
@@ -207,15 +275,40 @@ fn resolve_unlabeled_statement(stmnt: &UnlabeledStatement, var_map: &mut HashMap
             };
             Ok(UnlabeledStatement::If(resolved_cond, Box::new(resolved_then_stmnt), resolved_else_stmnt))
         },
-        UnlabeledStatement::Compound(block) => {
-            let mut new_var_map = HashMap::new();
-            for (local_var_name, local_var_info) in var_map {
-                new_var_map.insert(
-                    local_var_name.clone(),
-                    LocalVariableInfo {global_name: local_var_info.global_name.clone(), defined_in_current_block: false }
-                );
+        UnlabeledStatement::Break(loop_label) => {
+            Ok(UnlabeledStatement::Break(loop_label.clone()))
+        },
+        UnlabeledStatement::Continue(loop_label) => {
+            Ok(UnlabeledStatement::Continue(loop_label.clone()))
+        },
+        UnlabeledStatement::While(cond, body, loop_label) => {
+            let resolved_cond = resolve_expression(cond, var_map)?;
+            let resolved_body = resolve_statement(body, var_map, labels)?;
+            Ok(UnlabeledStatement::While(resolved_cond, Box::new(resolved_body), loop_label.clone()))
+        },
+        UnlabeledStatement::DoWhile(body, cond, loop_label) => {
+            let resolved_cond = resolve_expression(cond, var_map)?;
+            let resolved_body = resolve_statement(body, var_map, labels)?;
+            Ok(UnlabeledStatement::DoWhile(Box::new(resolved_body), resolved_cond, loop_label.clone()))
+        },
+        UnlabeledStatement::For(for_init, cond, post, body, loop_label) => {
+            let mut new_var_map = copy_var_map(var_map);
+            let resolved_for_init = resolve_for_init(for_init, &mut new_var_map)?;
+            let mut resolved_cond = None;
+            if let Some(expr) = cond {
+                let resolved_expr = resolve_expression(expr, &mut new_var_map)?;
+                resolved_cond = Some(resolved_expr);
             }
-
+            let mut resolved_post = None;
+            if let Some(expr) = post {
+                let resolved_expr = resolve_expression(expr, &mut new_var_map)?;
+                resolved_post = Some(resolved_expr);
+            }
+            let resolved_body = resolve_statement(body, &mut new_var_map, labels)?;
+            Ok(UnlabeledStatement::For(resolved_for_init, resolved_cond, resolved_post, Box::new(resolved_body), loop_label.clone()))
+        },
+        UnlabeledStatement::Compound(block) => {
+            let mut new_var_map = copy_var_map(var_map);
             let resolved_block = resolve_block(block, &mut new_var_map, labels)?;
             Ok(UnlabeledStatement::Compound(resolved_block))
         },
@@ -224,23 +317,24 @@ fn resolve_unlabeled_statement(stmnt: &UnlabeledStatement, var_map: &mut HashMap
             Ok(UnlabeledStatement::Expr(resolved_expression))
         },
         UnlabeledStatement::Null => Ok(UnlabeledStatement::Null),
-        _ => { panic!("Semantic Analyzer: {:?} Not implemented yet!", stmnt); }
+        //_ => { panic!("Semantic Analyzer: {:?} Not implemented yet!", stmnt); }
     }
 }
 
-fn check_unlabeled_statement_goto_labels(unlabeled_stmnt: &UnlabeledStatement, labels: &mut HashMap<String, String>) -> Result<(), String>
+
+fn check_unlabeled_statement_goto_labels(unlabeled_stmnt: &UnlabeledStatement, goto_labels: &mut HashMap<String, String>) -> Result<(), String>
 {
     match unlabeled_stmnt {
         UnlabeledStatement::If(_,then_stmnt , None) => {
-            check_statement_goto_labels(then_stmnt, labels)?;
+            check_statement_goto_labels(then_stmnt, goto_labels)?;
         },
         UnlabeledStatement::If(_,then_stmnt , Some(else_stmnt)) => {
-            check_statement_goto_labels(then_stmnt, labels)?;
-            check_statement_goto_labels(else_stmnt, labels)?;
+            check_statement_goto_labels(then_stmnt, goto_labels)?;
+            check_statement_goto_labels(else_stmnt, goto_labels)?;
         },
         UnlabeledStatement::Compound(Block::Blk(block_items)) => {
             for block_item in block_items {
-                check_block_item_goto_labels(block_item, labels)?;
+                check_block_item_goto_labels(block_item, goto_labels)?;
             }
         },
         _ => {}
@@ -248,6 +342,57 @@ fn check_unlabeled_statement_goto_labels(unlabeled_stmnt: &UnlabeledStatement, l
 
     Ok(())
 }
+
+
+fn label_unlabled_statement_loops(unlabeled_stmnt: &mut UnlabeledStatement, loop_label: &Option<String>) -> Result<(), String>
+{
+    match unlabeled_stmnt {
+        UnlabeledStatement::Break(brk_loop_label) => {
+            if loop_label.is_none() {
+                return Err(format!("break  outside of loop"));
+            }
+
+            brk_loop_label.replace(loop_label.clone().unwrap());
+        },
+        UnlabeledStatement::Continue(cont_loop_label) => {
+            if loop_label.is_none() {
+                return Err(format!("continue  outside of loop"));
+            }
+
+            cont_loop_label.replace(loop_label.clone().unwrap());
+        },
+        UnlabeledStatement::If(_, then_stmnt, None) => {
+            label_statement_loops(then_stmnt, loop_label)?;
+        },
+        UnlabeledStatement::If(_, then_stmnt, Some(else_stmnt)) => {
+            label_statement_loops(then_stmnt, loop_label)?;
+            label_statement_loops(else_stmnt, loop_label)?;
+        },
+        UnlabeledStatement::While(_,body ,curr_while_loop_label_) => {
+            let while_loop_label = make_unique_global_loop_label(&LoopType::While);
+            curr_while_loop_label_.replace(while_loop_label.clone());
+            label_statement_loops(body, &Some(while_loop_label))?;
+        },
+        UnlabeledStatement::DoWhile(body , _ , curr_do_while_loop_label) => {
+
+            let do_while_loop_label = make_unique_global_loop_label(&LoopType::DoWhile);
+            curr_do_while_loop_label.replace(do_while_loop_label.clone());
+            label_statement_loops(body, &Some(do_while_loop_label))?;
+        },
+        UnlabeledStatement::For(_, _, _, body, curr_for_loop_label) => {
+            let for_loop_label = make_unique_global_loop_label(&LoopType::For);
+            curr_for_loop_label.replace(for_loop_label.clone());
+            label_statement_loops(body, &Some(for_loop_label))?;
+        },
+        UnlabeledStatement::Compound(block) => {
+            label_block_loops(block, loop_label)?;
+        },
+        _ => {}
+    };
+
+    Ok(())
+}
+
 
 fn resolve_declaration(decl: &Declaration, var_map: &mut HashMap<String, LocalVariableInfo>) -> Result<Declaration, String>
 {
@@ -293,14 +438,27 @@ fn resolve_block_item(block_item: &BlockItem, var_map: &mut HashMap<String, Loca
 }
 
 
-fn check_block_item_goto_labels(block_item: &BlockItem, labels: &mut HashMap<String, String>) -> Result<(), String>
+fn check_block_item_goto_labels(block_item: &BlockItem, goto_labels: &mut HashMap<String, String>) -> Result<(), String>
 {
     match block_item {
         BlockItem::D(decl) => {
             Ok(())
         },
         BlockItem::S(stmnt) => {
-            check_statement_goto_labels(stmnt, labels)?;
+            check_statement_goto_labels(stmnt, goto_labels)?;
+            Ok(())
+        }
+    }
+}
+
+fn label_block_item_loops(block_item: &mut BlockItem, loop_label: &Option<String>) -> Result<(), String>
+{
+    match block_item {
+        BlockItem::D(decl) => {
+            Ok(())
+        },
+        BlockItem::S(stmnt) => {
+            label_statement_loops(stmnt, loop_label)?;
             Ok(())
         }
     }
@@ -321,12 +479,25 @@ fn resolve_block(block: &Block, var_map: &mut HashMap<String, LocalVariableInfo>
     Ok(Block::Blk(resolved_block_items))
 }
 
-fn check_block_goto_labels(block: &Block, labels: &mut HashMap<String, String>) -> Result<(), String>
+fn check_block_goto_labels(block: &Block, goto_labels: &mut HashMap<String, String>) -> Result<(), String>
 {
     match block {
         Block::Blk(block_items) => {
             for block_item in block_items {
-                check_block_item_goto_labels(block_item, labels)?;
+                check_block_item_goto_labels(block_item, goto_labels)?;
+            }
+        }
+    };
+
+    Ok(())
+}
+
+fn label_block_loops(block: &mut Block, loop_label: &Option<String>) -> Result<(), String>
+{
+     match block {
+        Block::Blk(block_items) => {
+            for block_item in block_items {
+                label_block_item_loops(block_item, loop_label)?;
             }
         }
     };
@@ -339,9 +510,10 @@ fn resolve_function(func_def: &FunctionDefinition, var_map: &mut HashMap<String,
 {
     match func_def {
         FunctionDefinition::Function(name, block ) => {
-            let mut labels = HashMap::new();
-            check_block_goto_labels(&block, &mut labels)?;
-            let resolved_block = resolve_block(block, var_map, &labels)?;
+            let mut goto_labels = HashMap::new();
+            check_block_goto_labels(&block, &mut goto_labels)?;
+            let mut resolved_block = resolve_block(block, var_map, &goto_labels)?;
+            label_block_loops(&mut resolved_block, &None)?;
             Ok(FunctionDefinition::Function(name.clone(), resolved_block))
         }
     }

@@ -271,14 +271,15 @@ fn pretty_print_unlabeled_statement(s: &UnlabeledStatement, indent: usize)
         UnlabeledStatement::Compound(block) => {
             pretty_print_block(block, indent);
         },
-        UnlabeledStatement::Break(_) => {
-            println!("{}Break", " ".repeat(indent));
+        UnlabeledStatement::Break(loop_label) => {
+            println!("{}Break(loop_label='{}')", " ".repeat(indent), loop_label.clone().unwrap_or_default());
         },
-        UnlabeledStatement::Continue(_) => {
-            println!("{}Continue", " ".repeat(indent));
+        UnlabeledStatement::Continue(loop_label) => {
+            println!("{}Continue(loop_label='{}')", " ".repeat(indent), loop_label.clone().unwrap_or_default());
         },
-        UnlabeledStatement::While(cond, body, _) => {
+        UnlabeledStatement::While(cond, body, loop_label) => {
             println!("{}While(", " ".repeat(indent));
+            println!("{}Label='{}'", " ".repeat(indent + 4), loop_label.clone().unwrap_or_default());
             println!("{}Cond=(", " ".repeat(indent + 4));
             pretty_print_expression(cond, indent + 8);
             println!("{})", " ".repeat(indent + 4));
@@ -287,8 +288,9 @@ fn pretty_print_unlabeled_statement(s: &UnlabeledStatement, indent: usize)
             println!("{})", " ".repeat(indent + 4));
             println!("{})", " ".repeat(indent));
         },
-        UnlabeledStatement::DoWhile(body, cond, _) => {
+        UnlabeledStatement::DoWhile(body, cond, loop_label) => {
             println!("{}Do(", " ".repeat(indent));
+            println!("{}Label='{}'", " ".repeat(indent + 4), loop_label.clone().unwrap_or_default());
             println!("{}Body=(", " ".repeat(indent + 4));
             pretty_print_statement(body, indent + 8);
             println!("{})", " ".repeat(indent + 4));
@@ -299,8 +301,9 @@ fn pretty_print_unlabeled_statement(s: &UnlabeledStatement, indent: usize)
             println!("{})", " ".repeat(indent + 4));
             println!("{})", " ".repeat(indent));
         },
-        UnlabeledStatement::For(for_init, cond, post, body, _) => {
+        UnlabeledStatement::For(for_init, cond, post, body, loop_label) => {
             println!("{}For(", " ".repeat(indent));
+            println!("{}Label='{}'", " ".repeat(indent + 4), loop_label.clone().unwrap_or_default());
             println!("{}Init=(", " ".repeat(indent + 4));
             pretty_print_for_init(for_init, indent + 8);
             println!("{})", " ".repeat(indent + 4));
