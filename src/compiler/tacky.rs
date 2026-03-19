@@ -288,6 +288,42 @@ fn emit_tacky_statement(stmnt: &parser::ast::Statement, instructions: &mut Vec<I
 }
 
 
+fn emit_tacky_for_init(for_init: &parser::ast::ForInit, instructions: &mut Vec<Instruction>) -> Result<(), String>
+{
+    match for_init {
+        parser::ast::ForInit::InitDecl(decl) => {
+            emit_tacky_declaration(decl, instructions)?;
+        },
+        parser::ast::ForInit::InitExp(Some(expr)) => {
+            emit_tacky_expression(expr, instructions)?;
+        },
+        parser::ast::ForInit::InitExp(None) => {}
+    };
+
+    Ok(())
+}
+
+
+fn start_loop_label(loop_label: &Option<String>) -> String
+{
+    return format!("{}_start", loop_label.clone().unwrap());
+}
+
+
+fn continue_loop_label(loop_label: &Option<String>) -> String
+{
+    return format!("{}_continue", loop_label.clone().unwrap());
+}
+
+fn break_loop_label(loop_label: &Option<String>) -> String
+{
+    return format!("{}_break", loop_label.clone().unwrap());
+}
+
+
+
+
+
 fn emit_tacky_unlabeled_statement(stmnt: &parser::ast::UnlabeledStatement, instructions: &mut Vec<Instruction>) -> Result<(), String>
 {
     match stmnt {
@@ -318,6 +354,43 @@ fn emit_tacky_unlabeled_statement(stmnt: &parser::ast::UnlabeledStatement, instr
             emit_tacky_statement(else_stmnt, instructions)?;
             instructions.push(Instruction::Label(lbl_end));
         },
+        parser::ast::UnlabeledStatement::Break(loop_label) => {
+            instructions.push(Instruction::Jump(break_loop_label(loop_label)));
+        },
+        parser::ast::UnlabeledStatement::Continue(loop_label) => {
+            instructions.push(Instruction::Jump(continue_loop_label(loop_label)));
+        },
+        parser::ast::UnlabeledStatement::While(cond, body, loop_label) => {
+            instructions.push(Instruction::Label(continue_loop_label(loop_label)));
+            let cond_val = emit_tacky_expression(cond, instructions)?;
+            instructions.push(Instruction::JumpIfZero(cond_val, break_loop_label(loop_label)));
+            emit_tacky_statement(body, instructions)?;
+            instructions.push(Instruction::Jump(continue_loop_label(loop_label)));
+            instructions.push(Instruction::Label(break_loop_label(loop_label)));
+        },
+        parser::ast::UnlabeledStatement::DoWhile(body, cond, loop_label) => {
+            instructions.push(Instruction::Label(start_loop_label(loop_label)));
+            emit_tacky_statement(body, instructions)?;
+            instructions.push(Instruction::Label(continue_loop_label(loop_label)));
+            let cond_val = emit_tacky_expression(cond, instructions)?;
+            instructions.push(Instruction::JumpIfNotZero(cond_val, start_loop_label(loop_label)));
+            instructions.push(Instruction::Label(break_loop_label(loop_label)));
+        },
+        parser::ast::UnlabeledStatement::For(for_init, cond , post, body, loop_label) => {
+            emit_tacky_for_init(for_init, instructions)?;
+            instructions.push(Instruction::Label(start_loop_label(loop_label)));
+            if let Some(cond) = cond {
+                let cond_val = emit_tacky_expression(cond, instructions)?;
+                instructions.push(Instruction::JumpIfZero(cond_val, break_loop_label(loop_label)));
+            }
+            emit_tacky_statement(body, instructions)?;
+            instructions.push(Instruction::Label(continue_loop_label(loop_label)));
+            if let Some(post) = post {
+                emit_tacky_expression(post, instructions)?;
+            }
+            instructions.push(Instruction::Jump(start_loop_label(loop_label)));
+            instructions.push(Instruction::Label(break_loop_label(loop_label)));
+        },
         parser::ast::UnlabeledStatement::Compound(block) => {
             emit_tacky_block(block, instructions)?;
         },
@@ -325,7 +398,7 @@ fn emit_tacky_unlabeled_statement(stmnt: &parser::ast::UnlabeledStatement, instr
             emit_tacky_expression(expr, instructions)?;
         },
         parser::ast::UnlabeledStatement::Null => {},
-        _ => { panic!("emit_tacky_statement: Not implemented for '{:?}' !", stmnt); }
+        //_ => { panic!("emit_tacky_statement: Not implemented for '{:?}' !", stmnt); }
     }
 
     Ok(())
