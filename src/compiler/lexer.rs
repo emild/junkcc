@@ -22,6 +22,9 @@ pub enum Token {
     KwFor,
     KwBreak,
     KwContinue,
+    KwSwitch,
+    KwCase,
+    KwDefault,
 
     OpenParenthesis,        // (
     CloseParenthesis,       // )
@@ -167,7 +170,10 @@ impl RegexTable {
                 ("while",       Token::KwWhile),
                 ("for",         Token::KwFor),
                 ("break",       Token::KwBreak),
-                ("continue",    Token::KwContinue)
+                ("continue",    Token::KwContinue),
+                ("switch",      Token::KwSwitch),
+                ("case",        Token::KwCase),
+                ("default",     Token::KwDefault)
             ])
         }
     }
