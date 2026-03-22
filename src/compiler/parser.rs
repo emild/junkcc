@@ -192,6 +192,16 @@ fn parse_statement(l: &mut lexer::Lexer) -> Result<Statement, String>
     loop {
         let t = l.get_token()?;
         match t {
+            Token::KwDefault => {
+                let colon = l.get_token()?;
+                if colon != Token::Colon {
+                    return Err(format!("Error: expected ':' after default, got '{:?}'", colon));
+                }
+
+                trace!("FOUND DEFAULT: LABEL");
+
+                labels.push(Label::Default);
+            },
             Token::Identifier(label) => {
                 let colon = l.get_token()?;
                 if colon != Token::Colon {
@@ -200,8 +210,18 @@ fn parse_statement(l: &mut lexer::Lexer) -> Result<Statement, String>
                     break;
                 }
 
-                trace!("FOUND LABEL: '{}'", label);
-                labels.push(label);
+                trace!("FOUND GOTO LABEL: '{}'", label);
+
+                labels.push(Label::Goto(label));
+            },
+            Token::KwCase => {
+                let expr = parse_expression(l, 0)?;
+                trace!("Found CASE LABEL");
+                labels.push(Label::Case(expr));
+                let colon = l.get_token()?;
+                if colon != Token::Colon {
+                    return Err(format!("Expected ':', got '{:?}'", colon));
+                }
             },
             _ => {
                 l.putback_token(t)?;
@@ -348,6 +368,14 @@ fn parse_unlabeled_statement(l: &mut lexer::Lexer) -> Result<UnlabeledStatement,
             let body = parse_statement(l)?;
             UnlabeledStatement::For(for_init, cond, post, Box::new(body), None)
         },
+        Token::KwSwitch => {
+            l.get_token()?; //Consume the switch keyword
+            check_open_paren(l)?;
+            let cond = parse_expression(l, 0)?;
+            check_close_paren(l)?;
+            let body = parse_statement(l)?;
+            UnlabeledStatement::Switch(cond, Box::new(body), None, vec![], false)
+        }
         Token::Semicolon => {
             check_semicolon(l)?;
             UnlabeledStatement::Null

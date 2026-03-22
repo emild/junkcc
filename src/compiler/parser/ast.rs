@@ -118,9 +118,18 @@ impl Precedence for BinaryOperator {
     }
 }
 
+
+#[derive(Debug)]
+pub enum Label {
+    Goto(String),
+    Case(Expression), //Expression must be constant
+    Default
+}
+
+
 #[derive(Debug)]
 pub enum Statement {
-    Stmnt(Option<Vec<String>> /* labels */, UnlabeledStatement)
+    Stmnt(Option<Vec<Label>> /* labels */, UnlabeledStatement)
 }
 
 #[derive(Debug)]
@@ -135,11 +144,12 @@ pub enum UnlabeledStatement {
     Return(Expression),
     Goto(String),
     If(Expression, Box<Statement> /* then */, Option<Box<Statement>> /* else */),
-    Break(Option<String> /* loop label */),
+    Break(Option<String> /* loop/switch label */),
     Continue(Option<String> /* loop label */),
     While(Expression /* condition */, Box<Statement> /* body */, Option<String> /* loop label */),
     DoWhile(Box<Statement> /* body */, Expression /* condition */, Option<String> /* loop label */),
     For(ForInit, Option<Expression> /* condition */, Option<Expression> /* post */, Box<Statement> /* body */, Option<String> /* loop label */),
+    Switch(Expression, Box<Statement> /* body */, Option<String> /* switch label */, Vec<i32> /* case constants */, bool /* has default */ ),
     Compound(Block),
     Expr(Expression),
     Null
@@ -179,7 +189,7 @@ pub enum Program {
 <function>          ::= "int" <identifier> "(" ["void"] ")" block
 <block_item>        ::= <statement>|<declaration>
 <declaration>       ::= "int" <identifier> [ "=" <exp> ] ";"
-<label>             ::= <id> ":"
+<label>             ::= <id> ":" | "case" <exp> ":" | "default" ":"
 <block>             ::= "{" [<block_item> *] "}"
 <statement>         ::= [<label> *] <unlbld_statement>
 <unlbld_statement>  ::= ";" |
@@ -192,6 +202,7 @@ pub enum Program {
                         "while" "(" <exp> ")" <statement> |
                         "do" <statement> "while" "(" <exp> ")" |
                         "for" "(" for_init ";" [<exp>] ";" [<exp>] ")" <statement>  |
+                        "switch" "(" <exp ")" <statement>
                         <block>
 <for_init>          ::= <declaration> | [<exp>]
 <exp>               ::= <factor> | <exp> <binop> <exp> | <exp> "?" <exp> ":" <exp>

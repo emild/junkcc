@@ -205,10 +205,21 @@ fn pretty_print_conditional(cond: &Expression, true_exp: &Expression, false_exp:
     println!("{})", " ".repeat(indent));
 }
 
-fn pretty_print_labels(labels: &Vec<String>, indent: usize)
+fn pretty_print_labels(labels: &Vec<Label>, indent: usize)
 {
     for label in labels {
-        println!("{}{}:", " ".repeat(indent), label);
+        match label {
+            Label::Goto(goto_label) =>
+                { println!("{}{}:", " ".repeat(indent), goto_label); },
+            Label::Case(case_expr) => {
+                println!("{}CASE (", " ".repeat(indent));
+                pretty_print_expression(case_expr, indent + 4);
+                println!("{}): ", " ".repeat(indent));
+            },
+            Label::Default => {
+                println!("{}DEFAULT:", " ".repeat(indent));
+            }
+        }
     }
 }
 
@@ -237,7 +248,7 @@ fn pretty_print_statement(s: &Statement, indent: usize)
         }
     };
 
-    pretty_print_labels(labels, indent);
+    pretty_print_labels(labels, 0);
     pretty_print_unlabeled_statement(unlabeled_stmnt, indent);
 }
 
@@ -317,6 +328,14 @@ fn pretty_print_unlabeled_statement(s: &UnlabeledStatement, indent: usize)
                 pretty_print_expression(expr, indent + 8);
             }
             println!("{})", " ".repeat(indent + 4));
+            println!("{})", " ".repeat(indent));
+        },
+        UnlabeledStatement::Switch(cond, body, switch_label, case_labels, has_default) => {
+            println!("{}Switch(", " ".repeat(indent));
+            println!("{}Cond=(", " ".repeat(indent + 4));
+            pretty_print_expression(cond, indent + 8);
+            println!("{})", " ".repeat(indent + 4));
+            println!("{}Label='{}'", " ".repeat(indent + 4), switch_label.clone().unwrap_or_default());
             println!("{}Body=(", " ".repeat(indent + 4));
             pretty_print_statement(body, indent + 8);
             println!("{})", " ".repeat(indent + 4));

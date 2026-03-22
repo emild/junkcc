@@ -177,7 +177,14 @@ fn resolve_statement(stmnt: &Statement, var_map: &mut HashMap<String, LocalVaria
         },
         Statement::Stmnt(Some(stmnt_labels), unlabeled_stmnt) => {
             let resolved_unlabled_stmnt = resolve_unlabeled_statement(unlabeled_stmnt, var_map, labels)?;
-            let resolved_stmnt_labels = stmnt_labels.iter().map(|stmnt_label| labels.get(stmnt_label).unwrap().clone()).collect();
+            let mut resolved_stmnt_labels = vec![];
+            for stmnt_label in stmnt_labels {
+                if let Label::Goto(stmnt_goto_label) = stmnt_label {
+                    let resolved_stmnt_goto_label = labels.get(stmnt_goto_label).unwrap();
+                    resolved_stmnt_labels.push(Label::Goto(resolved_stmnt_goto_label.clone()));
+                }
+
+            }
 
             return Ok(Statement::Stmnt(Some(resolved_stmnt_labels), resolved_unlabled_stmnt));
         }
@@ -192,11 +199,13 @@ fn check_statement_goto_labels(stmnt: &Statement, goto_labels: &mut HashMap<Stri
         },
         Statement::Stmnt(Some(stmnt_labels),unlabeled_stmnt ) => {
             for stmnt_label in stmnt_labels {
-                if goto_labels.contains_key(stmnt_label) {
-                    return Err(format!("Duplicate label: '{stmnt_label}'"));
+                if let Label::Goto(stmnt_goto_label) = stmnt_label {
+                    if goto_labels.contains_key(stmnt_goto_label) {
+                        return Err(format!("Duplicate label: '{stmnt_goto_label}'"));
+                    }
+                    let global_label = make_unique_global_goto_label(stmnt_goto_label);
+                    goto_labels.insert(stmnt_goto_label.clone(), global_label);
                 }
-                let global_label = make_unique_global_goto_label(stmnt_label);
-                goto_labels.insert(stmnt_label.clone(), global_label);
             }
             check_unlabeled_statement_goto_labels(unlabeled_stmnt, goto_labels)?;
         }
@@ -317,7 +326,7 @@ fn resolve_unlabeled_statement(stmnt: &UnlabeledStatement, var_map: &mut HashMap
             Ok(UnlabeledStatement::Expr(resolved_expression))
         },
         UnlabeledStatement::Null => Ok(UnlabeledStatement::Null),
-        //_ => { panic!("Semantic Analyzer: {:?} Not implemented yet!", stmnt); }
+        _ => { panic!("Semantic Analyzer: {:?} Not implemented yet!", stmnt); }
     }
 }
 

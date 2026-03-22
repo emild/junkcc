@@ -279,7 +279,18 @@ fn emit_tacky_statement(stmnt: &parser::ast::Statement, instructions: &mut Vec<I
         },
         parser::ast::Statement::Stmnt(Some(labels), unlabeled_stmnt) => {
             for label in labels {
-                instructions.push(Instruction::Label(label.clone()));
+                match label {
+                    parser::ast::Label::Goto(goto_label) => {
+                        instructions.push(Instruction::Label(goto_label.clone()));
+                    },
+                    parser::ast::Label::Case(_case_const) => {
+                        panic!("Tacky generation: case labels not implemented");
+                    },
+                    parser::ast::Label::Default => {
+                        panic!("Tacky generation: case default label not implemented");
+                    }
+                }
+
             }
             emit_tacky_unlabeled_statement(unlabeled_stmnt, instructions)?;
         }
@@ -398,7 +409,7 @@ fn emit_tacky_unlabeled_statement(stmnt: &parser::ast::UnlabeledStatement, instr
             emit_tacky_expression(expr, instructions)?;
         },
         parser::ast::UnlabeledStatement::Null => {},
-        //_ => { panic!("emit_tacky_statement: Not implemented for '{:?}' !", stmnt); }
+        _ => { panic!("emit_tacky_statement: Not implemented for '{:?}' !", stmnt); }
     }
 
     Ok(())
