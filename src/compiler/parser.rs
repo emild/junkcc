@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use log::{info, trace, warn, error};
 pub mod ast;
 mod pretty_print;
@@ -323,7 +325,7 @@ fn parse_unlabeled_statement(l: &mut lexer::Lexer) -> Result<UnlabeledStatement,
         Token::KwBreak => {
             l.get_token()?; //Consume the break keyword
             check_semicolon(l)?;
-            UnlabeledStatement::Break(None)
+            UnlabeledStatement::Break(None, None)
         },
         Token::KwContinue => {
             l.get_token()?; //Consume the continue keyword
@@ -374,7 +376,7 @@ fn parse_unlabeled_statement(l: &mut lexer::Lexer) -> Result<UnlabeledStatement,
             let cond = parse_expression(l, 0)?;
             check_close_paren(l)?;
             let body = parse_statement(l)?;
-            UnlabeledStatement::Switch(cond, Box::new(body), None, vec![], false)
+            UnlabeledStatement::Switch(cond, Box::new(body), None, vec![], HashMap::new(), None)
         }
         Token::Semicolon => {
             check_semicolon(l)?;

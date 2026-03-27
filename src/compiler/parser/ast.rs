@@ -1,8 +1,10 @@
+use std::collections::HashMap;
+
 pub trait Precedence {
     fn precedence(&self) -> u32;
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum Expression {
     IntConstant(i32),
     Var(String),
@@ -119,7 +121,7 @@ impl Precedence for BinaryOperator {
 }
 
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum Label {
     Goto(String),
     Case(Expression), //Expression must be constant
@@ -138,18 +140,24 @@ pub enum ForInit {
     InitExp(Option<Expression>)
 }
 
+#[derive(Debug, PartialEq, Clone)]
+pub enum BreakType {
+    Loop,
+    Switch
+}
+
 
 #[derive(Debug)]
 pub enum UnlabeledStatement {
     Return(Expression),
     Goto(String),
     If(Expression, Box<Statement> /* then */, Option<Box<Statement>> /* else */),
-    Break(Option<String> /* loop/switch label */),
+    Break(Option<BreakType>, Option<String> /* loop/switch label */),
     Continue(Option<String> /* loop label */),
     While(Expression /* condition */, Box<Statement> /* body */, Option<String> /* loop label */),
     DoWhile(Box<Statement> /* body */, Expression /* condition */, Option<String> /* loop label */),
     For(ForInit, Option<Expression> /* condition */, Option<Expression> /* post */, Box<Statement> /* body */, Option<String> /* loop label */),
-    Switch(Expression, Box<Statement> /* body */, Option<String> /* switch label */, Vec<i32> /* case constants */, bool /* has default */ ),
+    Switch(Expression, Box<Statement> /* body */, Option<String> /* switch label */, Vec<Label> /* case and default labels */, HashMap<i32, String>, /* case constants and global labels */ Option<String> /* default_label */ ),
     Compound(Block),
     Expr(Expression),
     Null

@@ -282,8 +282,8 @@ fn pretty_print_unlabeled_statement(s: &UnlabeledStatement, indent: usize)
         UnlabeledStatement::Compound(block) => {
             pretty_print_block(block, indent);
         },
-        UnlabeledStatement::Break(loop_label) => {
-            println!("{}Break(loop_label='{}')", " ".repeat(indent), loop_label.clone().unwrap_or_default());
+        UnlabeledStatement::Break(break_type, label) => {
+            println!("{}Break(type={:?}, label='{}')", " ".repeat(indent), break_type, label.clone().unwrap_or_default());
         },
         UnlabeledStatement::Continue(loop_label) => {
             println!("{}Continue(loop_label='{}')", " ".repeat(indent), loop_label.clone().unwrap_or_default());
@@ -328,14 +328,38 @@ fn pretty_print_unlabeled_statement(s: &UnlabeledStatement, indent: usize)
                 pretty_print_expression(expr, indent + 8);
             }
             println!("{})", " ".repeat(indent + 4));
+            println!("{}Body=(", " ".repeat(indent + 4));
+            pretty_print_statement(body, indent + 8);
+            println!("{})", " ".repeat(indent + 4));
             println!("{})", " ".repeat(indent));
         },
-        UnlabeledStatement::Switch(cond, body, switch_label, case_labels, has_default) => {
+        UnlabeledStatement::Switch(cond, body, switch_label, case_and_default_labels, case_label_map, default_label) => {
             println!("{}Switch(", " ".repeat(indent));
             println!("{}Cond=(", " ".repeat(indent + 4));
             pretty_print_expression(cond, indent + 8);
             println!("{})", " ".repeat(indent + 4));
             println!("{}Label='{}'", " ".repeat(indent + 4), switch_label.clone().unwrap_or_default());
+            if !case_and_default_labels.is_empty() {
+                println!("{}Case Labels=(", " ".repeat(indent + 4));
+                for case_and_default_label in case_and_default_labels {
+                    match case_and_default_label {
+                        Label::Case(Expression::IntConstant(case_const)) => {
+                            println!("{}CASE {} --> {}", " ".repeat(indent + 8), case_const, case_label_map.get(&case_const).unwrap());
+                        },
+                        Label::Default => {
+                            println!("{}DEFAULT --> {}", " ".repeat(indent + 8), default_label.clone().unwrap());
+                        },
+                        _ => {
+                            panic!("Semantic analysis: Invalid case label: '{:?}'", case_and_default_label);
+                        }
+                    };
+                }
+
+                println!("{})", " ".repeat(indent + 4));
+            }
+            else {
+                println!("{}NO Case Labels", " ".repeat(indent + 4));
+            }
             println!("{}Body=(", " ".repeat(indent + 4));
             pretty_print_statement(body, indent + 8);
             println!("{})", " ".repeat(indent + 4));

@@ -1,10 +1,10 @@
-use std::{os::fd::IntoRawFd, sync::atomic::{AtomicUsize, Ordering}};
+use std::{collections::btree_map, os::fd::IntoRawFd, sync::atomic::{AtomicUsize, Ordering}};
 
 pub mod ast;
 mod pretty_print;
 
 use ast::*;
-use crate::compiler::parser::ast::{Declaration, Expression};
+use crate::compiler::parser::ast::{BreakType, Declaration, Expression};
 
 use super::parser;
 
@@ -365,8 +365,19 @@ fn emit_tacky_unlabeled_statement(stmnt: &parser::ast::UnlabeledStatement, instr
             emit_tacky_statement(else_stmnt, instructions)?;
             instructions.push(Instruction::Label(lbl_end));
         },
-        parser::ast::UnlabeledStatement::Break(loop_label) => {
-            instructions.push(Instruction::Jump(break_loop_label(loop_label)));
+        parser::ast::UnlabeledStatement::Break(break_type, loop_label) => {
+            assert!(break_type.is_some());
+            match break_type {
+                Some(BreakType::Loop) => {
+                    instructions.push(Instruction::Jump(break_loop_label(loop_label)));
+                },
+                Some(BreakType::Switch) => {
+                    panic!("Switch break tacky generation not implemented");
+                },
+                None => {
+                    panic!("Bug: Got break with None type during tacky generation");
+                }
+            };
         },
         parser::ast::UnlabeledStatement::Continue(loop_label) => {
             instructions.push(Instruction::Jump(continue_loop_label(loop_label)));
