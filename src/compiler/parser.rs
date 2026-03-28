@@ -376,7 +376,7 @@ fn parse_unlabeled_statement(l: &mut lexer::Lexer) -> Result<UnlabeledStatement,
             let cond = parse_expression(l, 0)?;
             check_close_paren(l)?;
             let body = parse_statement(l)?;
-            UnlabeledStatement::Switch(cond, Box::new(body), None, vec![], HashMap::new(), None)
+            UnlabeledStatement::Switch(cond, Box::new(body), None, HashMap::new(), None)
         }
         Token::Semicolon => {
             check_semicolon(l)?;

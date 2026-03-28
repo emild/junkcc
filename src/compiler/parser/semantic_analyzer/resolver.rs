@@ -256,10 +256,10 @@ fn resolve_unlabeled_statement(stmnt: &UnlabeledStatement, var_map: &mut HashMap
             let resolved_body = resolve_statement(body, &mut new_var_map, goto_labels)?;
             Ok(UnlabeledStatement::For(resolved_for_init, resolved_cond, resolved_post, Box::new(resolved_body), loop_label.clone()))
         },
-        UnlabeledStatement::Switch(cond, body, switch_label, case_and_default_labels, case_label_map, default_label) => {
+        UnlabeledStatement::Switch(cond, body, switch_label, case_label_map, default_label) => {
             let resolved_cond = resolve_expression(cond, var_map)?;
             let resolved_body = resolve_statement(body, var_map, goto_labels)?;
-            Ok(UnlabeledStatement::Switch(resolved_cond, Box::new(resolved_body), switch_label.clone(), case_and_default_labels.clone(), case_label_map.clone(), default_label.clone()))
+            Ok(UnlabeledStatement::Switch(resolved_cond, Box::new(resolved_body), switch_label.clone(), case_label_map.clone(), default_label.clone()))
         }
         UnlabeledStatement::Compound(block) => {
             let mut new_var_map = copy_var_map(var_map);
@@ -349,7 +349,7 @@ fn resolve_function(func_def: &FunctionDefinition, var_map: &mut HashMap<String,
             let mut resolved_block = resolve_block(block, var_map, &goto_labels)?;
             check_and_classify_block_break_statements(&mut resolved_block, &None)?;
             label_block_loops(&mut resolved_block, &None)?;
-            label_block_switch_statements(&mut resolved_block, &None, &mut vec![], &mut HashMap::new(), &mut None)?;
+            label_block_switch_statements(&mut resolved_block, &None, &mut HashMap::new(), &mut None)?;
             Ok(FunctionDefinition::Function(name.clone(), resolved_block))
         }
     }

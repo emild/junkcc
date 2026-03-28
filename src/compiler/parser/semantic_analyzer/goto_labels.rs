@@ -22,7 +22,7 @@ fn check_unlabeled_statement_goto_labels(unlabeled_stmnt: &UnlabeledStatement, g
         UnlabeledStatement::DoWhile(body, _, _)    |
         UnlabeledStatement::While(_ , body, _ )    |
         UnlabeledStatement::For(_, _, _, body, _)  |
-        UnlabeledStatement::Switch(_ , body ,_ ,_ ,_ ,_ ) => {
+        UnlabeledStatement::Switch(_ , body ,_ ,_ ,_ ) => {
             check_statement_goto_labels(body, goto_labels)?;
         }
 

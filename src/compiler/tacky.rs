@@ -418,7 +418,7 @@ fn emit_tacky_unlabeled_statement(stmnt: &parser::ast::UnlabeledStatement, instr
             instructions.push(Instruction::Jump(start_loop_label(loop_label)));
             instructions.push(Instruction::Label(break_loop_label(loop_label)));
         },
-        parser::ast::UnlabeledStatement::Switch(cond, body, switch_label , case_and_default_labels, case_labels_map, default_label) => {
+        parser::ast::UnlabeledStatement::Switch(cond, body, switch_label , case_labels_map, default_label) => {
             let val = emit_tacky_expression(cond, instructions)?;
             let cmp_result_name = make_temp_name();
             let cmp_result = Val::Var(cmp_result_name);

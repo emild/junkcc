@@ -158,7 +158,7 @@ pub enum UnlabeledStatement {
     While(Expression /* condition */, Box<Statement> /* body */, Option<String> /* loop label */),
     DoWhile(Box<Statement> /* body */, Expression /* condition */, Option<String> /* loop label */),
     For(ForInit, Option<Expression> /* condition */, Option<Expression> /* post */, Box<Statement> /* body */, Option<String> /* loop label */),
-    Switch(Expression, Box<Statement> /* body */, Option<String> /* switch label */, Vec<Label> /* case and default labels */, HashMap<i32, String>, /* case constants and global labels */ Option<String> /* default_label */ ),
+    Switch(Expression, Box<Statement> /* body */, Option<String> /* switch label */, HashMap<i32, String>, /* case constants and global labels */ Option<String> /* default_label */ ),
     Compound(Block),
     Expr(Expression),
     Null

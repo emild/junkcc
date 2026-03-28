@@ -20,7 +20,7 @@ fn check_and_classify_unlabeled_statement_break_statements(
         UnlabeledStatement::For(_,_,_,body,_) => {
             check_and_classify_statement_break_statements(body, &Some(BreakType::Loop))?;
         },
-        UnlabeledStatement::Switch(_, body,_,_,_,_) => {
+        UnlabeledStatement::Switch(_, body,_,_,_) => {
             check_and_classify_statement_break_statements(body, &Some(BreakType::Switch))?;
         },
         UnlabeledStatement::If(_,then_stmnt , else_stmnt) => {

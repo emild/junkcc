@@ -9,9 +9,6 @@ fn label_unlabled_statement_loops(unlabeled_stmnt: &mut UnlabeledStatement, loop
 {
     match unlabeled_stmnt {
         UnlabeledStatement::Break(Some(BreakType::Loop), brk_loop_label) => {
-            /*if loop_label.is_none() {
-                return Err(format!("break  outside of loop"));
-            }*/
             assert!(loop_label.is_some());
 
             brk_loop_label.replace(loop_label.clone().unwrap());
@@ -46,7 +43,7 @@ fn label_unlabled_statement_loops(unlabeled_stmnt: &mut UnlabeledStatement, loop
             curr_for_loop_label.replace(for_loop_label.clone());
             label_statement_loops(body, &Some(for_loop_label))?;
         },
-        UnlabeledStatement::Switch(_ ,body ,_ ,_ ,_ ,_ ) => {
+        UnlabeledStatement::Switch(_ ,body ,_ ,_ ,_ ) => {
             label_statement_loops(body, loop_label)?;
         },
         UnlabeledStatement::Compound(block) => {
