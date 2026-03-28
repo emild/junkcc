@@ -9,11 +9,6 @@ use super::constant_expression_evaluator::evaluate_constant_expression;
 
 
 
-fn switch_end_label(switch_label: &Option<String>) -> String
-{
-    return format!("{}_exit", switch_label.clone().unwrap());
-}
-
 
 fn label_unlabeled_statement_switch_statements(unlabeled_stmnt: &mut UnlabeledStatement, switch_label: &Option<String>, case_and_default_labels: &mut Vec<Label>, case_labels_map: &mut HashMap<i32, String>, default_label: &mut Option<String>) -> Result<(), String>
 {
@@ -26,7 +21,7 @@ fn label_unlabeled_statement_switch_statements(unlabeled_stmnt: &mut UnlabeledSt
                         return Err(format!("break statement outside loop or switch"));
                     }
 
-                    break_label.replace(switch_end_label(switch_label));
+                    break_label.replace(switch_label.clone().unwrap());
                 },
                 _ => {}
             }
@@ -81,8 +76,9 @@ fn label_statement_switch_statements(stmnt: &mut Statement, switch_label: &Optio
                         }
 
                         let global_case_label = make_unique_case_label(&switch_label.clone().unwrap(), case_value);
-                        case_labels_map.insert(case_value, global_case_label);
+                        case_labels_map.insert(case_value, global_case_label.clone());
                         case_and_default_labels.push(Label::Case(Expression::IntConstant(case_value)));
+                        *label = Label::ResolvedCase(global_case_label.clone());
 
                     },
                     Label::Default => {
@@ -93,10 +89,14 @@ fn label_statement_switch_statements(stmnt: &mut Statement, switch_label: &Optio
                             return Err(format!("Error: Duplicate default: label"));
                         }
                         let global_default_label = make_global_default_label(&switch_label.clone().unwrap());
-                        default_label.replace(global_default_label);
+                        default_label.replace(global_default_label.clone());
                         case_and_default_labels.push(Label::Default);
+                        *label = Label::ResolvedCase(global_default_label.clone());
                     },
-                    Label::Goto(_) => {}
+                    Label::Goto(_) => {},
+                    _ => {
+                        panic!("Unexpected label: {:?}", label);
+                    }
                 }
             }
 

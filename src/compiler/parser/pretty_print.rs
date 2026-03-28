@@ -209,16 +209,20 @@ fn pretty_print_labels(labels: &Vec<Label>, indent: usize)
 {
     for label in labels {
         match label {
-            Label::Goto(goto_label) =>
-                { println!("{}{}:", " ".repeat(indent), goto_label); },
+            Label::Goto(goto_label) => {
+                println!("{}{}:", " ".repeat(indent), goto_label);
+            },
             Label::Case(case_expr) => {
                 println!("{}CASE (", " ".repeat(indent));
                 pretty_print_expression(case_expr, indent + 4);
                 println!("{}): ", " ".repeat(indent));
             },
+            Label::ResolvedCase(res_case_label) => {
+                println!("{}{}:", " ".repeat(indent), res_case_label);
+            }
             Label::Default => {
                 println!("{}DEFAULT:", " ".repeat(indent));
-            }
+            },
         }
     }
 }

@@ -150,6 +150,9 @@ fn resolve_statement(stmnt: &Statement, var_map: &mut HashMap<String, LocalVaria
                     },
                     Label::Default => {
                         resolved_stmnt_labels.push(Label::Default);
+                    },
+                    _ => {
+                        panic!("Unexpected label: {:?}", stmnt_label);
                     }
                 };
             }

@@ -1,10 +1,9 @@
-use std::{collections::btree_map, os::fd::IntoRawFd, sync::atomic::{AtomicUsize, Ordering}};
+use std::{sync::atomic::{AtomicUsize, Ordering}};
 
 pub mod ast;
 mod pretty_print;
 
 use ast::*;
-use crate::compiler::parser::ast::{BreakType, Declaration, Expression};
 
 use super::parser;
 
@@ -89,11 +88,11 @@ fn get_noncompound_operator(compond_binary_operator: &parser::ast::BinaryOperato
 fn get_inc_dec_operator(expr: &parser::ast::Expression) -> Result<BinaryOperator, String>
 {
     let bin_op = match expr {
-        Expression::PostIncrement(_) |
-        Expression::PreIncrement(_) => BinaryOperator::Add,
+        parser::ast::Expression::PostIncrement(_) |
+        parser::ast::Expression::PreIncrement(_) => BinaryOperator::Add,
 
-        Expression::PostDecrement(_) |
-        Expression::PreDecrement(_) => BinaryOperator::Subtract,
+        parser::ast::Expression::PostDecrement(_) |
+        parser::ast::Expression::PreDecrement(_) => BinaryOperator::Subtract,
 
         _ => { return Err(format!("Expected ++ or --, got {:?}", expr)); }
     };
@@ -283,6 +282,9 @@ fn emit_tacky_statement(stmnt: &parser::ast::Statement, instructions: &mut Vec<I
                     parser::ast::Label::Goto(goto_label) => {
                         instructions.push(Instruction::Label(goto_label.clone()));
                     },
+                    parser::ast::Label::ResolvedCase(resolved_case_label) => {
+                        instructions.push(Instruction::Label(resolved_case_label.clone()));
+                    },
                     parser::ast::Label::Case(_case_const) => {
                         panic!("Tacky generation: case labels not implemented");
                     },
@@ -332,7 +334,10 @@ fn break_loop_label(loop_label: &Option<String>) -> String
 }
 
 
-
+fn break_switch_label(switch_label: &Option<String>) -> String
+{
+    return format!("{}_break", switch_label.clone().unwrap());
+}
 
 
 fn emit_tacky_unlabeled_statement(stmnt: &parser::ast::UnlabeledStatement, instructions: &mut Vec<Instruction>) -> Result<(), String>
@@ -365,14 +370,14 @@ fn emit_tacky_unlabeled_statement(stmnt: &parser::ast::UnlabeledStatement, instr
             emit_tacky_statement(else_stmnt, instructions)?;
             instructions.push(Instruction::Label(lbl_end));
         },
-        parser::ast::UnlabeledStatement::Break(break_type, loop_label) => {
+        parser::ast::UnlabeledStatement::Break(break_type, break_label) => {
             assert!(break_type.is_some());
             match break_type {
-                Some(BreakType::Loop) => {
-                    instructions.push(Instruction::Jump(break_loop_label(loop_label)));
+                Some(parser::ast::BreakType::Loop) => {
+                    instructions.push(Instruction::Jump(break_loop_label(break_label)));
                 },
-                Some(BreakType::Switch) => {
-                    panic!("Switch break tacky generation not implemented");
+                Some(parser::ast::BreakType::Switch) => {
+                    instructions.push(Instruction::Jump(break_switch_label(break_label)));
                 },
                 None => {
                     panic!("Bug: Got break with None type during tacky generation");
@@ -413,6 +418,30 @@ fn emit_tacky_unlabeled_statement(stmnt: &parser::ast::UnlabeledStatement, instr
             instructions.push(Instruction::Jump(start_loop_label(loop_label)));
             instructions.push(Instruction::Label(break_loop_label(loop_label)));
         },
+        parser::ast::UnlabeledStatement::Switch(cond, body, switch_label , case_and_default_labels, case_labels_map, default_label) => {
+            let val = emit_tacky_expression(cond, instructions)?;
+            let cmp_result_name = make_temp_name();
+            let cmp_result = Val::Var(cmp_result_name);
+            let switch_end_label = break_switch_label(switch_label);
+
+            for (case_val, target) in case_labels_map {
+                instructions.push(Instruction::Binary(BinaryOperator::Equal, val.clone(), Val::IntConstant(*case_val), cmp_result.clone()));
+                instructions.push(Instruction::JumpIfNotZero(cmp_result.clone(), target.clone()));
+            }
+
+            // If there is no match, jump to the default label if there is one
+            // or after the body if there is no default label
+            if let Some(default_label) = default_label {
+                instructions.push(Instruction::Jump(default_label.clone()));
+            }
+            else {
+                instructions.push(Instruction::Jump(switch_end_label.clone()));
+            }
+
+            emit_tacky_statement(body, instructions)?;
+            instructions.push(Instruction::Label(switch_end_label.clone()));
+        }
+
         parser::ast::UnlabeledStatement::Compound(block) => {
             emit_tacky_block(block, instructions)?;
         },

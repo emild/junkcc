@@ -125,7 +125,8 @@ impl Precedence for BinaryOperator {
 pub enum Label {
     Goto(String),
     Case(Expression), //Expression must be constant
-    Default
+    Default,
+    ResolvedCase(String)
 }
 
 
