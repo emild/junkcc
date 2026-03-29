@@ -8,7 +8,8 @@ pub struct Config {
     pub stop_after_parser: bool,
     pub stop_after_semantic_analysis: bool,
     pub stop_after_tacky_generation: bool,
-    pub stop_after_assembly_generation: bool
+    pub stop_after_assembly_generation: bool,
+    pub do_not_link: bool
 }
 
 impl Config {
@@ -21,13 +22,15 @@ impl Config {
         let mut stop_after_semantic_analysis = false;
         let mut stop_after_tacky_generation = false;
         let mut stop_after_assembly_generation = false;
+        let mut do_not_link = false;
 
         let mut opt_map = HashMap::from([
             (String::from("--lex"), &mut stop_after_lexer),
             (String::from("--parse"), &mut stop_after_parser),
             (String::from("--validate"), &mut stop_after_semantic_analysis),
             (String::from("--tacky"), &mut stop_after_tacky_generation),
-            (String::from("--codegen"), &mut stop_after_assembly_generation)
+            (String::from("--codegen"), &mut stop_after_assembly_generation),
+            (String::from("-c"), &mut do_not_link)
         ]);
 
         let mut input_file_path_opt: Option<String> = None;
@@ -76,7 +79,8 @@ impl Config {
                 stop_after_parser,
                 stop_after_semantic_analysis,
                 stop_after_tacky_generation,
-                stop_after_assembly_generation
+                stop_after_assembly_generation,
+                do_not_link
             }),
             None => {
                 Err(format!("Missing input filename"))

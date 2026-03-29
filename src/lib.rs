@@ -16,6 +16,9 @@ pub fn run(config: Config) -> Result<(), String>
         return Ok(());
     }
     driver::assemble(&config)?;
-    driver::link(&config)?;
+    if !config.do_not_link {
+        driver::link(&config)?;
+    }
+
     Ok(())
 }
