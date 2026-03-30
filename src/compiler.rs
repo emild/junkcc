@@ -12,7 +12,7 @@ mod codegen;
 
 
 
-pub fn run_lexer_test(config: &Config, lexer: &mut Lexer) -> Result<(), String>
+pub fn run_lexer_test(lexer: &mut Lexer, input_file_path: &str) -> Result<(), String>
 {
     let mut no_tokens = true;
 
@@ -30,7 +30,7 @@ pub fn run_lexer_test(config: &Config, lexer: &mut Lexer) -> Result<(), String>
     }
 
     if no_tokens {
-        return Err(format!("No tokens found in input file: '{}'", config.input_file_path));
+        return Err(format!("No tokens found in input file: '{}'", input_file_path));
     }
 
     Ok(())
@@ -41,7 +41,7 @@ pub fn run(config: &Config, input_file_path: &str, output_file_path: &str) -> Re
     let mut lexer = Lexer::new(input_file_path)?;
 
     if config.stop_after_lexer {
-        run_lexer_test(config, &mut lexer)?;
+        run_lexer_test(&mut lexer, input_file_path)?;
         info!("Stopped after lexer");
         return Ok(());
     }

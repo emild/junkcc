@@ -1,9 +1,9 @@
 
-use std::{collections::HashMap};
+use std::{collections::HashMap, fs::File};
 
 #[derive(Debug)]
 pub struct Config {
-    pub input_file_path: String,
+    pub input_file_paths: Vec<String>,
     pub stop_after_lexer: bool,
     pub stop_after_parser: bool,
     pub stop_after_semantic_analysis: bool,
@@ -11,6 +11,56 @@ pub struct Config {
     pub stop_after_assembly_generation: bool,
     pub do_not_link: bool
 }
+
+pub enum FileType {
+    Assembly,
+    CSource,
+    Object
+}
+
+
+const VALID_EXTENSIONS: [(&str, FileType);4]   = [
+    (".c", FileType::CSource),
+    (".s", FileType::Assembly),
+    (".S", FileType::Assembly),
+    (".o", FileType::Object)
+];
+
+
+fn filename_has_valid_extension(file_name: &String) -> bool {
+    for (ext, _) in VALID_EXTENSIONS {
+        if file_name.ends_with(ext) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+
+pub fn get_file_type(file_name: &String) -> Option<FileType> {
+    for (ext, file_type) in VALID_EXTENSIONS {
+        if file_name.ends_with(ext) {
+            return Some(file_type);
+        }
+    }
+
+    return None;
+}
+
+
+
+fn supported_file_types() -> Vec<String> {
+    let mut supported_exts = vec![];
+
+    for (ext, _) in VALID_EXTENSIONS {
+        supported_exts.push(format!("'{ext}'"));
+    }
+
+    return supported_exts;
+}
+
+
 
 impl Config {
     pub fn build(mut args: impl Iterator<Item=String>) -> Result<Config, String>
@@ -33,7 +83,9 @@ impl Config {
             (String::from("-c"), &mut do_not_link)
         ]);
 
-        let mut input_file_path_opt: Option<String> = None;
+
+
+        let mut input_file_paths = vec![];
 
         loop {
             let arg = args.next();
@@ -51,40 +103,37 @@ impl Config {
                     **opt_val = true;
                 },
                 None => {
-                    if arg.starts_with("--") {
+                    if arg.starts_with("-") {
                         return Err(format!("Invalid option: '{arg}'"));
-                    }
-
-                    if !arg.to_lowercase().ends_with(".c") {
-                        return Err(format!("Input file path '{arg}' does not end in .c)"))
                     }
 
                     if arg.len() < 3 {
                         return Err(format!("Input file path must be at least 3 characters '{arg}' has {}", arg.len()))
                     }
 
-                    if input_file_path_opt.is_some() {
-                        return Err(format!("Only one input file path argument is expected"));
+                    if !filename_has_valid_extension(&arg) {
+                        return Err(format!("Unsupported input file '{}' (supported file type: {})", arg, supported_file_types().join(", ")));
                     }
 
-                    input_file_path_opt.replace(arg);
+                    input_file_paths.push(arg);
                 }
             }
         }
 
-        match input_file_path_opt {
-            Some(input_file_path) => Ok(Config {
-                input_file_path,
-                stop_after_lexer,
-                stop_after_parser,
-                stop_after_semantic_analysis,
-                stop_after_tacky_generation,
-                stop_after_assembly_generation,
-                do_not_link
-            }),
-            None => {
-                Err(format!("Missing input filename"))
-            }
+        if input_file_paths.is_empty() {
+            return Err(format!("Missing input filename(s)"));
         }
+
+
+
+        Ok(Config {
+            input_file_paths: input_file_paths,
+            stop_after_lexer,
+            stop_after_parser,
+            stop_after_semantic_analysis,
+            stop_after_tacky_generation,
+            stop_after_assembly_generation,
+            do_not_link
+        })
     }
 }

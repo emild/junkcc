@@ -6,10 +6,7 @@ const CPP_EXE: &str = "cpp";
 const AS_EXE: &str = "as";
 const LD_EXE: &str = "ld";
 
-const PP_EXT: &str = "pp.c";
-const AS_EXT: &str = "s";
-const OBJ_EXT: &str = "o";
-const EXE_EXT: &str = "";
+
 
 const CRT1_O: &str = "/usr/lib/x86_64-linux-gnu/crt1.o";
 const CRTI_O: &str = "/usr/lib/x86_64-linux-gnu/crti.o";
@@ -20,38 +17,7 @@ const ELF_INTEPRETER: &str = "/lib64/ld-linux-x86-64.so.2";
 const LIBC: &str = "-lc";
 
 
-fn get_filename(config: &Config, ext: &str) -> String
-{
-    let len = config.input_file_path.len();
-        let basename = String::from(&config.input_file_path[0..len-2]);
 
-    if ext.len() > 0 {
-        format!("{basename}.{ext}")
-    }
-    else {
-        basename
-    }
-}
-
-fn get_pp_filename(config: &Config) -> String
-{
-    return get_filename(&config, PP_EXT);
-}
-
-fn get_as_filename(config: &Config) -> String
-{
-    return get_filename(&config, AS_EXT);
-}
-
-fn get_obj_filename(config: &Config) -> String
-{
-    return get_filename(&config, OBJ_EXT);
-}
-
-fn get_exe_filename(config: &Config) -> String
-{
-    return get_filename(&config, EXE_EXT);
-}
 
 
 fn run_helper_program(exe_name: &str,
@@ -84,47 +50,48 @@ fn run_helper_program(exe_name: &str,
         }
 }
 
-pub fn preprocess(config: &Config) -> Result<(), String>
+
+pub fn preprocess(input_file_path: &String, pp_file_path: &String) -> Result<(), String>
 {
-    let input_file_path = &config.input_file_path;
-    let pp_file_path = get_pp_filename(config);
-    let args = ["-P", input_file_path, "-o", &pp_file_path];
+    let args = ["-P", &input_file_path, "-o", &pp_file_path];
 
     return run_helper_program(CPP_EXE, &args);
 }
 
 
-pub fn compile(config: &Config) -> Result<(), String>
+pub fn compile(config: &Config, pp_file_path: &String, as_file_path: &String) -> Result<(), String>
 {
     use crate::compiler;
-    let pp_file_path = get_pp_filename(config);
-    let as_file_path = get_as_filename(config);
 
     compiler::run(&config, &pp_file_path, &as_file_path)?;
     Ok(())
 }
 
-pub fn assemble(config: &Config) -> Result<(), String>
+pub fn assemble(as_file_path: &String, obj_file_path: &String) -> Result<(), String>
 {
-    let as_file_path = get_as_filename(config);
-    let obj_file_path = get_obj_filename(config);
     let args = [&as_file_path, "-o", &obj_file_path];
 
     return run_helper_program(AS_EXE, &args);
 }
 
 
-pub fn link(config: &Config) -> Result<(), String>
+pub fn link(exe_file_path: &String, obj_file_paths: &[String]) -> Result<(), String>
 {
-      
-    let obj_file_path = get_obj_filename(config);
-    let exe_file_path = get_exe_filename(config);
-    let args = [
-        "-o", &exe_file_path, &obj_file_path,
+    let mut args = vec![
+        "-o", &exe_file_path
+    ];
+
+    for obj_file_path in obj_file_paths {
+        args.push(obj_file_path);
+    }
+
+    for arg in [
         CRT1_O, CRTI_O, CRTN_O,
         "-dynamic-linker", ELF_INTEPRETER,
         LIBC
-    ];
+    ] {
+        args.push(arg);
+    }
 
     return run_helper_program(LD_EXE, &args);
 }
