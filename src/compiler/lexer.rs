@@ -56,6 +56,7 @@ pub enum Token {
     EqualSign,              // =
     QuestionMark,           // ?
     Colon,                  // :
+    Comma,                  // ,
 
     //Compound Assignments
     AddAssign,              // +=
@@ -110,6 +111,7 @@ impl RegexTable {
             RegexTableEntry { r: Regex::new(r"^\}").unwrap(),               f: |_, _| Token::CloseBrace },
             RegexTableEntry { r: Regex::new(r"^;").unwrap(),                f: |_, _| Token::Semicolon },
             RegexTableEntry { r: Regex::new(r"^:").unwrap(),                f: |_, _| Token::Colon },
+            RegexTableEntry { r: Regex::new(r"^,").unwrap(),                f: |_, _| Token::Comma },
             // '--' and '-=' must be before '-'
             RegexTableEntry { r: Regex::new(r"^--").unwrap(),               f: |_, _| Token::Decrement },
             RegexTableEntry { r: Regex::new(r"^-=").unwrap(),               f: |_, _| Token::SubAssign },
