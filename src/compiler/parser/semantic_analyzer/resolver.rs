@@ -99,6 +99,12 @@ fn resolve_expression(expr: &Expression, var_map: &mut HashMap<String, LocalVari
             Ok(Expression::Var(var_info.unwrap().global_name.clone()))
         },
 
+        Expression::FunctionCall(func_name, args) => {
+            //let mut resolved_args = vec![];
+            panic!("Function call not supported/implemented yet");
+
+        },
+
         Expression::Conditional(cond, true_exp, false_exp) => {
             let resolved_cond = resolve_expression(cond, var_map)?;
             let resolved_true_exp = resolve_expression(true_exp, var_map)?;
@@ -190,7 +196,7 @@ fn resolve_for_init(for_init: &ForInit, var_map: &mut HashMap<String, LocalVaria
             ForInit::InitExp(Some(resolved_expr))
         },
         ForInit::InitDecl(decl) => {
-            let resolved_decl = resolve_declaration(decl, var_map)?;
+            let resolved_decl = resolve_variable_declaration(decl, var_map)?;
             ForInit::InitDecl(resolved_decl)
         }
     };
@@ -278,10 +284,10 @@ fn resolve_unlabeled_statement(stmnt: &UnlabeledStatement, var_map: &mut HashMap
 
 
 
-fn resolve_declaration(decl: &Declaration, var_map: &mut HashMap<String, LocalVariableInfo>) -> Result<Declaration, String>
+fn resolve_variable_declaration(decl: &VariableDeclaration, var_map: &mut HashMap<String, LocalVariableInfo>) -> Result<VariableDeclaration, String>
 {
     match decl {
-        Declaration::Declarant(var_name, initializer) => {
+        VariableDeclaration::Declarant(var_name, initializer) => {
             if let Some(local_var_info) = var_map.get(var_name) && local_var_info.defined_in_current_block {
                 return Err(format!("Variable '{}' is already defined in the current scope", var_name));
             }
@@ -301,7 +307,7 @@ fn resolve_declaration(decl: &Declaration, var_map: &mut HashMap<String, LocalVa
                 None => None
             };
 
-            Ok(Declaration::Declarant(temp_name, resolved_initializer))
+            Ok(VariableDeclaration::Declarant(temp_name, resolved_initializer))
         }
     }
 }
@@ -309,9 +315,11 @@ fn resolve_declaration(decl: &Declaration, var_map: &mut HashMap<String, LocalVa
 
 fn resolve_block_item(block_item: &BlockItem, var_map: &mut HashMap<String, LocalVariableInfo>, labels: &HashMap<String, String>) -> Result<BlockItem, String>
 {
+    panic!("resolve_block_item(): NO LONGER SUPPORTED/IMPLEMENTED");
+    /*
     match block_item {
         BlockItem::D(decl) => {
-            let resolved_decl = resolve_declaration(decl, var_map)?;
+            let resolved_decl = resolve_variable_declaration(decl, var_map)?;
             Ok(BlockItem::D(resolved_decl))
         },
         BlockItem::S(stmnt) => {
@@ -319,6 +327,7 @@ fn resolve_block_item(block_item: &BlockItem, var_map: &mut HashMap<String, Loca
             Ok(BlockItem::S(resolved_stmnt))
         }
     }
+    */
 }
 
 
@@ -340,24 +349,29 @@ fn resolve_block(block: &Block, var_map: &mut HashMap<String, LocalVariableInfo>
 }
 
 
-fn resolve_function(func_def: &FunctionDefinition, var_map: &mut HashMap<String, LocalVariableInfo>) -> Result<FunctionDefinition, String>
+fn resolve_function(func_def: &FunctionDeclaration, var_map: &mut HashMap<String, LocalVariableInfo>) -> Result<FunctionDeclaration, String>
 {
+    panic!("resolve_function(): No longer implemented/supported");
+    /*
     match func_def {
-        FunctionDefinition::Function(name, block ) => {
+        FunctionDeclaration::Function(name, block ) => {
             let mut goto_labels = HashMap::new();
             check_block_goto_labels(&block, &mut goto_labels)?;
             let mut resolved_block = resolve_block(block, var_map, &goto_labels)?;
             check_and_classify_block_break_statements(&mut resolved_block, &None)?;
             label_block_loops(&mut resolved_block, &None)?;
             label_block_switch_statements(&mut resolved_block, &None, &mut HashMap::new(), &mut None)?;
-            Ok(FunctionDefinition::Function(name.clone(), resolved_block))
+            Ok(FunctionDeclaration::Function(name.clone(), resolved_block))
         }
     }
+    */
 }
 
 
 pub fn resolve_program(prog: &Program) -> Result<Program, String>
 {
+    panic!("resolve_program(): No longer implemented/supported");
+    /*
     match prog {
         Program::ProgramDefinition(func_def) => {
             let mut var_map = HashMap::new();
@@ -365,4 +379,5 @@ pub fn resolve_program(prog: &Program) -> Result<Program, String>
             Ok(Program::ProgramDefinition(resolved_func_def))
         }
     }
+    */
 }

@@ -263,7 +263,7 @@ fn emit_tacky_expression(expr: &parser::ast::Expression, instructions: &mut Vec<
             result
         }
 
-   //     _ => { return Err(format!("TACKY Conversion: expected expression, got '{:?}'", expr)); }
+        _ => { panic!("TACKY Conversion: unsupported/unimplemented expression, got '{:?}'", expr); }
     };
 
     Ok(val)
@@ -305,7 +305,7 @@ fn emit_tacky_for_init(for_init: &parser::ast::ForInit, instructions: &mut Vec<I
 {
     match for_init {
         parser::ast::ForInit::InitDecl(decl) => {
-            emit_tacky_declaration(decl, instructions)?;
+            emit_tacky_variable_declaration(decl, instructions)?;
         },
         parser::ast::ForInit::InitExp(Some(expr)) => {
             emit_tacky_expression(expr, instructions)?;
@@ -456,14 +456,14 @@ fn emit_tacky_unlabeled_statement(stmnt: &parser::ast::UnlabeledStatement, instr
 }
 
 
-fn emit_tacky_declaration(decl: &parser::ast::Declaration, instructions: &mut Vec<Instruction>) -> Result<(), String>
+fn emit_tacky_variable_declaration(decl: &parser::ast::VariableDeclaration, instructions: &mut Vec<Instruction>) -> Result<(), String>
 {
     match decl {
-        parser::ast::Declaration::Declarant(var_name, Some(init_expr) ) => {
+        parser::ast::VariableDeclaration::Declarant(var_name, Some(init_expr) ) => {
             let init_val = emit_tacky_expression(init_expr, instructions)?;
             instructions.push(Instruction::Copy(init_val, Val::Var(var_name.clone())));
         },
-        parser::ast::Declaration::Declarant(_, None) => {}
+        parser::ast::VariableDeclaration::Declarant(_, None) => {}
     };
 
     Ok(())
@@ -477,7 +477,8 @@ fn emit_tacky_block_item(block_item: &parser::ast::BlockItem, instructions: &mut
             emit_tacky_statement(stmnt, instructions)?;
         },
         parser::ast::BlockItem::D(decl) => {
-            emit_tacky_declaration(decl, instructions)?;
+            panic!("TACKY GENERATION: Unsupported/Unimplemented block item: '{:?}'", block_item);
+            //emit_tacky_variable_declaration(decl, instructions)?;
         }
     };
 
@@ -498,10 +499,11 @@ fn emit_tacky_block(block: &parser::ast::Block, instructions: &mut Vec<Instructi
 }
 
 
-fn emit_tacky_function_definition(func_def: &parser::ast::FunctionDefinition) -> Result<FunctionDefinition, String>
+fn emit_tacky_function_definition(func_def: &parser::ast::FunctionDeclaration) -> Result<FunctionDefinition, String>
 {
+ /*
     match func_def {
-        parser::ast::FunctionDefinition::Function(name, block) => {
+        parser::ast::FunctionDeclaration::Function(name, block) => {
             let mut instructions = vec![];
 
             emit_tacky_block(block, &mut instructions)?;
@@ -511,11 +513,13 @@ fn emit_tacky_function_definition(func_def: &parser::ast::FunctionDefinition) ->
         },
         _ => { return Err(format!("TACKY Conversion: expected function definition, got '{:?}'", *func_def)); }
     }
+    */
+    panic!("TACKY GENERATION: Function Definition NOT Supported/Implemented");
 }
 
 
 pub fn emit_tacky_program(program: &parser::ast::Program) -> Result<Program, String>
-{
+{/*
     match program {
         parser::ast::Program::ProgramDefinition(func_def) => {
             let tacky_func_def = emit_tacky_function_definition(&func_def)?;
@@ -523,6 +527,8 @@ pub fn emit_tacky_program(program: &parser::ast::Program) -> Result<Program, Str
         },
         _ => { return Err(format!("Tacky conversion: expected ProgramDefinition, got '{:?}'", program)); }
     }
+    */
+    panic!("TACKY GENERATION: Program Definition no longer supported/implemented");
 }
 
 

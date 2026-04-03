@@ -153,7 +153,8 @@ pub fn evaluate_constant_expression(expr: &Expression) -> Result<i32, String>
         Expression::PostIncrement(_) |
         Expression::PreDecrement(_) |
         Expression::PreIncrement(_) |
-        Expression::Var(_) => {
+        Expression::Var(_) |
+        Expression::FunctionCall(_,_)=> {
             return Err(format!("Non-constant expression in case label"))
         },
         Expression::Unary(unop, sub_expr) => {
