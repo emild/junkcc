@@ -9,6 +9,9 @@ fn pretty_print_expression(expr: &Expression, indent: usize)
         Expression::Var(var_name) => {
             println!("{}Var({})", " ".repeat(indent), var_name);
         },
+        Expression::FunctionCall(func_name, args) => {
+            pretty_print_function_call(func_name, args, indent);
+        }
         Expression::Unary(unary_op, inner_expression) => {
             pretty_print_unary_operator(unary_op, inner_expression, indent);
         },
@@ -36,6 +39,24 @@ fn pretty_print_expression(expr: &Expression, indent: usize)
         Expression::Conditional(cond, true_exp, false_exp) => {
             pretty_print_conditional(cond, true_exp, false_exp, indent);
         }
+    }
+}
+
+
+fn pretty_print_function_call(func_name: &String, args: &Vec<Expression>, indent: usize)
+{
+    print!("{}CALL {}(", " ".repeat(indent), func_name);
+    if args.is_empty() {
+        println!(")");
+    }
+    else {
+        println!("");
+        pretty_print_expression(&args[0], indent + 4);
+        for i in 1..args.iter().len() {
+            println!("{},", " ".repeat(indent + 4));
+            pretty_print_expression(&args[i], indent + 4);
+        }
+        println!("{})", " ".repeat(indent));
     }
 }
 
@@ -234,8 +255,8 @@ fn pretty_print_for_init(for_init: &ForInit, indent: usize)
         ForInit::InitExp(Some(expr)) => {
             pretty_print_expression(expr, indent);
         },
-        ForInit::InitDecl(decl) => {
-            pretty_print_declaration(decl, indent);
+        ForInit::InitDecl(var_decl) => {
+            pretty_print_variable_declaration(var_decl, indent);
         }
     }
 }
@@ -375,17 +396,57 @@ fn pretty_print_unlabeled_statement(s: &UnlabeledStatement, indent: usize)
 }
 
 
-fn pretty_print_declaration(decl: &Declaration, indent: usize)
+fn pretty_print_variable_declaration(decl: &VariableDeclaration, indent: usize)
 {
     match decl {
-        Declaration::Declarant(var_name, Some(expr_init) ) => {
+        VariableDeclaration::Declarant(var_name, Some(expr_init) ) => {
             println!("{}Var {} = (", " ".repeat(indent),  var_name);
             pretty_print_expression(expr_init, indent + 4);
             println!("{})", " ".repeat(indent));
         },
-        Declaration::Declarant(var_name,None ) => {
+        VariableDeclaration::Declarant(var_name,None ) => {
             println!("{}var {}", " ".repeat(indent),  var_name);
         }
+    }
+}
+
+
+
+fn pretty_print_function_declaration(func_decl: &FunctionDeclaration, indent: usize)
+{
+    match func_decl {
+        FunctionDeclaration::Declarant(func_name, param_list, body) => {
+            println!("{}Function(", " ".repeat(indent));
+            println!("{}name={func_name}", " ".repeat(indent + 4));
+            println!("{}params=(", " ".repeat(indent + 4));
+            if !param_list.is_empty() {
+                print!("{}{}", " ".repeat(indent + 8), param_list[0]);
+                for i in 1..param_list.len() {
+                    println!(",");
+                    print!("{}{}", " ".repeat(indent + 8), param_list[i]);
+                }
+                println!("");
+            }
+            println!("{})", " ".repeat(indent + 4));
+            if let Some(body) = body {
+                println!("{}body=(", " ".repeat(indent + 4));
+                pretty_print_block(body, indent + 8);
+                println!("{})", " ".repeat(indent + 4));
+            }
+            else {
+                println!("{}NO BODY (DECLARATION ONLY)", " ".repeat(indent + 4));
+            }
+            println!("{})", " ".repeat(indent));
+        }
+    }
+}
+
+
+fn pretty_print_declaration(decl: &Declaration, indent: usize)
+{
+    match decl {
+        Declaration::VarDecl(var_decl) => pretty_print_variable_declaration(var_decl, indent),
+        Declaration::FunDecl(func_decl) => pretty_print_function_declaration(func_decl, indent)
     }
 }
 
@@ -415,25 +476,18 @@ fn pretty_print_block(b: &Block, indent: usize)
     println!("{})", " ".repeat(indent));
 }
 
-fn pretty_print_function(f: &FunctionDefinition, indent: usize)
-{
-    match f {
-        FunctionDefinition::Function(func_name, block) => {
-            println!("{}Function(", " ".repeat(indent));
-            println!("{}name={func_name}", " ".repeat(indent + 4));
-            pretty_print_block(block, indent + 4);
-            println!("{})", " ".repeat(indent));
-        },
-        _ => ()
-    }
-}
 
 
 fn pretty_print_program(p: &Program, indent: usize)
 {
     println!("{}Program(", " ".repeat(indent));
     match p {
-        Program::ProgramDefinition(f) => pretty_print_function(&f, indent + 4),
+        Program::ProgramDefinition(func_decls) => {
+            for func_decl in func_decls {
+                pretty_print_function_declaration(&func_decl, indent + 4);
+                println!("");
+            }
+        }
         _ => ()
     };
 

@@ -16,7 +16,8 @@ pub enum Expression {
     Binary(BinaryOperator, Box<Expression>, Box<Expression>),
     Assignment(Box<Expression>, Box<Expression>),
     CompoundAssignment(BinaryOperator, Box<Expression>, Box<Expression>),
-    Conditional(Box<Expression> /* condition */, Box<Expression> /* true */, Box<Expression> /* false */)
+    Conditional(Box<Expression> /* condition */, Box<Expression> /* true */, Box<Expression> /* false */),
+    FunctionCall(String /* func_name */, Vec<Expression> /* args */)
 }
 
 #[derive(Debug, Clone)]
@@ -137,7 +138,7 @@ pub enum Statement {
 
 #[derive(Debug)]
 pub enum ForInit {
-    InitDecl(Declaration),
+    InitDecl(VariableDeclaration),
     InitExp(Option<Expression>)
 }
 
@@ -166,6 +167,13 @@ pub enum UnlabeledStatement {
 
 #[derive(Debug)]
 pub enum Declaration {
+    VarDecl(VariableDeclaration),
+    FunDecl(FunctionDeclaration)
+}
+
+
+#[derive(Debug)]
+pub enum VariableDeclaration {
     Declarant(String /* id */, Option<Expression> /* initializer */)
 }
 
@@ -182,52 +190,56 @@ pub enum Block {
 }
 
 #[derive(Debug)]
-pub enum FunctionDefinition {
-    Function(String /* name */, Block /* body */)
+pub enum FunctionDeclaration {
+    Declarant(String /* name */, Vec<String> /* args */,  Option<Block> /* body */)
 }
 
 #[derive(Debug)]
 pub enum Program {
-    ProgramDefinition(FunctionDefinition)
+    ProgramDefinition(Vec<FunctionDeclaration>)
 }
 
 
 /*                    GRAMMAR
 
-<program>           ::= <function>
-<function>          ::= "int" <identifier> "(" ["void"] ")" block
-<block_item>        ::= <statement>|<declaration>
-<declaration>       ::= "int" <identifier> [ "=" <exp> ] ";"
-<label>             ::= <id> ":" | "case" <exp> ":" | "default" ":"
-<block>             ::= "{" [<block_item> *] "}"
-<statement>         ::= [<label> *] <unlbld_statement>
-<unlbld_statement>  ::= ";" |
-                        <exp> ";" |
-                        "return" <exp> ";" |
-                        "goto" <id> ";"   |
-                        "break" ";" |
-                        "continue" ";"  |
-                        "if" "(" <exp> ")" <statement> ["else" <statement> ] |
-                        "while" "(" <exp> ")" <statement> |
-                        "do" <statement> "while" "(" <exp> ")" |
-                        "for" "(" for_init ";" [<exp>] ";" [<exp>] ")" <statement>  |
-                        "switch" "(" <exp ")" <statement>
-                        <block>
-<for_init>          ::= <declaration> | [<exp>]
-<exp>               ::= <factor> | <exp> <binop> <exp> | <exp> "?" <exp> ":" <exp>
-<factor>            ::= <int> | <identifier> | <unop> <factor> | "(" <exp> ")" |
-                        <inc_dec> <factor> | <factor> <inc_dec>
-<unop>              ::= "+"  | "-" | "~" | "!"
-<inc_dec>           ::= "++" | "--"
-<binop>             ::= "-"  | "+" | "*" | "/" | "%" |
-                        "<<" | ">>" | "|"  | "&"  | "^"  |
-                        "&&" | "||" |
-                        "==" | "!=" | "<"  | "<=" | ">"  | ">=" |
-                        "="  | "+=" | "-=" | "*=" | "/=" | "%=" |
-                        "|=" | "&=" |
-                        "<<="| ">>="
+<program>               ::= [ <function-declaration> ]*
+<declaration>           ::= <variable-declaration> | <function-declaration>
+<variable-declaration>  ::= "int" <identifier> [ "=" <exp> ] ";"
+<function-declaration>  ::= "int" <identifier> "(" [<param-list>] )" ( <block> | ";" )
+<param-list>            ::= "void" | "int" <identifier> ["," "int" <identifier>"]*
+<block>                 ::= "{" [<block_item> *] "}"
+<block_item>            ::= <statement>|<declaration>
+<label>                 ::= <id> ":" | "case" <exp> ":" | "default" ":"
+<statement>             ::= [<label> *] <unlbld_statement>
+<unlbld_statement>      ::= ";" |
+                            <exp> ";" |
+                            "return" <exp> ";" |
+                            "goto" <id> ";"   |
+                            "break" ";" |
+                            "continue" ";"  |
+                            "if" "(" <exp> ")" <statement> ["else" <statement> ] |
+                            "while" "(" <exp> ")" <statement> |
+                            "do" <statement> "while" "(" <exp> ")" |
+                            "for" "(" for_init ";" [<exp>] ";" [<exp>] ")" <statement>  |
+                            "switch" "(" <exp ")" <statement>
+                            <block>
+<for_init>              ::= <variable-declaration> | [<exp>]
+<exp>                   ::= <factor> | <exp> <binop> <exp> | <exp> "?" <exp> ":" <exp>
+<factor>                ::= <int> | <identifier> | <unop> <factor> | "(" <exp> ")" |
+                            <inc_dec> <factor> | <factor> <inc_dec> |
+                            <identifier> "(" [ <argument-list > ] ")"
+<argument-list>         ::= <exp> ["," <exp>]*
+<unop>                  ::= "+"  | "-" | "~" | "!"
+<inc_dec>               ::= "++" | "--"
+<binop>                 ::= "-"  | "+" | "*" | "/" | "%" |
+                            "<<" | ">>" | "|"  | "&"  | "^"  |
+                            "&&" | "||" |
+                            "==" | "!=" | "<"  | "<=" | ">"  | ">=" |
+                            "="  | "+=" | "-=" | "*=" | "/=" | "%=" |
+                            "|=" | "&=" |
+                            "<<="| ">>="
 
-<identifier>        ::= ? Token::Identifier ?
-<int>               ::= ? Token::IntConstant ?
+<identifier>            ::= ? Token::Identifier ?
+<int>                   ::= ? Token::IntConstant ?
 
 */

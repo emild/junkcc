@@ -8,8 +8,68 @@ mod semantic_analyzer;
 use crate::compiler::lexer::{self, Token};
 use ast::*;
 
+fn is_type(t: &Token) -> bool
+{
+    match t {
+        Token::KwInt => true,
+        _ => false
+    }
+}
 
-fn parse_function(l: &mut lexer::Lexer) -> Result<FunctionDefinition, String>
+
+fn parse_param_list(l: &mut lexer::Lexer) -> Result<Vec<String>, String>
+{
+ //void or )
+    let mut param_list = vec![];
+    let t = l.peek_token()?;
+    let is_void = match t {
+        Token::EOS => { return Err(format!("Expected parameter type or ')', got end of file")); },
+        Token::KwVoid => { l.get_token()?; true},
+        Token::CloseParenthesis => true,
+        _ => false
+    };
+
+    if is_void {
+        return Ok(param_list);
+    }
+
+    loop {
+
+        let mut t = l.peek_token()?;
+        match t {
+            Token::EOS => { return Err(format!("Expected parameter type or ')', got end of file")); },
+            _ => {
+                if !is_type(&t) {
+                    return Err(format!("Expected parameter type, got '{:?}'", t));
+                }
+                l.get_token()?;
+            }
+        };
+
+
+        t = l.peek_token()?;
+        let param_name = match t {
+            Token::EOS => { return Err(format!("Expected parameter name, got end of file")); },
+            Token::Identifier(param_name) => { l.get_token()?; param_name },
+            _ => { return Err(format!("Expected parameter name, got '{:?}'", t)); }
+        };
+
+
+        t = l.peek_token()?;
+        match t {
+            Token::EOS => { return Err(format!("Expected ',' or ')', got end of file")); },
+            Token::Comma => { l.get_token()?; param_list.push(param_name); continue; },
+            Token::CloseParenthesis => { param_list.push(param_name); break; }
+            _ => { return Err(format!("Expected ',' or ')', got '{:?}'", t)); }
+        };
+    }
+
+    Ok(param_list)
+
+}
+
+
+fn parse_function_declaration(l: &mut lexer::Lexer) -> Result<FunctionDeclaration, String>
 {
     let mut t  = l.get_token()?;
 
@@ -34,33 +94,110 @@ fn parse_function(l: &mut lexer::Lexer) -> Result<FunctionDefinition, String>
     // (
     check_open_paren(l)?;
 
-    //void or )
-    t = l.get_token()?;
-    let is_void = match t {
-        Token::EOS => { return Err(format!("Expected arg type or ')', got end of file")); },
-        Token::KwVoid => true,
-        Token::CloseParenthesis => false,
-        _ => { return Err(format!("Expected arg type or ')', got {:?}", t)); }
+    let param_list = parse_param_list(l)?;
+
+    check_close_paren(l)?;
+
+    t = l.peek_token()?;
+
+    match t {
+        Token::Semicolon => {
+            l.get_token()?;
+            Ok(FunctionDeclaration::Declarant(func_name, param_list, None))
+        },
+        Token::OpenBrace => {
+            let block = parse_block(l)?;
+            Ok(FunctionDeclaration::Declarant(func_name, param_list, Some(block)))
+        },
+        Token::EOS => { return Err(format!("Unexpected end of file at the end of function declaration")); },
+        _ => { return Err(format!("Expected ';' or '{{', got '{:?}", t)); }
+    }
+
+}
+
+
+fn parse_variable_declaration(l: &mut lexer::Lexer) -> Result<VariableDeclaration, String>
+{
+    let t = l.get_token()?;
+
+    match t {
+        Token::EOS => { return Err(format!("Expected variable declaration, got end of file")); },
+        _ => {
+            if !is_type(&t) {
+                return Err(format!("Expected type, got '{:?}'", t));
+            }
+        }
+    }
+
+    let t = l.get_token()?;
+    let var_name = match t {
+        Token::EOS => { return Err(format!("Expected ID, got end of file")); },
+        Token::Identifier(id) => id,
+        _ => { return Err(format!("Expected ID, got '{:?}'", t)); }
     };
 
-    //)
-    if is_void {
-        check_close_paren(l)?;
-    }
+    let t = l.peek_token()?;
+    let initial_value = match t {
+        Token::EqualSign => {
+            l.get_token()?; //consume the '='
+            let expr = parse_expression(l, 0)?;
+            Some(expr)
+        },
+        _ => {
+            None
+        }
+    };
 
-    let block = parse_block(l)?;
-
-    Ok(FunctionDefinition::Function(func_name, block))
-}
-
-
-fn is_type(t: &Token) -> bool
-{
+    let t = l.get_token()?;
     match t {
-        Token::KwInt => true,
-        _ => false
+        Token::Semicolon => { return Ok(VariableDeclaration::Declarant(var_name, initial_value)); }
+        _ => { return Err(format!("Missing ';' at end of declaration (got '{:?}')", t)); }
     }
 }
+
+
+fn parse_declaration(l: &mut lexer::Lexer) -> Result<Declaration, String>
+{
+   let mut t = l.get_token()?;
+
+    let dtype = match t {
+        Token::EOS => { return Err(format!("Expected type, got end of file")); },
+        _ => {
+            if !is_type(&t) {
+                return Err(format!("Expected type, got '{:?}'", t));
+            }
+            t
+        }
+    };
+
+    t = l.get_token()?;
+    let dname = match t {
+        Token::EOS => { return Err(format!("Expected ID, got end of file")); },
+        Token::Identifier(id) => id,
+        _ => { return Err(format!("Expected ID, got '{:?}'", t)); }
+    };
+
+    t = l.peek_token()?;
+    match t {
+        Token::OpenParenthesis => {
+            l.putback_token(Token::Identifier(dname))?;
+            l.putback_token(dtype)?;
+            let func_dec = parse_function_declaration(l)?;
+            Ok(Declaration::FunDecl(func_dec))
+        },
+        Token::EqualSign |
+        Token::Semicolon => {
+            l.putback_token(Token::Identifier(dname))?;
+            l.putback_token(dtype)?;
+            let var_dec = parse_variable_declaration(l)?;
+            Ok(Declaration::VarDecl(var_dec))
+        },
+        _ => {
+            return Err(format!("Expected declaration, got '{:?}'", t));
+        }
+    }
+}
+
 
 
 fn parse_block_item(l: &mut lexer::Lexer) -> Result<BlockItem, String>
@@ -76,6 +213,7 @@ fn parse_block_item(l: &mut lexer::Lexer) -> Result<BlockItem, String>
         Ok(BlockItem::S(stmnt))
     }
 }
+
 
 fn parse_block(l: &mut lexer::Lexer) -> Result<Block, String>
 {
@@ -106,46 +244,6 @@ fn parse_block(l: &mut lexer::Lexer) -> Result<Block, String>
     };
 
     Ok(Block::Blk(block))
-}
-
-
-fn parse_declaration(l: &mut lexer::Lexer) -> Result<Declaration, String>
-{
-    let t = l.get_token()?;
-
-    match t {
-        Token::EOS => { return Err(format!("Expected declaration, got end of file")); },
-        _ => {
-            if !is_type(&t) {
-                return Err(format!("Expected type, got '{:?}'", t));
-            }
-        }
-    }
-
-    let t = l.get_token()?;
-    let var_name = match t {
-        Token::EOS => { return Err(format!("Expected ID, got end of file")); },
-        Token::Identifier(id) => id,
-        _ => { return Err(format!("Expected ID, got '{:?}'", t)); }
-    };
-
-    let t = l.peek_token()?;
-    let initial_value = match t {
-        Token::EqualSign => {
-            l.get_token()?; //consume the '='
-            let expr = parse_expression(l, 0)?;
-            Some(expr)
-        },
-        _ => {
-            None
-        }
-    };
-
-    let t = l.get_token()?;
-    match t {
-        Token::Semicolon => { return Ok(Declaration::Declarant(var_name, initial_value)); }
-        _ => { return Err(format!("Missing ';' at end of declaration (got '{:?}')", t)); }
-    }
 }
 
 
@@ -264,7 +362,7 @@ fn parse_for_init(l: &mut lexer::Lexer) -> Result<ForInit, String>
         },
         _ => {
             if is_type(&t) {
-                let decl = parse_declaration(l)?;
+                let decl = parse_variable_declaration(l)?;
                 ForInit::InitDecl(decl)
             }
             else {
@@ -519,6 +617,42 @@ fn parse_binary_operator(l: &mut lexer::Lexer) -> Result<BinaryOperator, String>
 }
 
 
+
+fn parse_function_argument_list(l: &mut lexer::Lexer) -> Result<Vec<Expression>, String>
+{
+    let mut func_args = vec![];
+
+    let t = l.peek_token()?;
+    if t == Token::CloseParenthesis {
+        return Ok(func_args);
+    }
+
+
+    loop {
+
+        let func_arg = parse_expression(l, 0)?;
+
+        let t = l.peek_token()?;
+        match t {
+            Token::CloseParenthesis => {
+                func_args.push(func_arg);
+                break;
+            },
+            Token::Comma => {
+                l.get_token()?;
+                func_args.push(func_arg);
+                continue;
+            },
+            _ => { return Err(format!("Expected ',' or ')', got: '{:?}'", t)); }
+        }
+    }
+
+    Ok(func_args)
+}
+
+
+
+
 fn parse_factor(l: &mut lexer::Lexer) -> Result<Expression, String>
 {
     let t = l.peek_token()?;
@@ -530,8 +664,18 @@ fn parse_factor(l: &mut lexer::Lexer) -> Result<Expression, String>
             Expression::IntConstant(c)
         },
         Token::Identifier(_) => {
-            let var_name = parse_identifier(l)?;
-            Expression::Var(var_name)
+            let name = parse_identifier(l)?;
+            let t = l.peek_token()?;
+            match t {
+                Token::OpenParenthesis => {
+                    check_open_paren(l)?;
+                    let func_args = parse_function_argument_list(l)?;
+                    check_close_paren(l)?;
+
+                    Expression::FunctionCall(name, func_args)
+                },
+                _ => Expression::Var(name)
+            }
         }
         Token::Plus  |
         Token::Minus |
@@ -568,7 +712,7 @@ fn parse_factor(l: &mut lexer::Lexer) -> Result<Expression, String>
 
             inner_expression
         },
-        _ => { return Err(format!("Malformed factor, got {:?}", t)); }
+        _ => { return Err(format!("Malformed factor, got '{:?}'", t)); }
     };
 
     let postfix_expr = loop {
@@ -665,14 +809,20 @@ fn parse_expression(l: &mut lexer::Lexer, min_precedence: u32) -> Result<Express
 
 pub fn parse_program(l: &mut lexer::Lexer) -> Result<Program, String>
 {
-    let f = parse_function(l)?;
+    let mut funcs = vec![];
 
-    let t = l.get_token()?;
-
-    match t {
-        Token::EOS => Ok(Program::ProgramDefinition(f)),
-        _ => Err(format!("Trailing garbage: {:?}", t))
+    loop {
+        let t = l.peek_token()?;
+        match t {
+            Token::EOS => { break; },
+            _ => {
+                let f = parse_function_declaration(l)?;
+                funcs.push(f);
+            }
+        }
     }
+
+    Ok(Program::ProgramDefinition(funcs))
 }
 
 pub use pretty_print::pretty_print_ast;
