@@ -7,6 +7,7 @@ static GOTO_LABEL_NAME_INDEX: AtomicUsize = AtomicUsize::new(0);
 static LOOP_LABEL_NAME_INDEX: AtomicUsize = AtomicUsize::new(0);
 static SWITCH_LABEL_NAME_INDEX: AtomicUsize = AtomicUsize::new(0);
 static LOCAL_TMP_NAME_INDEX: AtomicUsize = AtomicUsize::new(0);
+static PARAM_NAME_INDEX: AtomicUsize = AtomicUsize::new(0);
 
 
 pub fn make_unique_global_goto_label(label: &str) -> String
@@ -58,10 +59,18 @@ pub fn make_global_default_label(switch_label: &String) -> String
 }
 
 
-pub fn make_unique_global_name(var_name: &str) -> String
+pub fn make_unique_global_name_for_local_variable(var_name: &str) -> String
 {
     let index = LOCAL_TMP_NAME_INDEX.fetch_add(1, Ordering::SeqCst);
-    let temp_name = format!("local.var.{}.{}", var_name, index);
+    let global_name = format!("local.var.{}.{}", var_name, index);
 
-    temp_name
+    global_name
+}
+
+pub fn make_unique_global_name_for_parameter(param: &str) -> String
+{
+    let index = PARAM_NAME_INDEX.fetch_add(1, Ordering::SeqCst);
+    let global_name = format!("param.{}.{}", param, index);
+
+    global_name
 }

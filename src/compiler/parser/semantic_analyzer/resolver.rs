@@ -6,19 +6,20 @@ use super::break_classifier::check_and_classify_block_break_statements;
 use super::goto_labels::check_block_goto_labels;
 use super::loop_labeling::label_block_loops;
 use super::switch_labeling::label_block_switch_statements;
-use super::LocalVariableInfo;
+use super::IdentifierInfo;
 use super::constant_expression_evaluator::evaluate_constant_expression;
-use super::unique_global_labels::make_unique_global_name;
+use super::unique_global_labels::make_unique_global_name_for_local_variable;
+use super::unique_global_labels::make_unique_global_name_for_parameter;
 
 
-fn resolve_expression(expr: &Expression, var_map: &mut HashMap<String, LocalVariableInfo>) -> Result<Expression, String>
+fn resolve_expression(expr: &Expression, identifier_map: &mut HashMap<String, IdentifierInfo>) -> Result<Expression, String>
 {
     match expr {
         Expression::Assignment(left, right ) => {
             match **left {
                 Expression::Var(_) => {
-                    let resolved_left = resolve_expression(&left, var_map)?;
-                    let resolved_right = resolve_expression(right, var_map)?;
+                    let resolved_left = resolve_expression(&left, identifier_map)?;
+                    let resolved_right = resolve_expression(right, identifier_map)?;
 
                     Ok(Expression::Assignment(Box::new(resolved_left), Box::new(resolved_right)))
                 },
@@ -31,8 +32,8 @@ fn resolve_expression(expr: &Expression, var_map: &mut HashMap<String, LocalVari
         Expression::CompoundAssignment(binop,left, right) => {
             match **left {
                 Expression::Var(_) => {
-                    let resolved_left = resolve_expression(&left, var_map)?;
-                    let resolved_right = resolve_expression(right, var_map)?;
+                    let resolved_left = resolve_expression(&left, identifier_map)?;
+                    let resolved_right = resolve_expression(right, identifier_map)?;
 
                     Ok(Expression::CompoundAssignment(binop.clone(), Box::new(resolved_left), Box::new(resolved_right)))
                 },
@@ -44,7 +45,7 @@ fn resolve_expression(expr: &Expression, var_map: &mut HashMap<String, LocalVari
         Expression::PreIncrement(expr)  => {
             match **expr {
                 Expression::Var(_) => {
-                    let resolved_expr = resolve_expression(expr, var_map)?;
+                    let resolved_expr = resolve_expression(expr, identifier_map)?;
                     Ok(Expression::PreIncrement(Box::new(resolved_expr)))
                 },
                 _ => {
@@ -56,7 +57,7 @@ fn resolve_expression(expr: &Expression, var_map: &mut HashMap<String, LocalVari
         Expression::PreDecrement(expr) => {
             match **expr {
                 Expression::Var(_) => {
-                    let resolved_expr = resolve_expression(expr, var_map)?;
+                    let resolved_expr = resolve_expression(expr, identifier_map)?;
                     Ok(Expression::PreDecrement(Box::new(resolved_expr)))
                 },
                 _ => {
@@ -68,7 +69,7 @@ fn resolve_expression(expr: &Expression, var_map: &mut HashMap<String, LocalVari
         Expression::PostIncrement(expr) => {
             match **expr {
                 Expression::Var(_) => {
-                    let resolved_expr = resolve_expression(expr, var_map)?;
+                    let resolved_expr = resolve_expression(expr, identifier_map)?;
                     Ok(Expression::PostIncrement(Box::new(resolved_expr)))
                 },
                 _ => {
@@ -80,7 +81,7 @@ fn resolve_expression(expr: &Expression, var_map: &mut HashMap<String, LocalVari
         Expression::PostDecrement(expr) => {
             match **expr {
                 Expression::Var(_) => {
-                    let resolved_expr = resolve_expression(expr, var_map)?;
+                    let resolved_expr = resolve_expression(expr, identifier_map)?;
                     Ok(Expression::PostDecrement(Box::new(resolved_expr)))
                 },
                 _ => {
@@ -90,7 +91,7 @@ fn resolve_expression(expr: &Expression, var_map: &mut HashMap<String, LocalVari
         },
 
         Expression::Var(var_name) => {
-            let var_info = var_map.get(var_name);
+            let var_info = identifier_map.get(var_name);
 
             if var_info.is_none() {
                 return Err(format!("Use of undeclared variable '{}'", var_name));
@@ -100,28 +101,40 @@ fn resolve_expression(expr: &Expression, var_map: &mut HashMap<String, LocalVari
         },
 
         Expression::FunctionCall(func_name, args) => {
-            //let mut resolved_args = vec![];
-            panic!("Function call not supported/implemented yet");
+            let func_info = identifier_map.get(func_name);
 
+            if func_info.is_none() {
+                return Err(format!("Calling undeclared function '{}'", func_name));
+            }
+
+            let new_func_name = func_info.unwrap().global_name.clone();
+            let mut new_args = vec![];
+
+            for arg in args {
+                let new_arg = resolve_expression(arg, identifier_map)?;
+                new_args.push(new_arg);
+            }
+
+            Ok(Expression::FunctionCall(new_func_name, new_args))
         },
 
         Expression::Conditional(cond, true_exp, false_exp) => {
-            let resolved_cond = resolve_expression(cond, var_map)?;
-            let resolved_true_exp = resolve_expression(true_exp, var_map)?;
-            let resolved_false_exp = resolve_expression(false_exp, var_map)?;
+            let resolved_cond = resolve_expression(cond, identifier_map)?;
+            let resolved_true_exp = resolve_expression(true_exp, identifier_map)?;
+            let resolved_false_exp = resolve_expression(false_exp, identifier_map)?;
 
             Ok(Expression::Conditional(Box::new(resolved_cond), Box::new(resolved_true_exp), Box::new(resolved_false_exp)))
         },
 
         Expression::Binary(binary_op,left, right , ) => {
-            let resolved_left = resolve_expression(left, var_map)?;
-            let resolved_right = resolve_expression(right, var_map)?;
+            let resolved_left = resolve_expression(left, identifier_map)?;
+            let resolved_right = resolve_expression(right, identifier_map)?;
 
             Ok(Expression::Binary(binary_op.clone(), Box::new(resolved_left), Box::new(resolved_right)))
         },
 
         Expression::Unary(unary_op, expr) => {
-            let resolved_expr = resolve_expression(expr, var_map)?;
+            let resolved_expr = resolve_expression(expr, identifier_map)?;
 
             Ok(Expression::Unary(unary_op.clone(), Box::new(resolved_expr)))
         },
@@ -134,15 +147,15 @@ fn resolve_expression(expr: &Expression, var_map: &mut HashMap<String, LocalVari
 }
 
 
-fn resolve_statement(stmnt: &Statement, var_map: &mut HashMap<String, LocalVariableInfo>, goto_labels: &HashMap<String, String>) -> Result<Statement, String>
+fn resolve_statement(stmnt: &Statement, identifier_map: &mut HashMap<String, IdentifierInfo>, goto_labels: &HashMap<String, String>) -> Result<Statement, String>
 {
     match stmnt {
         Statement::Stmnt(None, unlabeled_stmnt) => {
-            let resolved_unlabled_stmnt = resolve_unlabeled_statement(unlabeled_stmnt, var_map, goto_labels)?;
+            let resolved_unlabled_stmnt = resolve_unlabeled_statement(unlabeled_stmnt, identifier_map, goto_labels)?;
             return Ok(Statement::Stmnt(None, resolved_unlabled_stmnt));
         },
         Statement::Stmnt(Some(stmnt_labels), unlabeled_stmnt) => {
-            let resolved_unlabled_stmnt = resolve_unlabeled_statement(unlabeled_stmnt, var_map, goto_labels)?;
+            let resolved_unlabled_stmnt = resolve_unlabeled_statement(unlabeled_stmnt, identifier_map, goto_labels)?;
             let mut resolved_stmnt_labels = vec![];
             for stmnt_label in stmnt_labels {
                 match stmnt_label {
@@ -173,30 +186,30 @@ fn resolve_statement(stmnt: &Statement, var_map: &mut HashMap<String, LocalVaria
 
 
 // Copies a var map. but resets defined_in_current_block to false
-fn copy_var_map(var_map: &HashMap<String, LocalVariableInfo>) -> HashMap<String, LocalVariableInfo>
+fn copy_identifier_map(identifier_map: &HashMap<String, IdentifierInfo>) -> HashMap<String, IdentifierInfo>
 {
-    let mut new_var_map = HashMap::new();
-    for (local_var_name, local_var_info) in var_map {
-        new_var_map.insert(
-            local_var_name.clone(),
-            LocalVariableInfo {global_name: local_var_info.global_name.clone(), defined_in_current_block: false }
+    let mut new_identifier_map = HashMap::new();
+    for (identifier_name, identifier_info) in identifier_map {
+        new_identifier_map.insert(
+            identifier_name.clone(),
+            IdentifierInfo {global_name: identifier_info.global_name.clone(), from_current_scope: false, has_linkage: identifier_info.has_linkage }
         );
     }
 
-    new_var_map
+    new_identifier_map
 }
 
 
-fn resolve_for_init(for_init: &ForInit, var_map: &mut HashMap<String, LocalVariableInfo>) -> Result<ForInit, String>
+fn resolve_for_init(for_init: &ForInit, identifier_map: &mut HashMap<String, IdentifierInfo>) -> Result<ForInit, String>
 {
     let resolved_for_init = match for_init {
         ForInit::InitExp(None) => ForInit::InitExp(None),
         ForInit::InitExp(Some(expr)) => {
-            let resolved_expr = resolve_expression(expr, var_map)?;
+            let resolved_expr = resolve_expression(expr, identifier_map)?;
             ForInit::InitExp(Some(resolved_expr))
         },
         ForInit::InitDecl(decl) => {
-            let resolved_decl = resolve_variable_declaration(decl, var_map)?;
+            let resolved_decl = resolve_variable_declaration(decl, identifier_map)?;
             ForInit::InitDecl(resolved_decl)
         }
     };
@@ -205,11 +218,11 @@ fn resolve_for_init(for_init: &ForInit, var_map: &mut HashMap<String, LocalVaria
 }
 
 
-fn resolve_unlabeled_statement(stmnt: &UnlabeledStatement, var_map: &mut HashMap<String, LocalVariableInfo>, goto_labels: &HashMap<String, String>) -> Result<UnlabeledStatement, String>
+fn resolve_unlabeled_statement(stmnt: &UnlabeledStatement, identifier_map: &mut HashMap<String, IdentifierInfo>, goto_labels: &HashMap<String, String>) -> Result<UnlabeledStatement, String>
 {
     match stmnt {
         UnlabeledStatement::Return(expr) => {
-            let resolved_expression = resolve_expression(expr, var_map)?;
+            let resolved_expression = resolve_expression(expr, identifier_map)?;
             Ok(UnlabeledStatement::Return(resolved_expression))
         },
         UnlabeledStatement::Goto(label) => {
@@ -219,10 +232,10 @@ fn resolve_unlabeled_statement(stmnt: &UnlabeledStatement, var_map: &mut HashMap
             Ok(UnlabeledStatement::Goto(goto_labels.get(label).unwrap().clone()))
         },
         UnlabeledStatement::If(cond, then_stmnt , else_stmnt) => {
-            let resolved_cond = resolve_expression(cond, var_map)?;
-            let resolved_then_stmnt = resolve_statement(then_stmnt, var_map, goto_labels)?;
+            let resolved_cond = resolve_expression(cond, identifier_map)?;
+            let resolved_then_stmnt = resolve_statement(then_stmnt, identifier_map, goto_labels)?;
             let resolved_else_stmnt = if let Some(else_stmnt) = else_stmnt {
-                let resolved_else_stmnt = resolve_statement(else_stmnt, var_map, goto_labels)?;
+                let resolved_else_stmnt = resolve_statement(else_stmnt, identifier_map, goto_labels)?;
                 Some(Box::new(resolved_else_stmnt))
             }
             else {
@@ -237,43 +250,43 @@ fn resolve_unlabeled_statement(stmnt: &UnlabeledStatement, var_map: &mut HashMap
             Ok(UnlabeledStatement::Continue(loop_label.clone()))
         },
         UnlabeledStatement::While(cond, body, loop_label) => {
-            let resolved_cond = resolve_expression(cond, var_map)?;
-            let resolved_body = resolve_statement(body, var_map, goto_labels)?;
+            let resolved_cond = resolve_expression(cond, identifier_map)?;
+            let resolved_body = resolve_statement(body, identifier_map, goto_labels)?;
             Ok(UnlabeledStatement::While(resolved_cond, Box::new(resolved_body), loop_label.clone()))
         },
         UnlabeledStatement::DoWhile(body, cond, loop_label) => {
-            let resolved_cond = resolve_expression(cond, var_map)?;
-            let resolved_body = resolve_statement(body, var_map, goto_labels)?;
+            let resolved_cond = resolve_expression(cond, identifier_map)?;
+            let resolved_body = resolve_statement(body, identifier_map, goto_labels)?;
             Ok(UnlabeledStatement::DoWhile(Box::new(resolved_body), resolved_cond, loop_label.clone()))
         },
         UnlabeledStatement::For(for_init, cond, post, body, loop_label) => {
-            let mut new_var_map = copy_var_map(var_map);
-            let resolved_for_init = resolve_for_init(for_init, &mut new_var_map)?;
+            let mut new_identifier_map = copy_identifier_map(identifier_map);
+            let resolved_for_init = resolve_for_init(for_init, &mut new_identifier_map)?;
             let mut resolved_cond = None;
             if let Some(expr) = cond {
-                let resolved_expr = resolve_expression(expr, &mut new_var_map)?;
+                let resolved_expr = resolve_expression(expr, &mut new_identifier_map)?;
                 resolved_cond = Some(resolved_expr);
             }
             let mut resolved_post = None;
             if let Some(expr) = post {
-                let resolved_expr = resolve_expression(expr, &mut new_var_map)?;
+                let resolved_expr = resolve_expression(expr, &mut new_identifier_map)?;
                 resolved_post = Some(resolved_expr);
             }
-            let resolved_body = resolve_statement(body, &mut new_var_map, goto_labels)?;
+            let resolved_body = resolve_statement(body, &mut new_identifier_map, goto_labels)?;
             Ok(UnlabeledStatement::For(resolved_for_init, resolved_cond, resolved_post, Box::new(resolved_body), loop_label.clone()))
         },
         UnlabeledStatement::Switch(cond, body, switch_label, case_label_map, default_label) => {
-            let resolved_cond = resolve_expression(cond, var_map)?;
-            let resolved_body = resolve_statement(body, var_map, goto_labels)?;
+            let resolved_cond = resolve_expression(cond, identifier_map)?;
+            let resolved_body = resolve_statement(body, identifier_map, goto_labels)?;
             Ok(UnlabeledStatement::Switch(resolved_cond, Box::new(resolved_body), switch_label.clone(), case_label_map.clone(), default_label.clone()))
         }
         UnlabeledStatement::Compound(block) => {
-            let mut new_var_map = copy_var_map(var_map);
-            let resolved_block = resolve_block(block, &mut new_var_map, goto_labels)?;
+            let mut new_identifier_map = copy_identifier_map(identifier_map);
+            let resolved_block = resolve_block(block, &mut new_identifier_map, goto_labels)?;
             Ok(UnlabeledStatement::Compound(resolved_block))
         },
         UnlabeledStatement::Expr(expr) => {
-            let resolved_expression = resolve_expression(expr, var_map)?;
+            let resolved_expression = resolve_expression(expr, identifier_map)?;
             Ok(UnlabeledStatement::Expr(resolved_expression))
         },
         UnlabeledStatement::Null => Ok(UnlabeledStatement::Null),
@@ -284,24 +297,24 @@ fn resolve_unlabeled_statement(stmnt: &UnlabeledStatement, var_map: &mut HashMap
 
 
 
-fn resolve_variable_declaration(decl: &VariableDeclaration, var_map: &mut HashMap<String, LocalVariableInfo>) -> Result<VariableDeclaration, String>
+fn resolve_variable_declaration(decl: &VariableDeclaration, identifier_map: &mut HashMap<String, IdentifierInfo>) -> Result<VariableDeclaration, String>
 {
     match decl {
         VariableDeclaration::Declarant(var_name, initializer) => {
-            if let Some(local_var_info) = var_map.get(var_name) && local_var_info.defined_in_current_block {
+            if let Some(local_var_info) = identifier_map.get(var_name) && local_var_info.from_current_scope {
                 return Err(format!("Variable '{}' is already defined in the current scope", var_name));
             }
 
-            let temp_name = make_unique_global_name(var_name);
+            let temp_name = make_unique_global_name_for_local_variable(var_name);
 
-            var_map.insert(
+            identifier_map.insert(
                 var_name.clone(),
-                LocalVariableInfo { global_name: temp_name.clone(), defined_in_current_block: true }
+                IdentifierInfo { global_name: temp_name.clone(), from_current_scope: true, has_linkage: false }
             );
 
             let resolved_initializer = match initializer {
                 Some(init_expression) => {
-                    let resolved_init_expression = resolve_expression(init_expression, var_map)?;
+                    let resolved_init_expression = resolve_expression(init_expression, identifier_map)?;
                     Some(resolved_init_expression)
                 },
                 None => None
@@ -313,34 +326,108 @@ fn resolve_variable_declaration(decl: &VariableDeclaration, var_map: &mut HashMa
 }
 
 
-fn resolve_block_item(block_item: &BlockItem, var_map: &mut HashMap<String, LocalVariableInfo>, labels: &HashMap<String, String>) -> Result<BlockItem, String>
+fn resolve_param(param: &String, identifier_map: &mut HashMap<String, IdentifierInfo>) -> Result<String, String>
 {
-    panic!("resolve_block_item(): NO LONGER SUPPORTED/IMPLEMENTED");
-    /*
+
+    if let Some(param_info) = identifier_map.get(param) && param_info.from_current_scope {
+        return Err(format!("Parameter '{}' is already defined in the current scope", param));
+    }
+
+    let resolved_param = make_unique_global_name_for_parameter(param);
+
+    identifier_map.insert(
+        param.clone(),
+        IdentifierInfo { global_name: resolved_param.clone(), from_current_scope: true, has_linkage: false }
+    );
+
+
+    Ok(resolved_param)
+}
+
+
+fn resolve_function_declaration(func_decl: &FunctionDeclaration, identifier_map: &mut HashMap<String, IdentifierInfo>) -> Result<FunctionDeclaration, String>
+{
+    match func_decl {
+        FunctionDeclaration::Declarant(func_name, params, body) => {
+            let prev_entry = identifier_map.get(func_name);
+            if let Some(prev_entry) = prev_entry {
+                if prev_entry.from_current_scope && !prev_entry.has_linkage {
+                    return Err(format!("Duplicate declaration: '{}'", func_name));
+                }
+            }
+            identifier_map.insert(func_name.clone(), IdentifierInfo { global_name: func_name.clone(), from_current_scope: true, has_linkage: true });
+            let mut inner_map = copy_identifier_map(identifier_map);
+            let mut new_params = vec![];
+            for param in params {
+                let new_param = resolve_param(param, &mut inner_map)?;
+                new_params.push(new_param);
+            }
+
+            let mut new_body = None;
+
+            if let Some(body) = body {
+                let mut goto_labels = HashMap::new();
+                check_block_goto_labels(&body, &mut goto_labels)?;
+                let mut resolved_body = resolve_block(body, &mut inner_map, &mut goto_labels)?;
+                check_and_classify_block_break_statements(&mut resolved_body, &None)?;
+                label_block_loops(&mut resolved_body, &None)?;
+                label_block_switch_statements(&mut resolved_body, &None, &mut HashMap::new(), &mut None)?;
+                new_body.replace(resolved_body);
+            }
+
+            Ok(FunctionDeclaration::Declarant(func_name.clone(), new_params, new_body))
+        }
+    }
+
+}
+
+
+fn resolve_local_declaration(decl: &Declaration, identifier_map: &mut HashMap<String, IdentifierInfo>) -> Result<Declaration, String>
+{
+    match decl {
+        Declaration::VarDecl(VariableDeclaration::Declarant(var_name, initializer )) => {
+            let resolved_var_decl = resolve_variable_declaration(&VariableDeclaration::Declarant(var_name.clone(), initializer.clone()), identifier_map)?;
+            Ok(Declaration::VarDecl(resolved_var_decl))
+        },
+        Declaration::FunDecl(func_decl) => {
+            match func_decl {
+                FunctionDeclaration::Declarant(_,_,Some(_)) => {
+                    return Err(format!("Local function definitions are not allowed"));
+                },
+                _ => ()
+            }
+            let resolved_func_decl = resolve_function_declaration(func_decl, identifier_map)?;
+            Ok(Declaration::FunDecl(resolved_func_decl))
+        }
+    }
+}
+
+
+fn resolve_block_item(block_item: &BlockItem, identifier_map: &mut HashMap<String, IdentifierInfo>, labels: &HashMap<String, String>) -> Result<BlockItem, String>
+{
     match block_item {
         BlockItem::D(decl) => {
-            let resolved_decl = resolve_variable_declaration(decl, var_map)?;
+            let resolved_decl = resolve_local_declaration(decl, identifier_map)?;
             Ok(BlockItem::D(resolved_decl))
         },
         BlockItem::S(stmnt) => {
-            let resolved_stmnt = resolve_statement(stmnt, var_map, labels)?;
+            let resolved_stmnt = resolve_statement(stmnt, identifier_map, labels)?;
             Ok(BlockItem::S(resolved_stmnt))
         }
     }
-    */
 }
 
 
 
 
-fn resolve_block(block: &Block, var_map: &mut HashMap<String, LocalVariableInfo>, goto_labels: &HashMap<String, String>) -> Result<Block, String>
+fn resolve_block(block: &Block, identifier_map: &mut HashMap<String, IdentifierInfo>, goto_labels: &HashMap<String, String>) -> Result<Block, String>
 {
     let mut resolved_block_items = vec![];
 
     match block {
         Block::Blk(block_items) => {
             for block_item in block_items {
-                let resolved_block_item = resolve_block_item(&block_item, var_map, goto_labels)?;
+                let resolved_block_item = resolve_block_item(&block_item, identifier_map, goto_labels)?;
                 resolved_block_items.push(resolved_block_item);
             }
         }
@@ -349,35 +436,18 @@ fn resolve_block(block: &Block, var_map: &mut HashMap<String, LocalVariableInfo>
 }
 
 
-fn resolve_function(func_def: &FunctionDeclaration, var_map: &mut HashMap<String, LocalVariableInfo>) -> Result<FunctionDeclaration, String>
-{
-    panic!("resolve_function(): No longer implemented/supported");
-    /*
-    match func_def {
-        FunctionDeclaration::Function(name, block ) => {
-            let mut goto_labels = HashMap::new();
-            check_block_goto_labels(&block, &mut goto_labels)?;
-            let mut resolved_block = resolve_block(block, var_map, &goto_labels)?;
-            check_and_classify_block_break_statements(&mut resolved_block, &None)?;
-            label_block_loops(&mut resolved_block, &None)?;
-            label_block_switch_statements(&mut resolved_block, &None, &mut HashMap::new(), &mut None)?;
-            Ok(FunctionDeclaration::Function(name.clone(), resolved_block))
-        }
-    }
-    */
-}
-
 
 pub fn resolve_program(prog: &Program) -> Result<Program, String>
 {
-    panic!("resolve_program(): No longer implemented/supported");
-    /*
     match prog {
-        Program::ProgramDefinition(func_def) => {
-            let mut var_map = HashMap::new();
-            let resolved_func_def = resolve_function(func_def, &mut var_map)?;
-            Ok(Program::ProgramDefinition(resolved_func_def))
+        Program::ProgramDefinition(func_decls) => {
+            let mut identifier_map = HashMap::new();
+            let mut resolved_func_decls = vec![];
+            for func_decl in func_decls {
+                let resolved_func_decl = resolve_function_declaration(func_decl, &mut identifier_map)?;
+                resolved_func_decls.push(resolved_func_decl);
+            }
+            Ok(Program::ProgramDefinition(resolved_func_decls))
         }
     }
-    */
 }

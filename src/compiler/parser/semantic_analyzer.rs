@@ -16,9 +16,10 @@ mod switch_labeling;
 mod resolver;
 
 
-pub struct LocalVariableInfo {
+pub struct IdentifierInfo {
     global_name: String,
-    defined_in_current_block: bool
+    from_current_scope: bool,
+    has_linkage: bool
 }
 
 
