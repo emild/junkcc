@@ -1,12 +1,12 @@
 
 #[derive(Debug)]
 pub enum Program {
-    ProgramDefinition(FunctionDefinition)
+    ProgramDefinition(Vec<FunctionDefinition>)
 }
 
 #[derive(Debug)]
 pub enum FunctionDefinition {
-    Function(String /* name */, Vec<Instruction> /* body */)
+    Function(String /* name */, Vec<String> /* parameters */, Vec<Instruction> /* body */)
 }
 
 #[derive(Debug)]
@@ -18,7 +18,8 @@ pub enum Instruction {
     Jump(String /* Target label */),
     JumpIfNotZero(Val /* Value to test */, String /* Target label */),
     JumpIfZero(Val /* Value to test */, String /* Targer label */),
-    Label(String)
+    Label(String),
+    FuncCall(String /* name */, Vec<Val> /* parameters */, Val /* return value */)
 }
 
 #[derive(Debug, Clone)]

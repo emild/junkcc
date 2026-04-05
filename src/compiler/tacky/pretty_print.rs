@@ -140,23 +140,44 @@ fn pretty_print_tacky_instructions(instructions: &Vec<Instruction>, indent: usiz
             Instruction::Label(label) => {
                 println!("{}:", label);
             },
+            Instruction::FuncCall(func_name, args , ret_val) => {
+                print!("{}", " ".repeat(indent));
+                pretty_print_tacky_val(ret_val);
+                print!(" = CALL {}( ", func_name);
+                if !args.is_empty() {
+                    pretty_print_tacky_val(&args[0]);
+                    for i in 1..args.len() {
+                        print!(", ");
+                        pretty_print_tacky_val(&args[i]);
+                    }
+                }
+                println!(")")
+            }
             _ => {}
         };
     }
 }
 
+
 fn pretty_print_tacky_function(f: &FunctionDefinition, indent: usize)
 {
     match f {
-        FunctionDefinition::Function(func_name, instructions) => {
+        FunctionDefinition::Function(func_name, params, instructions) => {
             println!("{}Function(", " ".repeat(indent));
             println!("{}name={func_name}", " ".repeat(indent + 4));
+            print!("{}params=(", " ".repeat(indent + 4));
+            if !params.is_empty() {
+                print!("{}", params[0]);
+                for i in 1..params.len() {
+                    print!(", {}", params[i]);
+                }
+            }
+            println!(")");
             println!("{}body=(", " ".repeat(indent + 4));
             pretty_print_tacky_instructions(instructions, indent + 8);
             println!("{})", " ".repeat(indent + 4));
             println!("{})", " ".repeat(indent));
-        },
-        _ => ()
+        }
     }
 }
 
@@ -165,7 +186,11 @@ fn pretty_print_tacky_program(p: &Program, indent: usize)
 {
     println!("{}Program(", " ".repeat(indent));
     match p {
-        Program::ProgramDefinition(f) => pretty_print_tacky_function(&f, indent + 4),
+        Program::ProgramDefinition(funcs) => {
+            for func in funcs {
+                pretty_print_tacky_function(func, indent + 4);
+            }
+        }
         _ => ()
     };
 

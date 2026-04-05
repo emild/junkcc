@@ -244,7 +244,7 @@ fn generate_code_for_tacky_instructions(tacky_instructions: &Vec<tacky::ast::Ins
                 generate_code_for_tacky_label(&label, &mut instructions)?;
             }
 
-            //_ => { panic!("Invalid TACKY Instruction: {:?}", tacky_inst); }
+            _ => { panic!("Invalid TACKY Instruction: {:?}", tacky_inst); }
         };
     }
 
@@ -254,6 +254,9 @@ fn generate_code_for_tacky_instructions(tacky_instructions: &Vec<tacky::ast::Ins
 
 fn generate_code_for_function_definition(func_def: &tacky::ast::FunctionDefinition) -> Result<FunctionDefinition, String>
 {
+    panic!("generate_code_for_function_definition: Code generation no longer implemented/supported");
+
+    /*
     let (func_name, tacky_instructions) = match func_def {
         tacky::ast::FunctionDefinition::Function(f_name, tacky_instructions) => {
             (f_name, tacky_instructions)
@@ -266,10 +269,13 @@ fn generate_code_for_function_definition(func_def: &tacky::ast::FunctionDefiniti
     let instructions = generate_code_for_tacky_instructions(&tacky_instructions)?;
 
     Ok(FunctionDefinition::Function(func_name.clone(), instructions))
+    */
 }
 
 pub fn generate_code(program: &tacky::ast::Program) -> Result<Program, String>
 {
+    panic!("generate_code: Code generation no longer implemented/supported");
+    /*
     let func_def = match program {
         tacky::ast::Program::ProgramDefinition(func) => {
             let fd = generate_code_for_function_definition(&func)?;
@@ -281,4 +287,5 @@ pub fn generate_code(program: &tacky::ast::Program) -> Result<Program, String>
     };
 
     Ok(Program::ProgramDefinition(func_def))
+    */
 }

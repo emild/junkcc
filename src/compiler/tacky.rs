@@ -261,9 +261,24 @@ fn emit_tacky_expression(expr: &parser::ast::Expression, instructions: &mut Vec<
             instructions.push(Instruction::Label(lbl_cond_end));
 
             result
-        }
+        },
+        parser::ast::Expression::FunctionCall(func_name, args ) => {
+            let mut tacky_args = vec![];
 
-        _ => { panic!("TACKY Conversion: unsupported/unimplemented expression, got '{:?}'", expr); }
+            for arg in args {
+                let tacky_arg = emit_tacky_expression(arg, instructions)?;
+                tacky_args.push(tacky_arg);
+            }
+
+            let ret_val_name = make_temp_name();
+            let ret_val = Val::Var(ret_val_name);
+
+            instructions.push(Instruction::FuncCall(func_name.clone(), tacky_args, ret_val.clone()));
+
+            ret_val
+        }
+        //,
+        //  _ => { panic!("TACKY Conversion: unsupported/unimplemented expression, got '{:?}'", expr); }
     };
 
     Ok(val)
@@ -477,8 +492,17 @@ fn emit_tacky_block_item(block_item: &parser::ast::BlockItem, instructions: &mut
             emit_tacky_statement(stmnt, instructions)?;
         },
         parser::ast::BlockItem::D(decl) => {
-            panic!("TACKY GENERATION: Unsupported/Unimplemented block item: '{:?}'", block_item);
-            //emit_tacky_variable_declaration(decl, instructions)?;
+            match decl {
+                parser::ast::Declaration::VarDecl(var_decl) => {
+                    emit_tacky_variable_declaration(var_decl, instructions)?;
+                },
+                parser::ast::Declaration::FunDecl(parser::ast::FunctionDeclaration::Declarant(_ , _, None)) => {
+                    /* Nothing to emit */
+                },
+                parser::ast::Declaration::FunDecl(parser::ast::FunctionDeclaration::Declarant(_ , _, Some(_))) => {
+                    panic!("BUG: Local function definitions are not supported (the semantic analyzer should have caught this)");
+                }
+            };
         }
     };
 
@@ -501,34 +525,38 @@ fn emit_tacky_block(block: &parser::ast::Block, instructions: &mut Vec<Instructi
 
 fn emit_tacky_function_definition(func_def: &parser::ast::FunctionDeclaration) -> Result<FunctionDefinition, String>
 {
- /*
-    match func_def {
-        parser::ast::FunctionDeclaration::Function(name, block) => {
+     match func_def {
+        parser::ast::FunctionDeclaration::Declarant(func_name, params, Some(block)) => {
             let mut instructions = vec![];
 
             emit_tacky_block(block, &mut instructions)?;
 
+            //Force the function to return, in case control reaches the end of its body
             instructions.push(Instruction::Return(Val::IntConstant(0)));
-            Ok(FunctionDefinition::Function(name.clone(), instructions))
+            Ok(FunctionDefinition::Function(func_name.clone(), params.clone(), instructions))
         },
         _ => { return Err(format!("TACKY Conversion: expected function definition, got '{:?}'", *func_def)); }
     }
-    */
-    panic!("TACKY GENERATION: Function Definition NOT Supported/Implemented");
 }
 
 
 pub fn emit_tacky_program(program: &parser::ast::Program) -> Result<Program, String>
-{/*
+{
     match program {
-        parser::ast::Program::ProgramDefinition(func_def) => {
-            let tacky_func_def = emit_tacky_function_definition(&func_def)?;
-            Ok(Program::ProgramDefinition(tacky_func_def))
+        parser::ast::Program::ProgramDefinition(func_defs) => {
+            let mut tacky_func_defs = vec![];
+            for func_def in func_defs {
+                if let parser::ast::FunctionDeclaration::Declarant(_, _, Some(_)) = func_def {
+                    //Emit tacky only for function declarations that are definitions (i.e.  have bodies)
+                    let tacky_func_def = emit_tacky_function_definition(func_def)?;
+                    tacky_func_defs.push(tacky_func_def);
+                }
+            }
+            Ok(Program::ProgramDefinition(tacky_func_defs))
         },
         _ => { return Err(format!("Tacky conversion: expected ProgramDefinition, got '{:?}'", program)); }
     }
-    */
-    panic!("TACKY GENERATION: Program Definition no longer supported/implemented");
+
 }
 
 
