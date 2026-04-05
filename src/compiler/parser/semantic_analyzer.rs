@@ -14,6 +14,7 @@ mod goto_labels;
 mod break_classifier;
 mod switch_labeling;
 mod resolver;
+mod type_checker;
 
 
 pub struct IdentifierInfo {
@@ -32,4 +33,12 @@ enum LoopType {
 }
 
 
-pub use resolver::resolve_program;
+
+pub fn semantic_analysis(prog: &Program) -> Result<Program, String>
+{
+    let resolved_program = resolver::resolve_program(prog)?;
+    let mut symbol_table = HashMap::new();
+    type_checker::typecheck_program(&resolved_program, &mut symbol_table)?;
+
+    Ok(resolved_program)
+}

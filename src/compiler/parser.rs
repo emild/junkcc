@@ -5,6 +5,7 @@ pub mod ast;
 mod pretty_print;
 mod semantic_analyzer;
 
+
 use crate::compiler::lexer::{self, Token};
 use ast::*;
 
@@ -826,5 +827,4 @@ pub fn parse_program(l: &mut lexer::Lexer) -> Result<Program, String>
 }
 
 pub use pretty_print::pretty_print_ast;
-
-pub use semantic_analyzer::resolve_program;
+pub use semantic_analyzer::semantic_analysis;

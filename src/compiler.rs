@@ -10,8 +10,6 @@ mod tacky;
 mod codegen;
 
 
-
-
 pub fn run_lexer_test(lexer: &mut Lexer, input_file_path: &str) -> Result<(), String>
 {
     let mut no_tokens = true;
@@ -55,7 +53,7 @@ pub fn run(config: &Config, input_file_path: &str, output_file_path: &str) -> Re
                 return Ok(());
             }
 
-            let prog_ast = parser::resolve_program(&prog_ast)?;
+            let prog_ast = parser::semantic_analysis(&prog_ast)?;
             parser::pretty_print_ast(&prog_ast);
             if config.stop_after_semantic_analysis {
                 info!("Stopped after semantic analysis");
