@@ -15,7 +15,8 @@ fn pretty_print_operand(op: &Operand)
         Operand::Stack(idx) => {
             print!("STACK({})", idx);
         }
-        _ => { panic!("Invalid operand: '{:?}'", op); }
+        //,
+        // => { panic!("Invalid operand: '{:?}'", op); }
     };
 }
 
@@ -24,7 +25,7 @@ fn pretty_print_unary_operator(unary_op: &UnaryOperator)
     match unary_op {
         UnaryOperator::Neg => { print!("neg"); },
         UnaryOperator::Not => { print!("not"); },
-        _ => { panic!("Unexpected unary operator: '{:?}'", unary_op); }
+        //_ => { panic!("Unexpected unary operator: '{:?}'", unary_op); }
     }
 }
 
@@ -40,7 +41,7 @@ fn pretty_print_binary_operator(binary_op: &BinaryOperator)
         BinaryOperator::Xor => { print!("xor"); },
         BinaryOperator::Shl => { print!("sal"); },
         BinaryOperator::Shr => { print!("sar"); },
-        _ => { panic!("Unexpected binary operator: '{:?}'", binary_op); }
+        //_ => { panic!("Unexpected binary operator: '{:?}'", binary_op); }
     }
 }
 
@@ -73,11 +74,16 @@ fn pretty_print_instructions(instructions: &Vec<Instruction>, indent: usize)
 {
     for ins in instructions {
         match ins {
-            Instruction::Mov(src, dest ) => {
+            Instruction::Mov(src, dest) => {
                 print!("{}mov src=", " ".repeat(indent));
                 pretty_print_operand(&src);
                 print!(", dest=");
                 pretty_print_operand(&dest);
+                println!("");
+            },
+            Instruction::Push(src) => {
+                print!("{}push ", " ".repeat(indent));
+                pretty_print_operand(src);
                 println!("");
             },
             Instruction::Ret => {
@@ -85,6 +91,9 @@ fn pretty_print_instructions(instructions: &Vec<Instruction>, indent: usize)
             },
             Instruction::AllocateStack(size) => {
                 println!("{}AllocateStack({})", " ".repeat(indent), size);
+            },
+            Instruction::DeallocateStack(size) => {
+                println!("{}DeallocateStack({})", " ".repeat(indent), size);
             },
             Instruction::Unary(unary_op, dest) => {
                 print!("{}", " ".repeat(indent));
@@ -134,8 +143,13 @@ fn pretty_print_instructions(instructions: &Vec<Instruction>, indent: usize)
                 print!(" ");
                 pretty_print_operand(&dest);
                 println!("");
-            }
-            _ => { panic!("Unknown instruction: '{:?}'", ins); }
+            },
+            Instruction::Call(label) => {
+                println!("{}call {}", " ".repeat(indent), label);
+            },
+
+
+          //  _ => { panic!("Unknown instruction: '{:?}'", ins); }
         };
     }
 }
@@ -151,7 +165,7 @@ fn pretty_print_function(f: &FunctionDefinition, indent: usize)
             println!("{})", " ".repeat(indent + 4));
             println!("{})", " ".repeat(indent));
         },
-        _ => { panic!("Invalid function definiton: '{:?}'", f); }
+        //_ => { panic!("Invalid function definiton: '{:?}'", f); }
     }
 }
 
@@ -160,11 +174,15 @@ fn pretty_print_program(p: &Program, indent: usize)
 {
     println!("{}Program(", " ".repeat(indent));
     match p {
-        Program::ProgramDefinition(f) => pretty_print_function(&f, indent + 4),
-        _ => { panic!("Invalid program definition: '{:?}'", p); }
+        Program::ProgramDefinition(func_defs) => {
+            for func_def in func_defs {
+                pretty_print_function(func_def, indent + 4);
+                println!("");
+            }
+        },
+        //_ => { panic!("Invalid program definition: '{:?}'", p); }
     };
-
-    println!("{})", " ".repeat(indent));
+    println!("{})", " ".repeat(indent))
 }
 
 

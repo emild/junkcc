@@ -1,4 +1,4 @@
-use std::mem::replace;
+use std::ops::Not;
 
 use super::ast::*;
 
@@ -101,9 +101,11 @@ fn fixup_instruction_operands(instruction: &Instruction) -> Option<Vec<Instructi
 }
 
 
-fn fixup_function_body_instructions(instructions: &mut Vec<Instruction>, stack_allocation_size: i64) -> Result<(), String>
+fn fixup_function_body_instructions(instructions: &mut Vec<Instruction>, stack_allocation_size: usize) -> Result<(), String>
 {
-    let mut new_instructions: Vec<Instruction> = vec![ Instruction::AllocateStack(stack_allocation_size) ];
+    const ALIGNMENT : usize = 16;
+    let rounded_stack_allocation_size = (stack_allocation_size + ALIGNMENT - 1) & !(ALIGNMENT - 1);
+    let mut new_instructions: Vec<Instruction> = vec![ Instruction::AllocateStack(rounded_stack_allocation_size) ];
 
     for it in instructions.drain(..) {
 
@@ -122,7 +124,7 @@ fn fixup_function_body_instructions(instructions: &mut Vec<Instruction>, stack_a
 
 
 
-fn fixup_function_instructions(func_def: &mut FunctionDefinition, stack_allocation_size: i64) -> Result<(), String>
+pub fn fixup_function_instructions(func_def: &mut FunctionDefinition, stack_allocation_size: usize) -> Result<(), String>
 {
     match  func_def {
         FunctionDefinition::Function(func_name, instructions) => {
@@ -134,23 +136,4 @@ fn fixup_function_instructions(func_def: &mut FunctionDefinition, stack_allocati
     };
 
     Ok(())
-}
-
-
-pub fn fixup_instructions(program: &mut Program, stack_allocation_size: i64) -> Result<(), String>
-{
-    if stack_allocation_size < 0 {
-        return Err(format!("Fixup instructions: Invalid stack allocation size: {}", stack_allocation_size));
-    }
-
-    match program {
-        Program::ProgramDefinition(func_def) => {
-            fixup_function_instructions(func_def, stack_allocation_size)?;
-            Ok(())
-        },
-
-        _ => {
-            return Err(format!("Fixup instructions: Expected program definiton, got {:?}", program));
-        }
-    }
 }

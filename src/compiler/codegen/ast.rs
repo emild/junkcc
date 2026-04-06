@@ -6,6 +6,10 @@ pub enum Register {
     CX,
     DL,
     DX,
+    DI,
+    SI,
+    R8,
+    R9,
     R10B,
     R10,
     R11B,
@@ -62,7 +66,10 @@ pub enum Instruction {
     JmpCC(CC, String),
     SetCC(CC, Operand),
     Label(String),
-    AllocateStack(i64),
+    AllocateStack(usize),
+    DeallocateStack(usize),
+    Push(Operand),
+    Call(String),
     Ret
 }
 
@@ -73,5 +80,5 @@ pub enum FunctionDefinition {
 
 #[derive(Debug)]
 pub enum Program {
-    ProgramDefinition(FunctionDefinition)
+    ProgramDefinition(Vec<FunctionDefinition>)
 }

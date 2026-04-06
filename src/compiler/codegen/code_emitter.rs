@@ -125,6 +125,8 @@ fn emit_jmpcc_instruction(cc: &CC, label: &String, buf_writer: &mut BufWriter<fs
 }
 
 
+
+
 fn emit_body(instructions: &Vec<Instruction>, buf_writer: &mut BufWriter<fs::File>) -> std::io::Result<()>
 {
     for ins in instructions {
@@ -220,8 +222,10 @@ fn emit_function(f: &FunctionDefinition, buf_writer: &mut BufWriter<fs::File>) -
 fn emit_program(program: &Program, buf_writer: &mut BufWriter<fs::File>) -> std::io::Result<()>
 {
     match program {
-        Program::ProgramDefinition(f) => {
-            emit_function(&f, buf_writer)?;
+        Program::ProgramDefinition(func_defs) => {
+            for func_def in func_defs {
+                emit_function(&func_def, buf_writer)?;
+            }
             Ok(())
         },
         _ => Err(std::io::Error::other(format!("Unsupported Program Definiton: '{:?}'", program)))

@@ -1,3 +1,5 @@
+use std::cmp::min;
+
 use super::super::tacky;
 use super::ast::*;
 
@@ -213,79 +215,177 @@ fn generate_code_for_tacky_label(
 }
 
 
-fn generate_code_for_tacky_instructions(tacky_instructions: &Vec<tacky::ast::Instruction>) -> Result<Vec<Instruction>, String>
-{
-    let mut instructions = vec![];
 
+fn generate_code_for_tacky_function_call(func_name: &String, args: &Vec<tacky::ast::Val>, ret_val: &tacky::ast::Val, instructions: &mut Vec<Instruction>) -> Result<(), String>
+{
+    // First 6 arguments are found in the registers below; The following arguments are pushed onto stack, in reverse order
+    let args_registers = [
+        Register::DI,
+        Register::SI,
+        Register::DX,
+        Register::CX,
+        Register::R8,
+        Register::R9
+    ];
+
+    let num_reg_args = min(args.len(), args_registers.len());
+
+    let mut register_args = vec![];
+    for i in 0..num_reg_args {
+        register_args.push(args[i].clone());
+    }
+
+    let mut stack_args = vec![];
+    for i in num_reg_args..args.len() {
+        stack_args.push(args[i].clone());
+    }
+
+    let stack_padding: usize = if stack_args.len() % 2 == 0 {
+        0
+    } else {
+        8
+    };
+
+    if stack_padding != 0 {
+        instructions.push(Instruction::AllocateStack(stack_padding));
+    }
+
+    let mut reg_index = 0;
+    for tacky_arg in register_args {
+        let assembly_arg = convert_tacky_value_to_operand(&tacky_arg)?;
+        instructions.push(Instruction::Mov(assembly_arg, Operand::Reg(args_registers[reg_index].clone())));
+        reg_index += 1;
+    }
+
+    for tacky_arg in stack_args.iter().rev() {
+        let assembly_arg = convert_tacky_value_to_operand(tacky_arg)?;
+        match assembly_arg {
+            Operand::Imm(_) |
+            Operand::Reg(_) => {
+                instructions.push(Instruction::Push(assembly_arg.clone()));
+            }
+            _ => {
+                instructions.push(Instruction::Mov(assembly_arg, Operand::Reg(Register::AX)));
+                instructions.push(Instruction::Push(Operand::Reg(Register::AX)));
+            }
+        }
+    }
+
+    instructions.push(Instruction::Call(func_name.clone()));
+
+    let bytes_to_remove = 8 * stack_args.len() + stack_padding;
+
+    if bytes_to_remove != 0 {
+        instructions.push(Instruction::DeallocateStack(bytes_to_remove));
+    }
+
+    let assembly_dst = convert_tacky_value_to_operand(ret_val)?;
+    instructions.push(Instruction::Mov(Operand::Reg(Register::AX), assembly_dst));
+
+
+    Ok(())
+}
+
+
+
+fn generate_code_for_tacky_instructions(tacky_instructions: &Vec<tacky::ast::Instruction>, instructions: &mut Vec<Instruction>) -> Result<(), String>
+{
     for tacky_inst in tacky_instructions {
         match tacky_inst {
             tacky::ast::Instruction::Return(ret_val) => {
-                generate_code_for_tacky_ret_instruction(ret_val, &mut instructions)?;
+                generate_code_for_tacky_ret_instruction(ret_val, instructions)?;
             },
             tacky::ast::Instruction::Unary(tacky_unary_op, src, dst) => {
-                generate_code_for_tacky_unary_instruction(tacky_unary_op, &src, &dst, &mut instructions)?;
+                generate_code_for_tacky_unary_instruction(tacky_unary_op, &src, &dst, instructions)?;
             },
             tacky::ast::Instruction::Binary(tacky_binary_op, src1, src2, dst) => {
-                 generate_code_for_tacky_binary_instruction(tacky_binary_op, &src1, &src2, &dst, &mut instructions)?;
+                 generate_code_for_tacky_binary_instruction(tacky_binary_op, &src1, &src2, &dst, instructions)?;
             },
             tacky::ast::Instruction::Copy(src, dst) => {
-                generate_code_for_tacky_copy_instruction(&src, &dst, &mut instructions)?;
+                generate_code_for_tacky_copy_instruction(&src, &dst, instructions)?;
             },
             tacky::ast::Instruction::Jump(label) => {
-                generate_code_for_tacky_jump_instruction(&label, &mut instructions)?;
+                generate_code_for_tacky_jump_instruction(&label, instructions)?;
             },
             tacky::ast::Instruction::JumpIfZero(val, label) => {
-                generate_code_for_tacky_conditional_jump_instruction(&CC::E, &val, &label, &mut instructions)?;
+                generate_code_for_tacky_conditional_jump_instruction(&CC::E, &val, &label, instructions)?;
             },
             tacky::ast::Instruction::JumpIfNotZero(val, label) => {
-                generate_code_for_tacky_conditional_jump_instruction(&CC::NE, &val, &label, &mut instructions)?;
+                generate_code_for_tacky_conditional_jump_instruction(&CC::NE, &val, &label, instructions)?;
             },
             tacky::ast::Instruction::Label(label) => {
-                generate_code_for_tacky_label(&label, &mut instructions)?;
-            }
+                generate_code_for_tacky_label(&label, instructions)?;
+            },
+            tacky::ast::Instruction::FuncCall(func_name, args, ret_val) => {
+                generate_code_for_tacky_function_call(func_name, args, ret_val, instructions)?;
+            },
 
             _ => { panic!("Invalid TACKY Instruction: {:?}", tacky_inst); }
         };
     }
 
-    Ok(instructions)
+    Ok(())
 }
 
 
 fn generate_code_for_function_definition(func_def: &tacky::ast::FunctionDefinition) -> Result<FunctionDefinition, String>
 {
-    panic!("generate_code_for_function_definition: Code generation no longer implemented/supported");
+    match func_def {
+        tacky::ast::FunctionDefinition::Function(func_name, params, tacky_instructions) => {
+            let mut new_instructions = vec![];
+            // First 6 parameters are found in the registers below; The following parameters are pushed onto stack, in reverse order
+            let params_registers = [
+                Register::DI,
+                Register::SI,
+                Register::DX,
+                Register::CX,
+                Register::R8,
+                Register::R9
+            ];
 
-    /*
-    let (func_name, tacky_instructions) = match func_def {
-        tacky::ast::FunctionDefinition::Function(f_name, tacky_instructions) => {
-            (f_name, tacky_instructions)
-        },
-        _ => {
-            return Err(format!("Expected function definitions, got {:?}", func_def));
+            let num_reg_params = min(params.len(), params_registers.len());
+
+            for reg_idx in 0..num_reg_params {
+                new_instructions.push(Instruction::Mov(Operand::Reg(params_registers[reg_idx].clone()), Operand::Pseudo(params[reg_idx].clone())));
+            }
+
+            for param_idx in num_reg_params.. params.len() {
+                let stack_idx =  16 + 8 * (param_idx - num_reg_params);
+                new_instructions.push(Instruction::Mov(Operand::Stack(stack_idx as i64), Operand::Pseudo(params[param_idx].clone())));
+            }
+
+            generate_code_for_tacky_instructions(tacky_instructions, &mut new_instructions)?;
+
+            Ok(FunctionDefinition::Function(func_name.clone(), new_instructions))
         }
-    };
+        //,
+        //_ => {
+        //    return Err(format!("Expected function definitions, got {:?}", func_def));
+        //}
+    }
 
-    let instructions = generate_code_for_tacky_instructions(&tacky_instructions)?;
-
-    Ok(FunctionDefinition::Function(func_name.clone(), instructions))
-    */
 }
+
+
 
 pub fn generate_code(program: &tacky::ast::Program) -> Result<Program, String>
 {
-    panic!("generate_code: Code generation no longer implemented/supported");
-    /*
-    let func_def = match program {
-        tacky::ast::Program::ProgramDefinition(func) => {
-            let fd = generate_code_for_function_definition(&func)?;
-            fd
-        },
-        _ => {
-            return Err(format!("Expected program definition, got {:?}", program));
+    let func_defs = match program {
+            tacky::ast::Program::ProgramDefinition(func_defs) => {
+            let mut fds = vec![];
+
+            for func_def in func_defs {
+                let fd = generate_code_for_function_definition(&func_def)?;
+                fds.push(fd);
+            }
+
+            fds
         }
+        //,
+        //_ => {
+        //    return Err(format!("Expected program definition, got {:?}", program));
+        //}
     };
 
-    Ok(Program::ProgramDefinition(func_def))
-    */
+    Ok(Program::ProgramDefinition(func_defs))
 }

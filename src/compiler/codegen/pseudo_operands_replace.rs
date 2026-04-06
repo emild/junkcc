@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 
 use super::ast::*;
+use super::fixup_function_instructions;
 
 struct PseudoOperandState {
     pseudo_op_table: HashMap<String, i64>,
@@ -31,11 +32,11 @@ impl PseudoOperandState {
         }
     }
 
-    pub fn get_stack_allocation_size(&self) -> i64 { -self.current_stack_index }
+    pub fn get_stack_allocation_size(&self) -> usize { -self.current_stack_index as usize }
 }
 
 
-fn replace_pseudo_operands_in_function_body(instructions: &mut Vec<Instruction>) -> Result<i64, String>
+fn replace_pseudo_operands_in_function_body(instructions: &mut Vec<Instruction>) -> Result<usize, String>
 {
 
     let mut pseudo_operand_state = PseudoOperandState::new();
@@ -46,6 +47,10 @@ fn replace_pseudo_operands_in_function_body(instructions: &mut Vec<Instruction>)
                 let new_src = pseudo_operand_state.replace_operand(&src);
                 let new_dst = pseudo_operand_state.replace_operand(&dst);
                 Some(Instruction::Mov(new_src, new_dst))
+            },
+            Instruction::Push(src) => {
+                let new_src = pseudo_operand_state.replace_operand(&src);
+                Some(Instruction::Push(new_src))
             },
             Instruction::Unary(unary_op, dst ) => {
                 let new_dest = pseudo_operand_state.replace_operand(&dst);
@@ -81,15 +86,16 @@ fn replace_pseudo_operands_in_function_body(instructions: &mut Vec<Instruction>)
 }
 
 //Any pseudo operands are replaced with stack locations
-//Returns the maximum stack location (i.e. the number of bytes to be allocated on the stack)
-pub fn replace_pseudo_operands(program: &mut Program) -> Result<i64, String>
+pub fn replace_pseudo_operands(program: &mut Program) -> Result<(), String>
 {
     match program {
-        Program::ProgramDefinition(FunctionDefinition::Function(name, instructions )) =>
-        {
-            let stack_size = replace_pseudo_operands_in_function_body(instructions)?;
-
-            Ok(stack_size)
+        Program::ProgramDefinition(func_defs) => {
+            for func_def in func_defs {
+                let FunctionDefinition::Function(_, instructions ) = func_def;
+                let stack_allocation_size = replace_pseudo_operands_in_function_body(instructions)?;
+                fixup_function_instructions(func_def, stack_allocation_size)?;
+            }
+            Ok(())
         }
     }
 }

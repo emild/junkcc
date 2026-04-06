@@ -47,6 +47,7 @@ pub fn run(config: &Config, input_file_path: &str, output_file_path: &str) -> Re
 
     match parser::parse_program(&mut lexer) {
         Ok(prog_ast) => {
+            println!("\nAFTER STAGE: PARSE");
             parser::pretty_print_ast(&prog_ast);
             if config.stop_after_parser {
                 info!("Stopped after parser");
@@ -54,6 +55,7 @@ pub fn run(config: &Config, input_file_path: &str, output_file_path: &str) -> Re
             }
 
             let prog_ast = parser::semantic_analysis(&prog_ast)?;
+            println!("\nAFTER STAGE: SEMANTIC ANALYSIS");
             parser::pretty_print_ast(&prog_ast);
             if config.stop_after_semantic_analysis {
                 info!("Stopped after semantic analysis");
@@ -61,6 +63,7 @@ pub fn run(config: &Config, input_file_path: &str, output_file_path: &str) -> Re
             }
 
             let prog_tacky_ast = tacky::generate_tacky_ast(&prog_ast)?;
+            println!("\nAFTER STAGE: TACKY GENERATION");
             tacky::pretty_print_tacky_ast(&prog_tacky_ast);
             if config.stop_after_tacky_generation {
                 info!("Stopped after TACKY generation");
@@ -68,12 +71,13 @@ pub fn run(config: &Config, input_file_path: &str, output_file_path: &str) -> Re
             }
 
             let mut prog_code_ast = codegen::generate_code_ast(&prog_tacky_ast)?;
+
+            println!("\nAFTER STAGE: CODE GENERATION");
             codegen::pretty_print_code_ast(&prog_code_ast);
 
-            let stack_allocation_size = codegen::replace_pseudo_operands(&mut prog_code_ast)?;
-            codegen::pretty_print_code_ast(&prog_code_ast);
+            codegen::replace_pseudo_operands(&mut prog_code_ast)?;
 
-            codegen::fixup_instructions(&mut prog_code_ast, stack_allocation_size)?;
+            println!("\nAFTER STAGE: PSEUDO REGISTERS REPLACEMENT");
             codegen::pretty_print_code_ast(&prog_code_ast);
 
             if config.stop_after_assembly_generation {
