@@ -1,27 +1,112 @@
+use std::collections::HashMap;
 use std::fs;
 use std::io::Write;
 use std::io::BufWriter;
 use super::ast::*;
+use super::super::parser::Type;
 
 
-fn emit_operand(op: &Operand, buf_writer: &mut BufWriter<fs::File>) -> std::io::Result<()>
+enum OperandSize {
+    Byte,
+    Word,
+    Dword,
+    Qword
+}
+
+
+fn emit_byte_register(reg: &Register) -> std::io::Result<String>
+{
+    let reg_str = match reg {
+        Register::AX  => "al",
+        Register::BX  => "bl",
+        Register::CX  => "cl",
+        Register::DX  => "dl",
+        Register::SI |
+        Register::DI  => { return Err(std::io::Error::other(format!("Register '{:?}' cannot be used as byte operand", reg))); }
+        Register::R8  => "r8b",
+        Register::R9  => "r9b",
+        Register::R10 => "r10b",
+        Register::R11 => "r11b"
+    };
+
+    Ok(reg_str.to_string())
+}
+
+fn emit_word_register(reg: &Register) -> std::io::Result<String>
+{
+    let reg_str = match reg {
+        Register::AX  => "ax",
+        Register::BX  => "bx",
+        Register::CX  => "cx",
+        Register::DX  => "dx",
+        Register::SI  => "si",
+        Register::DI  => "di",
+        Register::R8  => "r8w",
+        Register::R9  => "r9w",
+        Register::R10 => "r10w",
+        Register::R11 => "r11w"
+    };
+
+    Ok(reg_str.to_string())
+}
+
+
+fn emit_dword_register(reg: &Register) -> std::io::Result<String>
+{
+    let reg_str = match reg {
+        Register::AX  => "eax",
+        Register::BX  => "ebx",
+        Register::CX  => "ecx",
+        Register::DX  => "edx",
+        Register::SI  => "esi",
+        Register::DI  => "edi",
+        Register::R8  => "r8d",
+        Register::R9  => "r9d",
+        Register::R10 => "r10d",
+        Register::R11 => "r11d"
+    };
+
+    Ok(reg_str.to_string())
+}
+
+
+fn emit_qword_register(reg: &Register) -> std::io::Result<String>
+{
+    let reg_str = match reg {
+        Register::AX  => "rax",
+        Register::BX  => "rbx",
+        Register::CX  => "rcx",
+        Register::DX  => "rdx",
+        Register::SI  => "rsi",
+        Register::DI  => "rdi",
+        Register::R8  => "r8",
+        Register::R9  => "r9",
+        Register::R10 => "r10",
+        Register::R11 => "r11"
+    };
+
+    Ok(reg_str.to_string())
+}
+
+
+fn emit_register(reg: &Register, op_size: &OperandSize) -> std::io::Result<String>
+{
+    let reg_str = match op_size {
+        OperandSize::Byte => emit_byte_register(reg)?,
+        OperandSize::Word => emit_word_register(reg)?,
+        OperandSize::Dword => emit_dword_register(reg)?,
+        OperandSize::Qword => emit_qword_register(reg)?
+    };
+
+    Ok(reg_str)
+}
+
+
+fn emit_operand(op: &Operand, op_size: &OperandSize, buf_writer: &mut BufWriter<fs::File>) -> std::io::Result<()>
 {
     match op {
         Operand::Reg(r) => {
-            let reg_str = match r {
-                Register::AL => "al",
-                Register::AX => "eax",
-                Register::CL => "cl",
-                Register::CX => "ecx",
-                Register::DL => "dl",
-                Register::DX => "edx",
-                Register::R10B => "r10b",
-                Register::R10 => "r10d",
-                Register::R11B => "r11b",
-                Register::R11 => "r11d",
-                _ => { return Err(std::io::Error::other(format!("Code emit: Unsupported register: '{:?}'", r))); }
-            };
-
+            let reg_str = emit_register(r, op_size)?;
             write!(buf_writer, "%{}", reg_str)?;
             Ok(())
         },
@@ -46,7 +131,7 @@ fn emit_unary_operator(unary_operator: &UnaryOperator, dst: &Operand, buf_writer
     };
 
     write!(buf_writer, "{}{} ", " ".repeat(16), operator_str)?;
-    emit_operand(dst, buf_writer)?;
+    emit_operand(dst, &OperandSize::Dword, buf_writer)?;
     writeln!(buf_writer, "")?;
 
     Ok(())
@@ -54,22 +139,22 @@ fn emit_unary_operator(unary_operator: &UnaryOperator, dst: &Operand, buf_writer
 
 fn emit_binary_operator(binary_operator: &BinaryOperator, src: &Operand, dst: &Operand, buf_writer: &mut BufWriter<fs::File>) -> std::io::Result<()>
 {
-    let operator_str = match binary_operator {
-        BinaryOperator::Add => "addl",
-        BinaryOperator::Sub => "subl",
-        BinaryOperator::Mul => "imull",
-        BinaryOperator::And => "andl",
-        BinaryOperator::Or  => "orl",
-        BinaryOperator::Xor => "xorl",
-        BinaryOperator::Shl => "sall",
-        BinaryOperator::Shr => "sarl",
+    let (operator_str, src_size, dst_size) = match binary_operator {
+        BinaryOperator::Add => ("addl", OperandSize::Dword, OperandSize::Dword),
+        BinaryOperator::Sub => ("subl", OperandSize::Dword, OperandSize::Dword),
+        BinaryOperator::Mul => ("imull", OperandSize::Dword, OperandSize::Dword),
+        BinaryOperator::And => ("andl", OperandSize::Dword, OperandSize::Dword),
+        BinaryOperator::Or  => ("orl", OperandSize::Dword, OperandSize::Dword),
+        BinaryOperator::Xor => ("xorl", OperandSize::Dword, OperandSize::Dword),
+        BinaryOperator::Shl => ("sall", OperandSize::Byte, OperandSize::Dword),
+        BinaryOperator::Shr => ("sarl", OperandSize::Byte, OperandSize::Dword),
         _ => { return Err(std::io::Error::other(format!("Emit Code: Unsupported binary operand, got '{:?}'", binary_operator))); }
     };
 
     write!(buf_writer, "{}{} ", " ".repeat(16), operator_str)?;
-    emit_operand(src, buf_writer)?;
+    emit_operand(src, &src_size, buf_writer)?;
     write!(buf_writer, ", ")?;
-    emit_operand(dst, buf_writer)?;
+    emit_operand(dst, &dst_size, buf_writer)?;
     writeln!(buf_writer, "")?;
 
     Ok(())
@@ -106,7 +191,7 @@ fn emit_setcc_instruction(cc: &CC, dest: &Operand, buf_writer: &mut BufWriter<fs
     write!(buf_writer, "set")?;
     emit_cc(&cc, buf_writer)?;
     write!(buf_writer, " ")?;
-    emit_operand(dest, buf_writer)?;
+    emit_operand(dest, &OperandSize::Byte, buf_writer)?;
     writeln!(buf_writer, "")?;
 
     Ok(())
@@ -124,21 +209,46 @@ fn emit_jmpcc_instruction(cc: &CC, label: &String, buf_writer: &mut BufWriter<fs
     Ok(())
 }
 
+fn emit_call_instruction(label: &String, symbol_table: &HashMap<String, Type>, buf_writer: &mut BufWriter<fs::File>) -> std::io::Result<()>
+{
+    let mut target_label = String::new();
+    let func_type = symbol_table.get(label);
+    match func_type {
+        Some(Type::FuncType(_, true)) => {
+            //Locally defined function
+            target_label = label.clone();
+        },
+        _ => {
+            target_label = format!("{}@PLT", label);
+        }
+    };
+
+    writeln!(buf_writer, "call {}", target_label)?;
+
+    Ok(())
+}
 
 
-
-fn emit_body(instructions: &Vec<Instruction>, buf_writer: &mut BufWriter<fs::File>) -> std::io::Result<()>
+fn emit_body(instructions: &Vec<Instruction>, symbol_table: &HashMap<String, Type>, buf_writer: &mut BufWriter<fs::File>) -> std::io::Result<()>
 {
     for ins in instructions {
         match ins {
             Instruction::AllocateStack(stack_allocation_size) => {
                 writeln!(buf_writer, "{}subq ${}, %rsp", " ".repeat(16), stack_allocation_size)?;
             },
+            Instruction::DeallocateStack(stack_allocation_size) => {
+                writeln!(buf_writer, "{}addq ${}, %rsp", " ".repeat(16), stack_allocation_size)?;
+            },
             Instruction::Mov(src, dest ) => {
                 write!(buf_writer, "{}movl ", " ".repeat(16))?;
-                emit_operand(&src, buf_writer)?;
+                emit_operand(&src, &OperandSize::Dword, buf_writer)?;
                 write!(buf_writer, ", ")?;
-                emit_operand(&dest, buf_writer)?;
+                emit_operand(&dest, &OperandSize::Dword, buf_writer)?;
+                writeln!(buf_writer, "")?;
+            },
+            Instruction::Push(src) => {
+                write!(buf_writer, "{}pushq ", " ".repeat(16))?;
+                emit_operand(src, &OperandSize::Qword, buf_writer)?;
                 writeln!(buf_writer, "")?;
             },
             Instruction::Ret => {
@@ -158,14 +268,14 @@ fn emit_body(instructions: &Vec<Instruction>, buf_writer: &mut BufWriter<fs::Fil
             },
             Instruction::Idiv(divisor) => {
                 write!(buf_writer, "{}idivl ", " ".repeat(16))?;
-                emit_operand(divisor, buf_writer)?;
+                emit_operand(divisor, &OperandSize::Dword, buf_writer)?;
                 writeln!(buf_writer, "")?;
             },
             Instruction::Cmp(src1, src2) => {
                 write!(buf_writer, "{}cmpl ", " ".repeat(16))?;
-                emit_operand(src1, buf_writer)?;
+                emit_operand(src1, &OperandSize::Dword, buf_writer)?;
                 write!(buf_writer, ", ")?;
-                emit_operand(src2, buf_writer)?;
+                emit_operand(src2, &OperandSize::Dword, buf_writer)?;
                 writeln!(buf_writer, "")?;
             },
             Instruction::SetCC(cc, dest ) => {
@@ -181,12 +291,16 @@ fn emit_body(instructions: &Vec<Instruction>, buf_writer: &mut BufWriter<fs::Fil
                 write!(buf_writer, "{}", " ".repeat(16))?;
                 emit_jmpcc_instruction(cc, label, buf_writer)?;
             },
+            Instruction::Call(label) => {
+                write!(buf_writer, "{}", " ".repeat(16))?;
+                emit_call_instruction(label, symbol_table, buf_writer)?;
+            }
             Instruction::Label(label) => {
                 writeln!(buf_writer, "L.{}:", label)?;
             },
-            _ => {
-                return Err(std::io::Error::other(format!("Unsupported instruction '{:?}'", ins)));
-            }
+          //  _ => {
+          //      return Err(std::io::Error::other(format!("Unsupported instruction '{:?}'", ins)));
+          //  }
         };
     }
     Ok(())
@@ -194,7 +308,7 @@ fn emit_body(instructions: &Vec<Instruction>, buf_writer: &mut BufWriter<fs::Fil
 
 
 
-fn emit_function(f: &FunctionDefinition, buf_writer: &mut BufWriter<fs::File>) -> std::io::Result<()>
+fn emit_function(f: &FunctionDefinition, symbol_table: &HashMap<String, Type>, buf_writer: &mut BufWriter<fs::File>) -> std::io::Result<()>
 {
     match f {
         FunctionDefinition::Function(func_name, instructions) => {
@@ -208,7 +322,7 @@ fn emit_function(f: &FunctionDefinition, buf_writer: &mut BufWriter<fs::File>) -
             writeln!(buf_writer, "{}pushq %rbp", " ".repeat(16))?;
             writeln!(buf_writer, "{}movq %rsp, %rbp", " ".repeat(16))?;
 
-            emit_body(instructions, buf_writer)?;
+            emit_body(instructions, symbol_table, buf_writer)?;
 
             writeln!(buf_writer, "")?;
             Ok(())
@@ -219,26 +333,26 @@ fn emit_function(f: &FunctionDefinition, buf_writer: &mut BufWriter<fs::File>) -
 
 
 
-fn emit_program(program: &Program, buf_writer: &mut BufWriter<fs::File>) -> std::io::Result<()>
+fn emit_program(program: &Program, symbol_table: &HashMap<String, Type>, buf_writer: &mut BufWriter<fs::File>) -> std::io::Result<()>
 {
     match program {
         Program::ProgramDefinition(func_defs) => {
             for func_def in func_defs {
-                emit_function(&func_def, buf_writer)?;
+                emit_function(&func_def, symbol_table, buf_writer)?;
             }
             Ok(())
         },
-        _ => Err(std::io::Error::other(format!("Unsupported Program Definiton: '{:?}'", program)))
+        //_ => Err(std::io::Error::other(format!("Unsupported Program Definiton: '{:?}'", program)))
     }
 }
 
 
-pub fn emit_code(program: &Program, output_file_path: &str) -> std::io::Result<()>
+pub fn emit_code(program: &Program, symbol_table: &HashMap<String, Type>, output_file_path: &str) -> std::io::Result<()>
 {
     let file = fs::File::create(output_file_path)?;
     let mut buf_writer = BufWriter::new(file);
 
-    emit_program(&program, &mut buf_writer)?;
+    emit_program(&program, symbol_table, &mut buf_writer)?;
 
     let stack_protection = ".section .note.GNU-stack,\"\",@progbits";
     writeln!(&mut buf_writer, "{}", stack_protection)?;

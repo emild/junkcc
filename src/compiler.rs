@@ -54,7 +54,7 @@ pub fn run(config: &Config, input_file_path: &str, output_file_path: &str) -> Re
                 return Ok(());
             }
 
-            let prog_ast = parser::semantic_analysis(&prog_ast)?;
+            let (prog_ast, symbol_table) = parser::semantic_analysis(&prog_ast)?;
             println!("\nAFTER STAGE: SEMANTIC ANALYSIS");
             parser::pretty_print_ast(&prog_ast);
             if config.stop_after_semantic_analysis {
@@ -85,7 +85,7 @@ pub fn run(config: &Config, input_file_path: &str, output_file_path: &str) -> Re
                 return Ok(());
             }
 
-            match codegen::emit_code(&prog_code_ast, output_file_path) {
+            match codegen::emit_code(&prog_code_ast, &symbol_table, output_file_path) {
                 Ok(()) => Ok(()),
                 Err(e) => Err(format!("Code emission error: {}", e))
             }

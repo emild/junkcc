@@ -1,18 +1,14 @@
 #[derive(Debug, Clone)]
 pub enum Register {
-    AL,
     AX,
-    CL,
+    BX,
     CX,
-    DL,
     DX,
     DI,
     SI,
     R8,
     R9,
-    R10B,
     R10,
-    R11B,
     R11
 }
 

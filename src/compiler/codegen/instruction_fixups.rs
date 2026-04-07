@@ -42,17 +42,28 @@ fn fixup_instruction_operands(instruction: &Instruction) -> Option<Vec<Instructi
                 Instruction::Binary(BinaryOperator::Xor, Operand::Reg(Register::R10), Operand::Stack(*dst_idx))
             ])
         },
-        Instruction::Binary(BinaryOperator::Shl, Operand::Stack(src_idx), Operand::Stack(dst_idx)) => {
-            Some(vec![
-                Instruction::Mov(Operand::Stack(*src_idx), Operand::Reg(Register::CX)),
-                Instruction::Binary(BinaryOperator::Shl, Operand::Reg(Register::CL), Operand::Stack(*dst_idx))
-            ])
+        Instruction::Binary(BinaryOperator::Shl, src, dst) => {
+            let result = match src {
+                Operand::Reg(Register::CX) => None,
+                _ => Some(vec![
+                        Instruction::Mov(src.clone(), Operand::Reg(Register::CX)),
+                        Instruction::Binary(BinaryOperator::Shl, Operand::Reg(Register::CX), dst.clone())
+                ])
+            };
+
+            result
         },
-        Instruction::Binary(BinaryOperator::Shr, Operand::Stack(src_idx), Operand::Stack(dst_idx)) => {
-            Some(vec![
-                Instruction::Mov(Operand::Stack(*src_idx), Operand::Reg(Register::CX)),
-                Instruction::Binary(BinaryOperator::Shr, Operand::Reg(Register::CL), Operand::Stack(*dst_idx))
-            ])
+
+        Instruction::Binary(BinaryOperator::Shr, src, dst) => {
+            let result = match src {
+                Operand::Reg(Register::CX) => None,
+                _ => Some(vec![
+                        Instruction::Mov(src.clone(), Operand::Reg(Register::CX)),
+                        Instruction::Binary(BinaryOperator::Shr, Operand::Reg(Register::CX), dst.clone())
+                ])
+            };
+
+            result
         },
         Instruction::Idiv(Operand::Imm(c)) => {
             Some(vec![
@@ -78,23 +89,6 @@ fn fixup_instruction_operands(instruction: &Instruction) -> Option<Vec<Instructi
                 Instruction::Mov(Operand::Imm(*src2_c), Operand::Reg(Register::R11)),
                 Instruction::Cmp(src1.clone(), Operand::Reg(Register::R11))
             ])
-        },
-        Instruction::SetCC(cc, Operand::Reg(r)) => {
-            if let Some(new_r) = match r {
-                Register::AX  => Some(Register::AL),
-                Register::CX  => Some(Register::CL),
-                Register::DX  => Some(Register::DL),
-                Register::R10 => Some(Register::R10B),
-                Register::R11 => Some(Register::R11B),
-                _ => None
-            } {
-                Some(vec![
-                    Instruction::SetCC(cc.clone(), Operand::Reg(new_r))
-                ])
-            }
-            else {
-                None
-            }
         },
         _ => None
     }
