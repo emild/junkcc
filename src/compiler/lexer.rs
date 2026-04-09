@@ -25,6 +25,8 @@ pub enum Token {
     KwSwitch,
     KwCase,
     KwDefault,
+    KwStatic,
+    KwExtern,
 
     OpenParenthesis,        // (
     CloseParenthesis,       // )
@@ -175,7 +177,9 @@ impl RegexTable {
                 ("continue",    Token::KwContinue),
                 ("switch",      Token::KwSwitch),
                 ("case",        Token::KwCase),
-                ("default",     Token::KwDefault)
+                ("default",     Token::KwDefault),
+                ("static",      Token::KwStatic),
+                ("extern",      Token::KwExtern)
             ])
         }
     }
