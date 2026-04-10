@@ -1,6 +1,9 @@
+use lazy_static::lazy_static;
 use std::collections::HashMap;
 
 use log::{info, trace, warn, error};
+
+
 pub mod ast;
 mod pretty_print;
 mod semantic_analyzer;
@@ -9,11 +12,50 @@ mod semantic_analyzer;
 use crate::compiler::lexer::{self, Token};
 use ast::*;
 
+
+lazy_static! {
+    static ref TOKENS_TO_TYPES: HashMap<Token, ast::Type> = HashMap:: from([
+        (Token::KwInt, ast::Type::Int)
+    ]);
+
+    static ref TOKENS_TO_STORAGE_CLASSES: HashMap<Token, ast::StorageClass> = HashMap:: from([
+        (Token::KwStatic, ast::StorageClass::Static),
+        (Token::KwExtern, ast::StorageClass::Extern)
+    ]);
+}
+
+
+
 fn is_type(t: &Token) -> bool
 {
-    match t {
-        Token::KwInt => true,
-        _ => false
+    return (*TOKENS_TO_TYPES).contains_key(t);
+}
+
+
+fn parse_type(t: &Token) -> Result<ast::Type, String>
+{
+    let typ = (*TOKENS_TO_TYPES).get(t);
+
+    match typ {
+        Some(typ) => Ok(typ.clone()),
+        None => { return Err(format!("Invalid type: '{:?}'", t)); }
+    }
+}
+
+
+fn is_storage_class(t: &Token) -> bool
+{
+    return (*TOKENS_TO_STORAGE_CLASSES).contains_key(t);
+}
+
+
+fn parse_storage_class(t: &Token) -> Result<ast::StorageClass, String>
+{
+    let storage_class = TOKENS_TO_STORAGE_CLASSES.get(t);
+
+    match storage_class {
+        Some(storage_class) => Ok(storage_class.clone()),
+        None => { return Err(format!("Invalid storage class: '{:?}'", storage_class)); }
     }
 }
 
@@ -70,28 +112,9 @@ fn parse_param_list(l: &mut lexer::Lexer) -> Result<Vec<String>, String>
 }
 
 
-fn parse_function_declaration(l: &mut lexer::Lexer) -> Result<FunctionDeclaration, String>
+
+fn parse_function_declaration(l: &mut lexer::Lexer, _typ: ast::Type, stg_class: Option<StorageClass>, func_name: String) -> Result<FunctionDeclaration, String>
 {
-    let mut t  = l.get_token()?;
-
-    //return type
-    match t {
-        Token::EOS => { return Err(format!("Expected return type, got end of file")); },
-        _ => {
-            if !is_type(&t) {
-                return Err(format!("Expected return type, got {:?}", t));
-            }
-        }
-    }
-
-    //name
-    t = l.get_token()?;
-    let func_name = match t {
-        Token::EOS => { return Err(format!("Expected function name, got end of file")); },
-        Token::Identifier(id) => id,
-        _ => { return Err(format!("Expected function name, got {:?}", t)); }
-    };
-
     // (
     check_open_paren(l)?;
 
@@ -99,16 +122,16 @@ fn parse_function_declaration(l: &mut lexer::Lexer) -> Result<FunctionDeclaratio
 
     check_close_paren(l)?;
 
-    t = l.peek_token()?;
+    let t = l.peek_token()?;
 
     match t {
         Token::Semicolon => {
             l.get_token()?;
-            Ok(FunctionDeclaration::Declarant(func_name, param_list, None))
+            Ok(FunctionDeclaration::Declarant(func_name, param_list, None, stg_class))
         },
         Token::OpenBrace => {
             let block = parse_block(l)?;
-            Ok(FunctionDeclaration::Declarant(func_name, param_list, Some(block)))
+            Ok(FunctionDeclaration::Declarant(func_name, param_list, Some(block), stg_class))
         },
         Token::EOS => { return Err(format!("Unexpected end of file at the end of function declaration")); },
         _ => { return Err(format!("Expected ';' or '{{', got '{:?}", t)); }
@@ -117,26 +140,8 @@ fn parse_function_declaration(l: &mut lexer::Lexer) -> Result<FunctionDeclaratio
 }
 
 
-fn parse_variable_declaration(l: &mut lexer::Lexer) -> Result<VariableDeclaration, String>
+fn parse_variable_declaration(l: &mut lexer::Lexer, _typ: ast::Type, stg_class: Option<StorageClass>, var_name: String) -> Result<VariableDeclaration, String>
 {
-    let t = l.get_token()?;
-
-    match t {
-        Token::EOS => { return Err(format!("Expected variable declaration, got end of file")); },
-        _ => {
-            if !is_type(&t) {
-                return Err(format!("Expected type, got '{:?}'", t));
-            }
-        }
-    }
-
-    let t = l.get_token()?;
-    let var_name = match t {
-        Token::EOS => { return Err(format!("Expected ID, got end of file")); },
-        Token::Identifier(id) => id,
-        _ => { return Err(format!("Expected ID, got '{:?}'", t)); }
-    };
-
     let t = l.peek_token()?;
     let initial_value = match t {
         Token::EqualSign => {
@@ -151,27 +156,79 @@ fn parse_variable_declaration(l: &mut lexer::Lexer) -> Result<VariableDeclaratio
 
     let t = l.get_token()?;
     match t {
-        Token::Semicolon => { return Ok(VariableDeclaration::Declarant(var_name, initial_value)); }
+        Token::Semicolon => { return Ok(VariableDeclaration::Declarant(var_name, initial_value, stg_class)); }
         _ => { return Err(format!("Missing ';' at end of declaration (got '{:?}')", t)); }
     }
 }
 
 
+
+//type and storage class
+fn parse_specifiers(l: &mut lexer::Lexer) -> Result<(ast::Type, Option<StorageClass>), String>
+{
+    let mut spec_tokens = vec![];
+
+    loop {
+        let t = l.get_token()?;
+        match t {
+            Token::Identifier(_) => {
+                l.putback_token(t)?;
+                break;
+            },
+
+            Token::EOS => {
+                return Err(format!("Unexpected End of file while reading declaration specifier"));
+            },
+
+            _ => {
+                spec_tokens.push(t);
+            }
+        };
+    }
+
+    let mut types = vec![];
+    let mut storage_classes = vec![];
+
+    while let Some(t) = spec_tokens.pop() {
+        if is_type(&t) {
+            types.push(t);
+        }
+        else {
+            storage_classes.push(t);
+        }
+    }
+
+    if types.is_empty() {
+        return Err(format!("Missing type specifiers {:?}", spec_tokens));
+    }
+
+    if types.len() > 1 {
+        return Err(format!("Too many type specifiers {:?}", types));
+    }
+
+    if storage_classes.len() > 1 {
+        return Err(format!("Too many storage classes {:?}", storage_classes));
+    }
+
+    let typ = parse_type(&types[0])?;
+    let mut storage_class = None;
+    if !storage_classes.is_empty() {
+        let stg_class = parse_storage_class(&storage_classes[0])?;
+        storage_class.replace(stg_class);
+    }
+
+    Ok((typ, storage_class))
+
+}
+
+
+
+
 fn parse_declaration(l: &mut lexer::Lexer) -> Result<Declaration, String>
 {
-   let mut t = l.get_token()?;
+    let (typ, stg_class) = parse_specifiers(l)?;
 
-    let dtype = match t {
-        Token::EOS => { return Err(format!("Expected type, got end of file")); },
-        _ => {
-            if !is_type(&t) {
-                return Err(format!("Expected type, got '{:?}'", t));
-            }
-            t
-        }
-    };
-
-    t = l.get_token()?;
+    let mut t = l.get_token()?;
     let dname = match t {
         Token::EOS => { return Err(format!("Expected ID, got end of file")); },
         Token::Identifier(id) => id,
@@ -181,16 +238,12 @@ fn parse_declaration(l: &mut lexer::Lexer) -> Result<Declaration, String>
     t = l.peek_token()?;
     match t {
         Token::OpenParenthesis => {
-            l.putback_token(Token::Identifier(dname))?;
-            l.putback_token(dtype)?;
-            let func_dec = parse_function_declaration(l)?;
+            let func_dec = parse_function_declaration(l, typ, stg_class, dname)?;
             Ok(Declaration::FunDecl(func_dec))
         },
         Token::EqualSign |
         Token::Semicolon => {
-            l.putback_token(Token::Identifier(dname))?;
-            l.putback_token(dtype)?;
-            let var_dec = parse_variable_declaration(l)?;
+            let var_dec = parse_variable_declaration(l, typ, stg_class, dname)?;
             Ok(Declaration::VarDecl(var_dec))
         },
         _ => {
@@ -205,7 +258,7 @@ fn parse_block_item(l: &mut lexer::Lexer) -> Result<BlockItem, String>
 {
     let t = l.peek_token()?;
 
-    if is_type(&t) {
+    if is_type(&t) || is_storage_class(&t) {
         let decl = parse_declaration(l)?;
         Ok(BlockItem::D(decl))
     }
@@ -362,9 +415,25 @@ fn parse_for_init(l: &mut lexer::Lexer) -> Result<ForInit, String>
             ForInit::InitExp(None)
         },
         _ => {
-            if is_type(&t) {
-                let decl = parse_variable_declaration(l)?;
-                ForInit::InitDecl(decl)
+            if is_type(&t) || is_storage_class(&t) {
+                let decl = parse_declaration(l)?;
+                match decl {
+                    Declaration::VarDecl(var_decl) => {
+                        match var_decl {
+                            VariableDeclaration::Declarant(_,_,None) => {
+                                ForInit::InitDecl(var_decl)
+                            },
+
+                            VariableDeclaration::Declarant(_,_,Some(stg_class)) => {
+                                return Err(format!("Invalid storage class: '{:?}' in for initializer", stg_class));
+                            }
+                        }
+                    },
+                    _ => {
+                        return Err(format!("Expected variable declaration, got '{:?}'", decl));
+                    }
+                }
+
             }
             else {
                 let expr = parse_expression(l, 0)?;
@@ -810,20 +879,20 @@ fn parse_expression(l: &mut lexer::Lexer, min_precedence: u32) -> Result<Express
 
 pub fn parse_program(l: &mut lexer::Lexer) -> Result<Program, String>
 {
-    let mut funcs = vec![];
+    let mut decls = vec![];
 
     loop {
         let t = l.peek_token()?;
         match t {
             Token::EOS => { break; },
             _ => {
-                let f = parse_function_declaration(l)?;
-                funcs.push(f);
+                let decl = parse_declaration(l)?;
+                decls.push(decl);
             }
         }
     }
 
-    Ok(Program::ProgramDefinition(funcs))
+    Ok(Program::ProgramDefinition(decls))
 }
 
 pub use pretty_print::pretty_print_ast;

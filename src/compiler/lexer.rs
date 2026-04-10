@@ -6,7 +6,7 @@ use std::io::{BufRead, BufReader};
 use regex::Regex;
 
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum Token {
     Identifier(String),
     IntConstant(i32),

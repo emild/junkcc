@@ -396,16 +396,25 @@ fn pretty_print_unlabeled_statement(s: &UnlabeledStatement, indent: usize)
 }
 
 
+fn storage_class_str(stg_class: &Option<StorageClass>) -> &str
+{
+    match stg_class {
+        None => "",
+        Some(StorageClass::Extern) => "EXTERN",
+        Some(StorageClass::Static) => "STATIC"
+    }
+}
+
 fn pretty_print_variable_declaration(decl: &VariableDeclaration, indent: usize)
 {
     match decl {
-        VariableDeclaration::Declarant(var_name, Some(expr_init) ) => {
-            println!("{}Var {} = (", " ".repeat(indent),  var_name);
+        VariableDeclaration::Declarant(var_name, Some(expr_init), stg_class) => {
+            println!("{}{} Var {} = (", " ".repeat(indent), storage_class_str(stg_class), var_name);
             pretty_print_expression(expr_init, indent + 4);
             println!("{})", " ".repeat(indent));
         },
-        VariableDeclaration::Declarant(var_name,None ) => {
-            println!("{}var {}", " ".repeat(indent),  var_name);
+        VariableDeclaration::Declarant(var_name,None, stg_class ) => {
+            println!("{}{} var {}", " ".repeat(indent),  storage_class_str(stg_class), var_name);
         }
     }
 }
@@ -415,8 +424,8 @@ fn pretty_print_variable_declaration(decl: &VariableDeclaration, indent: usize)
 fn pretty_print_function_declaration(func_decl: &FunctionDeclaration, indent: usize)
 {
     match func_decl {
-        FunctionDeclaration::Declarant(func_name, param_list, body) => {
-            println!("{}Function(", " ".repeat(indent));
+        FunctionDeclaration::Declarant(func_name, param_list, body, stg_class) => {
+            println!("{}{} Function(", " ".repeat(indent), storage_class_str(stg_class));
             println!("{}name={func_name}", " ".repeat(indent + 4));
             println!("{}params=(", " ".repeat(indent + 4));
             if !param_list.is_empty() {
@@ -482,9 +491,9 @@ fn pretty_print_program(p: &Program, indent: usize)
 {
     println!("{}Program(", " ".repeat(indent));
     match p {
-        Program::ProgramDefinition(func_decls) => {
-            for func_decl in func_decls {
-                pretty_print_function_declaration(&func_decl, indent + 4);
+        Program::ProgramDefinition(decls) => {
+            for decl in decls {
+                pretty_print_declaration(&decl, indent + 4);
                 println!("");
             }
         }

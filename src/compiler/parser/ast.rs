@@ -165,16 +165,35 @@ pub enum UnlabeledStatement {
     Null
 }
 
-#[derive(Debug)]
-pub enum Declaration {
-    VarDecl(VariableDeclaration),
-    FunDecl(FunctionDeclaration)
+#[derive(Debug, Clone)]
+pub enum Type {
+    Int
+}
+
+
+#[derive(Debug, Clone)]
+pub enum StorageClass {
+    Static,
+    Extern
 }
 
 
 #[derive(Debug)]
 pub enum VariableDeclaration {
-    Declarant(String /* id */, Option<Expression> /* initializer */)
+    Declarant(String /* id */, Option<Expression> /* initializer */, Option<StorageClass>)
+}
+
+
+#[derive(Debug)]
+pub enum FunctionDeclaration {
+    Declarant(String /* name */, Vec<String> /* args */,  Option<Block> /* body */, Option<StorageClass>)
+}
+
+
+#[derive(Debug)]
+pub enum Declaration {
+    VarDecl(VariableDeclaration),
+    FunDecl(FunctionDeclaration)
 }
 
 
@@ -189,14 +208,11 @@ pub enum Block {
     Blk(Vec<BlockItem>)
 }
 
-#[derive(Debug)]
-pub enum FunctionDeclaration {
-    Declarant(String /* name */, Vec<String> /* args */,  Option<Block> /* body */)
-}
+
 
 #[derive(Debug)]
 pub enum Program {
-    ProgramDefinition(Vec<FunctionDeclaration>)
+    ProgramDefinition(Vec<Declaration>)
 }
 
 
@@ -204,8 +220,9 @@ pub enum Program {
 
 <program>               ::= [ <function-declaration> ]*
 <declaration>           ::= <variable-declaration> | <function-declaration>
-<variable-declaration>  ::= "int" <identifier> [ "=" <exp> ] ";"
-<function-declaration>  ::= "int" <identifier> "(" [<param-list>] )" ( <block> | ";" )
+<variable-declaration>  ::= <specifier>+ <identifier> [ "=" <exp> ] ";"
+<function-declaration>  ::= <specifier>+ <identifier> "(" [<param-list>] )" ( <block> | ";" )
+<specifier>             ::= "int" | "static" | "extern"
 <param-list>            ::= "void" | "int" <identifier> ["," "int" <identifier>"]*
 <block>                 ::= "{" [<block_item> *] "}"
 <block_item>            ::= <statement>|<declaration>
