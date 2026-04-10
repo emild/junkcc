@@ -300,7 +300,7 @@ fn resolve_unlabeled_statement(stmnt: &UnlabeledStatement, identifier_map: &mut 
 fn resolve_variable_declaration(decl: &VariableDeclaration, identifier_map: &mut HashMap<String, IdentifierInfo>) -> Result<VariableDeclaration, String>
 {
     match decl {
-        VariableDeclaration::Declarant(var_name, initializer) => {
+        VariableDeclaration::Declarant(var_name, initializer, stg_class) => {
             if let Some(local_var_info) = identifier_map.get(var_name) && local_var_info.from_current_scope {
                 return Err(format!("Variable '{}' is already defined in the current scope", var_name));
             }
@@ -320,7 +320,7 @@ fn resolve_variable_declaration(decl: &VariableDeclaration, identifier_map: &mut
                 None => None
             };
 
-            Ok(VariableDeclaration::Declarant(temp_name, resolved_initializer))
+            Ok(VariableDeclaration::Declarant(temp_name, resolved_initializer, stg_class.clone()))
         }
     }
 }
@@ -348,7 +348,7 @@ fn resolve_param(param: &String, identifier_map: &mut HashMap<String, Identifier
 fn resolve_function_declaration(func_decl: &FunctionDeclaration, identifier_map: &mut HashMap<String, IdentifierInfo>) -> Result<FunctionDeclaration, String>
 {
     match func_decl {
-        FunctionDeclaration::Declarant(func_name, params, body) => {
+        FunctionDeclaration::Declarant(func_name, params, body, stg_class) => {
             let prev_entry = identifier_map.get(func_name);
             if let Some(prev_entry) = prev_entry {
                 if prev_entry.from_current_scope && !prev_entry.has_linkage {
@@ -375,7 +375,7 @@ fn resolve_function_declaration(func_decl: &FunctionDeclaration, identifier_map:
                 new_body.replace(resolved_body);
             }
 
-            Ok(FunctionDeclaration::Declarant(func_name.clone(), new_params, new_body))
+            Ok(FunctionDeclaration::Declarant(func_name.clone(), new_params, new_body, stg_class.clone()))
         }
     }
 
@@ -385,13 +385,13 @@ fn resolve_function_declaration(func_decl: &FunctionDeclaration, identifier_map:
 fn resolve_local_declaration(decl: &Declaration, identifier_map: &mut HashMap<String, IdentifierInfo>) -> Result<Declaration, String>
 {
     match decl {
-        Declaration::VarDecl(VariableDeclaration::Declarant(var_name, initializer )) => {
-            let resolved_var_decl = resolve_variable_declaration(&VariableDeclaration::Declarant(var_name.clone(), initializer.clone()), identifier_map)?;
+        Declaration::VarDecl(VariableDeclaration::Declarant(var_name, initializer, stg_class )) => {
+            let resolved_var_decl = resolve_variable_declaration(&VariableDeclaration::Declarant(var_name.clone(), initializer.clone(), stg_class.clone()), identifier_map)?;
             Ok(Declaration::VarDecl(resolved_var_decl))
         },
         Declaration::FunDecl(func_decl) => {
             match func_decl {
-                FunctionDeclaration::Declarant(_,_,Some(_)) => {
+                FunctionDeclaration::Declarant(_,_,Some(_), _) => {
                     return Err(format!("Local function definitions are not allowed"));
                 },
                 _ => ()
@@ -439,15 +439,19 @@ fn resolve_block(block: &Block, identifier_map: &mut HashMap<String, IdentifierI
 
 pub fn resolve_program(prog: &Program) -> Result<Program, String>
 {
+    /*
     match prog {
-        Program::ProgramDefinition(func_decls) => {
+        Program::ProgramDefinition(decls) => {
             let mut identifier_map = HashMap::new();
             let mut resolved_func_decls = vec![];
-            for func_decl in func_decls {
-                let resolved_func_decl = resolve_function_declaration(func_decl, &mut identifier_map)?;
-                resolved_func_decls.push(resolved_func_decl);
+            for decl in decls {
+                let resolved_decl = resolve_declaration(decl, &mut identifier_map)?;
+                resolved_decls.push(resolved_func_decl);
             }
             Ok(Program::ProgramDefinition(resolved_func_decls))
         }
     }
+    */
+
+    panic!("resolve_program: No longer implemented/supported");
 }

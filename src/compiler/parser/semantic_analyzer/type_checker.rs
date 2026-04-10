@@ -165,7 +165,7 @@ fn typecheck_expression(expr: &Expression, symbol_table: &mut HashMap<String, Ty
 fn typecheck_variable_declaration(var_decl: &VariableDeclaration, symbol_table: &mut HashMap<String, Type>) -> Result<(), String>
 {
     match var_decl {
-        VariableDeclaration::Declarant(var_name, initializer ) => {
+        VariableDeclaration::Declarant(var_name, initializer, stg_class) => {
             symbol_table.insert(var_name.clone(), Type::Int);
             if let Some(initializer) = initializer {
                 typecheck_expression(initializer, symbol_table)?;
@@ -180,7 +180,7 @@ fn typecheck_variable_declaration(var_decl: &VariableDeclaration, symbol_table: 
 fn typecheck_function_declaration(func_decl: &FunctionDeclaration, symbol_table: &mut HashMap<String, Type>) -> Result<(), String>
 {
     match func_decl {
-        FunctionDeclaration::Declarant(func_name, params, body) => {
+        FunctionDeclaration::Declarant(func_name, params, body, stg_class ) => {
             let func_type = params.len();
             let has_body = body.is_some();
             let mut already_defined = false;
@@ -341,9 +341,9 @@ fn typecheck_block(block: &Block, symbol_table: &mut HashMap<String, Type>) -> R
 pub fn typecheck_program(prog: &Program, symbol_table: &mut HashMap<String, Type>) -> Result<(), String>
 {
     match prog {
-        Program::ProgramDefinition(func_decls) => {
-            for func_decl in func_decls {
-                typecheck_function_declaration(func_decl, symbol_table)?;
+        Program::ProgramDefinition(decls) => {
+            for decl in decls {
+                typecheck_declaration(decl, symbol_table)?;
             }
 
             Ok(())

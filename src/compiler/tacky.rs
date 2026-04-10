@@ -474,11 +474,11 @@ fn emit_tacky_unlabeled_statement(stmnt: &parser::ast::UnlabeledStatement, instr
 fn emit_tacky_variable_declaration(decl: &parser::ast::VariableDeclaration, instructions: &mut Vec<Instruction>) -> Result<(), String>
 {
     match decl {
-        parser::ast::VariableDeclaration::Declarant(var_name, Some(init_expr) ) => {
+        parser::ast::VariableDeclaration::Declarant(var_name, Some(init_expr), _) => {
             let init_val = emit_tacky_expression(init_expr, instructions)?;
             instructions.push(Instruction::Copy(init_val, Val::Var(var_name.clone())));
         },
-        parser::ast::VariableDeclaration::Declarant(_, None) => {}
+        parser::ast::VariableDeclaration::Declarant(_, None, _) => {}
     };
 
     Ok(())
@@ -496,10 +496,10 @@ fn emit_tacky_block_item(block_item: &parser::ast::BlockItem, instructions: &mut
                 parser::ast::Declaration::VarDecl(var_decl) => {
                     emit_tacky_variable_declaration(var_decl, instructions)?;
                 },
-                parser::ast::Declaration::FunDecl(parser::ast::FunctionDeclaration::Declarant(_ , _, None)) => {
+                parser::ast::Declaration::FunDecl(parser::ast::FunctionDeclaration::Declarant(_ , _, None, _)) => {
                     /* Nothing to emit */
                 },
-                parser::ast::Declaration::FunDecl(parser::ast::FunctionDeclaration::Declarant(_ , _, Some(_))) => {
+                parser::ast::Declaration::FunDecl(parser::ast::FunctionDeclaration::Declarant(_ , _, Some(_), _)) => {
                     panic!("BUG: Local function definitions are not supported (the semantic analyzer should have caught this)");
                 }
             };
@@ -526,7 +526,7 @@ fn emit_tacky_block(block: &parser::ast::Block, instructions: &mut Vec<Instructi
 fn emit_tacky_function_definition(func_def: &parser::ast::FunctionDeclaration) -> Result<FunctionDefinition, String>
 {
      match func_def {
-        parser::ast::FunctionDeclaration::Declarant(func_name, params, Some(block)) => {
+        parser::ast::FunctionDeclaration::Declarant(func_name, params, Some(block), _) => {
             let mut instructions = vec![];
 
             emit_tacky_block(block, &mut instructions)?;
@@ -542,11 +542,12 @@ fn emit_tacky_function_definition(func_def: &parser::ast::FunctionDeclaration) -
 
 pub fn emit_tacky_program(program: &parser::ast::Program) -> Result<Program, String>
 {
+    /*
     match program {
         parser::ast::Program::ProgramDefinition(func_defs) => {
             let mut tacky_func_defs = vec![];
             for func_def in func_defs {
-                if let parser::ast::FunctionDeclaration::Declarant(_, _, Some(_)) = func_def {
+                if let parser::ast::Declaration::Declarant(_, _, Some(_), _) = func_def {
                     //Emit tacky only for function declarations that are definitions (i.e.  have bodies)
                     let tacky_func_def = emit_tacky_function_definition(func_def)?;
                     tacky_func_defs.push(tacky_func_def);
@@ -556,6 +557,9 @@ pub fn emit_tacky_program(program: &parser::ast::Program) -> Result<Program, Str
         },
         _ => { return Err(format!("Tacky conversion: expected ProgramDefinition, got '{:?}'", program)); }
     }
+    */
+
+    panic!("emit_tacky_program: No longer supported");
 
 }
 
