@@ -4,6 +4,8 @@ use std::io::Write;
 use std::io::BufWriter;
 use super::ast::*;
 use super::super::parser::Type;
+use super::super::parser::IdentifierAttrs;
+use super::super::parser::SymbolInfo;
 
 
 enum OperandSize {
@@ -209,12 +211,12 @@ fn emit_jmpcc_instruction(cc: &CC, label: &String, buf_writer: &mut BufWriter<fs
     Ok(())
 }
 
-fn emit_call_instruction(label: &String, symbol_table: &HashMap<String, Type>, buf_writer: &mut BufWriter<fs::File>) -> std::io::Result<()>
+fn emit_call_instruction(label: &String, symbol_table: &HashMap<String, SymbolInfo>, buf_writer: &mut BufWriter<fs::File>) -> std::io::Result<()>
 {
     let mut target_label = String::new();
     let func_type = symbol_table.get(label);
     match func_type {
-        Some(Type::FuncType(_, true)) => {
+        Some(SymbolInfo {typ: Type::FuncType(_, true), attrs:_}) => {
             //Locally defined function
             target_label = label.clone();
         },
@@ -229,7 +231,7 @@ fn emit_call_instruction(label: &String, symbol_table: &HashMap<String, Type>, b
 }
 
 
-fn emit_body(instructions: &Vec<Instruction>, symbol_table: &HashMap<String, Type>, buf_writer: &mut BufWriter<fs::File>) -> std::io::Result<()>
+fn emit_body(instructions: &Vec<Instruction>, symbol_table: &HashMap<String, SymbolInfo>, buf_writer: &mut BufWriter<fs::File>) -> std::io::Result<()>
 {
     for ins in instructions {
         match ins {
@@ -308,7 +310,7 @@ fn emit_body(instructions: &Vec<Instruction>, symbol_table: &HashMap<String, Typ
 
 
 
-fn emit_function(f: &FunctionDefinition, symbol_table: &HashMap<String, Type>, buf_writer: &mut BufWriter<fs::File>) -> std::io::Result<()>
+fn emit_function(f: &FunctionDefinition, symbol_table: &HashMap<String, SymbolInfo>, buf_writer: &mut BufWriter<fs::File>) -> std::io::Result<()>
 {
     match f {
         FunctionDefinition::Function(func_name, instructions) => {
@@ -333,7 +335,7 @@ fn emit_function(f: &FunctionDefinition, symbol_table: &HashMap<String, Type>, b
 
 
 
-fn emit_program(program: &Program, symbol_table: &HashMap<String, Type>, buf_writer: &mut BufWriter<fs::File>) -> std::io::Result<()>
+fn emit_program(program: &Program, symbol_table: &HashMap<String, SymbolInfo>, buf_writer: &mut BufWriter<fs::File>) -> std::io::Result<()>
 {
     match program {
         Program::ProgramDefinition(func_defs) => {
@@ -347,7 +349,7 @@ fn emit_program(program: &Program, symbol_table: &HashMap<String, Type>, buf_wri
 }
 
 
-pub fn emit_code(program: &Program, symbol_table: &HashMap<String, Type>, output_file_path: &str) -> std::io::Result<()>
+pub fn emit_code(program: &Program, symbol_table: &HashMap<String, SymbolInfo>, output_file_path: &str) -> std::io::Result<()>
 {
     let file = fs::File::create(output_file_path)?;
     let mut buf_writer = BufWriter::new(file);
