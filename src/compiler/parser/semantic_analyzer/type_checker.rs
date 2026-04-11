@@ -1,22 +1,44 @@
 use std::collections::HashMap;
 
+use env_logger::init;
+
 use super::super::ast::*;
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq)]
 pub enum Type {
     Int,
     FuncType(usize /* number of parameters */, bool /* has_body, i.e. defined */)
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum InitialValue {
+    Tentative,
+    Initial(i32),
+    NoInitializer
+}
 
-fn typecheck_expr_function_call(func_name: &String, args: &Vec<Expression>, symbol_table: &mut HashMap<String, Type>) -> Result<(), String>
+#[derive(Debug, PartialEq, Eq)]
+pub enum IdentifierAttrs {
+    FuncAttr(bool /* defined */, bool /* global */),        /* Functions */
+    StaticAttr(InitialValue /* init */, bool /* global */), /* Variables with static duration */
+    LocalAttr                                               /* Parameters or automatic variables */
+}
+
+#[derive(Debug)]
+pub struct SymbolInfo {
+    pub typ: Type,
+    pub attrs: IdentifierAttrs
+}
+
+
+fn typecheck_expr_function_call(func_name: &String, args: &Vec<Expression>, symbol_table: &mut HashMap<String, SymbolInfo>) -> Result<(), String>
 {
     let func_type = symbol_table.get(func_name);
     match func_type {
         None => {
             return Err(format!("Function '{func_name}()' not declared in scope"));
         },
-        Some(Type::FuncType(num_params, _)) => {
+        Some(SymbolInfo{ typ: Type::FuncType(num_params, _), attrs: _}) => {
             if *num_params != args.len() {
                 return Err(format!(
                     "Function '{}()' called with wrong number of arguments (function has {} parameters and is called with {} arguments)",
@@ -26,7 +48,7 @@ fn typecheck_expr_function_call(func_name: &String, args: &Vec<Expression>, symb
                 ));
             }
         },
-        Some(Type::Int) => {
+        Some(SymbolInfo{ typ: Type::Int, attrs: _}) => {
             return Err(format!("'{}' is not a function or a callable object", func_name));
         }
     };
@@ -40,14 +62,14 @@ fn typecheck_expr_function_call(func_name: &String, args: &Vec<Expression>, symb
 }
 
 
-fn typecheck_expr_var(var_name: &String, symbol_table: &mut HashMap<String, Type>) -> Result<(), String>
+fn typecheck_expr_var(var_name: &String, symbol_table: &mut HashMap<String, SymbolInfo>) -> Result<(), String>
 {
     let var_type = symbol_table.get(var_name);
     match var_type {
         None => {
             return Err(format!("Variable '{}' not declared in scope", var_name));
         },
-        Some(Type::Int) => {},
+        Some(SymbolInfo{ typ: Type::Int, attrs: _} ) => {},
         _ => {
             return Err(format!(
                 "Object '{}' has wrong type. Expected: '{:?}', actual type: '{:?}'",
@@ -62,7 +84,7 @@ fn typecheck_expr_var(var_name: &String, symbol_table: &mut HashMap<String, Type
 }
 
 
-fn typecheck_expr_assignment(left: &Expression, right: &Expression, symbol_table: &mut HashMap<String, Type>) -> Result<(), String>
+fn typecheck_expr_assignment(left: &Expression, right: &Expression, symbol_table: &mut HashMap<String, SymbolInfo>) -> Result<(), String>
 {
     match left {
         Expression::Var(var_name) => {
@@ -77,9 +99,8 @@ fn typecheck_expr_assignment(left: &Expression, right: &Expression, symbol_table
 }
 
 
-fn typecheck_expr_binary(left: &Expression, right: &Expression, symbol_table: &mut HashMap<String, Type>) -> Result<(), String>
+fn typecheck_expr_binary(left: &Expression, right: &Expression, symbol_table: &mut HashMap<String, SymbolInfo>) -> Result<(), String>
 {
-
     typecheck_expression(left, symbol_table)?;
     typecheck_expression(right, symbol_table)?;
 
@@ -89,7 +110,7 @@ fn typecheck_expr_binary(left: &Expression, right: &Expression, symbol_table: &m
 }
 
 
-fn typecheck_expr_conditional(cond: &Expression, true_expr: &Expression, false_expr: &Expression, symbol_table: &mut HashMap<String, Type>) -> Result<(), String>
+fn typecheck_expr_conditional(cond: &Expression, true_expr: &Expression, false_expr: &Expression, symbol_table: &mut HashMap<String, SymbolInfo>) -> Result<(), String>
 {
     typecheck_expression(cond, symbol_table)?;
     typecheck_expression(true_expr, symbol_table)?;
@@ -101,7 +122,7 @@ fn typecheck_expr_conditional(cond: &Expression, true_expr: &Expression, false_e
 }
 
 
-fn typecheck_expr_inc_dec(expr: &Expression, symbol_table: &mut HashMap<String, Type>) -> Result<(), String>
+fn typecheck_expr_inc_dec(expr: &Expression, symbol_table: &mut HashMap<String, SymbolInfo>) -> Result<(), String>
 {
     match expr {
         Expression::Var(var_name) => {
@@ -116,7 +137,7 @@ fn typecheck_expr_inc_dec(expr: &Expression, symbol_table: &mut HashMap<String, 
 }
 
 
-fn typecheck_expr_unary(expr: &Expression, symbol_table: &mut HashMap<String, Type>) -> Result<(), String>
+fn typecheck_expr_unary(expr: &Expression, symbol_table: &mut HashMap<String, SymbolInfo>) -> Result<(), String>
 {
     typecheck_expression(expr, symbol_table)?;
 
@@ -124,7 +145,7 @@ fn typecheck_expr_unary(expr: &Expression, symbol_table: &mut HashMap<String, Ty
 }
 
 
-fn typecheck_expression(expr: &Expression, symbol_table: &mut HashMap<String, Type>) -> Result<(), String>
+fn typecheck_expression(expr: &Expression, symbol_table: &mut HashMap<String, SymbolInfo>) -> Result<(), String>
 {
     match expr {
         Expression::FunctionCall(func_name, args) => {
@@ -162,22 +183,141 @@ fn typecheck_expression(expr: &Expression, symbol_table: &mut HashMap<String, Ty
 }
 
 
-fn typecheck_variable_declaration(var_decl: &VariableDeclaration, symbol_table: &mut HashMap<String, Type>) -> Result<(), String>
+fn typecheck_local_variable_declaration(var_decl: &VariableDeclaration, symbol_table: &mut HashMap<String, SymbolInfo>) -> Result<(), String>
 {
-    match var_decl {
-        VariableDeclaration::Declarant(var_name, initializer, stg_class) => {
-            symbol_table.insert(var_name.clone(), Type::Int);
+    let VariableDeclaration::Declarant(var_name, initializer, stg_class) = var_decl;
+
+    match stg_class {
+        Some(StorageClass::Extern) => {
+            if !initializer.is_none() {
+                return Err(format!("Local Extern variable declaration of '{}' cannot have initializer", var_name));
+            }
+
+            if let Some(old_decl) = symbol_table.get(var_name) {
+                if old_decl.typ != Type::Int {
+                    return Err(format!("Function '{}()' is redeclared as variable", var_name));
+                }
+            }
+            else {
+                symbol_table.insert(
+                    var_name.clone(),
+                    SymbolInfo { typ: Type::Int, attrs: IdentifierAttrs::StaticAttr(InitialValue::NoInitializer, true) }
+                );
+            }
+        },
+
+        Some(StorageClass::Static) => {
+            let initial_value = match initializer {
+                Some(Expression::IntConstant(init_val)) => {
+                    InitialValue::Initial(*init_val)
+                },
+                None => {
+                    InitialValue::Initial(0)
+                },
+                _ => {
+                    return Err(format!("Non-constant initializer for local static variable '{}'", var_name));
+                }
+            };
+
+            symbol_table.insert(
+                var_name.clone(),
+                SymbolInfo { typ: Type::Int, attrs: IdentifierAttrs::StaticAttr(initial_value, false) }
+            );
+        },
+
+        _ => {
+            symbol_table.insert(
+                var_name.clone(),
+                SymbolInfo{ typ: Type::Int, attrs: IdentifierAttrs::LocalAttr }
+            );
+
             if let Some(initializer) = initializer {
                 typecheck_expression(initializer, symbol_table)?;
             }
-
-            Ok(())
         }
-    }
+    };
+
+    Ok(())
+
 }
 
 
-fn typecheck_function_declaration(func_decl: &FunctionDeclaration, symbol_table: &mut HashMap<String, Type>) -> Result<(), String>
+fn typecheck_file_scope_variable_declaration(var_decl: &VariableDeclaration, symbol_table: &mut HashMap<String, SymbolInfo>) -> Result<(), String>
+{
+    let VariableDeclaration::Declarant(var_name, initializer, stg_class) = var_decl;
+    let mut initial_value = match initializer {
+        Some(Expression::IntConstant(init_val)) => {
+            InitialValue::Initial(*init_val)
+        },
+        None => {
+            if *stg_class == Some(StorageClass::Extern) {
+                InitialValue::NoInitializer
+            }
+            else {
+                InitialValue::Tentative
+            }
+        },
+        _ => {
+            return Err(format!("Non-constant initializer for variable '{}'", var_name));
+        }
+    };
+
+    let mut global = *stg_class != Some(StorageClass::Static);
+
+    if let Some(old_decl) = symbol_table.get(var_name) {
+        match old_decl.typ {
+            Type::Int => {
+            },
+            _ => {
+                return Err(format!("Function '{}()' redeclared as variable", var_name));
+            }
+        };
+
+        let (old_init, old_global) = match &old_decl.attrs {
+            IdentifierAttrs::StaticAttr(old_init_val, old_global ) => {
+                (old_init_val, old_global)
+            },
+            _ => {
+                return Err(format!("Wrong attribute for file scope Svariable '{}' Expected StaticAttrs, got '{:?}'.", var_name, old_decl.attrs));
+            }
+        };
+
+        if *stg_class == Some(StorageClass::Extern) {
+            global = *old_global;
+        }
+        else if global != *old_global {
+            return Err(format!("Conflicting linkage type for file scope variable '{}'", var_name));
+        }
+
+        if let InitialValue::Initial(_) = old_init {
+            if let InitialValue::Initial(_) = initial_value {
+                return Err(format!("Conflicting initializers for file scope variable '{}'", var_name));
+            }
+            else {
+                initial_value = old_init.clone();
+            }
+        }
+        else if let InitialValue::Initial(_) = initial_value {
+
+        }
+        else if let IdentifierAttrs::StaticAttr(InitialValue::Tentative, _) = old_decl.attrs {
+            initial_value = InitialValue::Tentative;
+        }
+
+    }
+
+
+    let attrs = IdentifierAttrs::StaticAttr(initial_value, global);
+    symbol_table.insert(
+        var_name.clone(),
+        SymbolInfo { typ: Type::Int, attrs }
+    );
+
+    Ok(())
+}
+
+
+fn typecheck_function_declaration(func_decl: &FunctionDeclaration, symbol_table: &mut HashMap<String, SymbolInfo>) -> Result<(), String>
 {
     match func_decl {
         FunctionDeclaration::Declarant(func_name, params, body, stg_class ) => {
@@ -185,17 +325,34 @@ fn typecheck_function_declaration(func_decl: &FunctionDeclaration, symbol_table:
             let has_body = body.is_some();
             let mut already_defined = false;
 
+            let mut global = *stg_class != Some(StorageClass::Static);
+
             if let Some(old_decl) = symbol_table.get(func_name) {
-                match old_decl {
+                match old_decl.typ {
                     Type::FuncType(old_type, old_defined) => {
-                        if *old_type != func_type {
+                        if old_type != func_type {
                             return Err(format!("Incompatible redeclaration of function '{}()' ({} vs. {} parameters)", func_name, func_type, old_type));
                         }
 
-                        already_defined = *old_defined;
+                        already_defined = old_defined;
                         if already_defined && has_body {
                             return Err(format!("Redefinition of function '{}()'. Function '{}()' already has a body", func_name, func_name));
                         }
+
+                        global = match old_decl.attrs {
+                            IdentifierAttrs::FuncAttr(_, true) => {
+                                if *stg_class == Some(StorageClass::Static) {
+                                    return Err(format!("Static function declaration follows a non-static one"));
+                                }
+                                true
+                            },
+                            IdentifierAttrs::FuncAttr(_, false) => {
+                                false
+                            },
+                            _ => {
+                                return Err(format!("Function '{}()'has non FuncAttrs '{:?}'", func_name, old_decl.attrs));
+                            }
+                        };
                     },
                     Type::Int => {
                         return Err(format!("Function '{}()' redefines variable '{}", func_name, func_name));
@@ -203,11 +360,18 @@ fn typecheck_function_declaration(func_decl: &FunctionDeclaration, symbol_table:
                 }
             }
 
-            symbol_table.insert(func_name.clone(), Type::FuncType(params.len(), already_defined || has_body));
+
+            let attrs = IdentifierAttrs::FuncAttr(already_defined || has_body, global);
+            let typ = Type::FuncType(params.len(), already_defined || has_body);
+
+            symbol_table.insert(func_name.clone(), SymbolInfo { typ, attrs });
 
             if has_body {
                 for param in params {
-                    symbol_table.insert(param.clone(), Type::Int);
+                    symbol_table.insert(
+                        param.clone(),
+                        SymbolInfo { typ: Type::Int, attrs: IdentifierAttrs::LocalAttr}
+                    );
                 }
 
                 typecheck_block(&body.as_ref().unwrap(), symbol_table)?;
@@ -219,14 +383,14 @@ fn typecheck_function_declaration(func_decl: &FunctionDeclaration, symbol_table:
 }
 
 
-fn typecheck_declaration(decl: &Declaration, symbol_table: &mut HashMap<String, Type>) -> Result<(), String>
+fn typecheck_local_declaration(decl: &Declaration, symbol_table: &mut HashMap<String, SymbolInfo>) -> Result<(), String>
 {
     match decl {
         Declaration::FunDecl(func_decl) => {
             typecheck_function_declaration(&func_decl, symbol_table)?;
         },
         Declaration::VarDecl(var_decl) => {
-            typecheck_variable_declaration(&var_decl, symbol_table)?;
+            typecheck_local_variable_declaration(&var_decl, symbol_table)?;
         }
     };
 
@@ -234,7 +398,7 @@ fn typecheck_declaration(decl: &Declaration, symbol_table: &mut HashMap<String, 
 }
 
 
-fn  typecheck_unlabeled_statement(unlabeled_statement: &UnlabeledStatement, symbol_table: &mut HashMap<String, Type>) -> Result<(), String>
+fn  typecheck_unlabeled_statement(unlabeled_statement: &UnlabeledStatement, symbol_table: &mut HashMap<String, SymbolInfo>) -> Result<(), String>
 {
     match unlabeled_statement {
         UnlabeledStatement::Break(_,_) |
@@ -264,7 +428,7 @@ fn  typecheck_unlabeled_statement(unlabeled_statement: &UnlabeledStatement, symb
         UnlabeledStatement::For(for_init, cond, post, body, _) => {
             match for_init {
                 ForInit::InitDecl(var_decl) => {
-                    typecheck_variable_declaration(var_decl, symbol_table)?;
+                    typecheck_local_variable_declaration(var_decl, symbol_table)?;
                 },
                 ForInit::InitExp(Some(init_expr)) => {
                     typecheck_expression(init_expr, symbol_table)?;
@@ -298,7 +462,7 @@ fn  typecheck_unlabeled_statement(unlabeled_statement: &UnlabeledStatement, symb
 }
 
 
-fn typecheck_statement(stmnt: &Statement, symbol_table: &mut HashMap<String, Type>) -> Result<(), String>
+fn typecheck_statement(stmnt: &Statement, symbol_table: &mut HashMap<String, SymbolInfo>) -> Result<(), String>
 {
     match stmnt {
         Statement::Stmnt(_, unlabeled_statement ) => {
@@ -310,11 +474,11 @@ fn typecheck_statement(stmnt: &Statement, symbol_table: &mut HashMap<String, Typ
 }
 
 
-fn typecheck_block_item(block_item: &BlockItem, symbol_table: &mut HashMap<String, Type>) -> Result<(), String>
+fn typecheck_block_item(block_item: &BlockItem, symbol_table: &mut HashMap<String, SymbolInfo>) -> Result<(), String>
 {
     match block_item {
         BlockItem::D(decl) => {
-            typecheck_declaration(decl, symbol_table)?;
+            typecheck_local_declaration(decl, symbol_table)?;
         },
         BlockItem::S(stmnt) => {
             typecheck_statement(stmnt, symbol_table)?;
@@ -325,7 +489,7 @@ fn typecheck_block_item(block_item: &BlockItem, symbol_table: &mut HashMap<Strin
 }
 
 
-fn typecheck_block(block: &Block, symbol_table: &mut HashMap<String, Type>) -> Result<(), String>
+fn typecheck_block(block: &Block, symbol_table: &mut HashMap<String, SymbolInfo>) -> Result<(), String>
 {
     match block {
         Block::Blk(block_items) => {
@@ -338,12 +502,28 @@ fn typecheck_block(block: &Block, symbol_table: &mut HashMap<String, Type>) -> R
     }
 }
 
-pub fn typecheck_program(prog: &Program, symbol_table: &mut HashMap<String, Type>) -> Result<(), String>
+
+fn typecheck_file_scope_declaration(decl: &Declaration, symbol_table: &mut HashMap<String, SymbolInfo>) -> Result<(), String>
+{
+    match decl {
+        Declaration::FunDecl(func_decl) => {
+            typecheck_function_declaration(&func_decl, symbol_table)?;
+        },
+        Declaration::VarDecl(var_decl) => {
+            typecheck_file_scope_variable_declaration(&var_decl, symbol_table)?;
+        }
+    };
+
+    Ok(())
+}
+
+
+pub fn typecheck_program(prog: &Program, symbol_table: &mut HashMap<String, SymbolInfo>) -> Result<(), String>
 {
     match prog {
         Program::ProgramDefinition(decls) => {
             for decl in decls {
-                typecheck_declaration(decl, symbol_table)?;
+                typecheck_file_scope_declaration(decl, symbol_table)?;
             }
 
             Ok(())

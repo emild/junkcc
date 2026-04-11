@@ -1,5 +1,4 @@
 use std::collections::HashMap;
-
 use super::super::super::parser::ast::*;
 
 use super::break_classifier::check_and_classify_block_break_statements;
@@ -209,7 +208,7 @@ fn resolve_for_init(for_init: &ForInit, identifier_map: &mut HashMap<String, Ide
             ForInit::InitExp(Some(resolved_expr))
         },
         ForInit::InitDecl(decl) => {
-            let resolved_decl = resolve_variable_declaration(decl, identifier_map)?;
+            let resolved_decl = resolve_local_variable_declaration(decl, identifier_map)?;
             ForInit::InitDecl(resolved_decl)
         }
     };
@@ -297,12 +296,31 @@ fn resolve_unlabeled_statement(stmnt: &UnlabeledStatement, identifier_map: &mut 
 
 
 
-fn resolve_variable_declaration(decl: &VariableDeclaration, identifier_map: &mut HashMap<String, IdentifierInfo>) -> Result<VariableDeclaration, String>
+fn resolve_local_variable_declaration(decl: &VariableDeclaration, identifier_map: &mut HashMap<String, IdentifierInfo>) -> Result<VariableDeclaration, String>
 {
     match decl {
         VariableDeclaration::Declarant(var_name, initializer, stg_class) => {
-            if let Some(local_var_info) = identifier_map.get(var_name) && local_var_info.from_current_scope {
-                return Err(format!("Variable '{}' is already defined in the current scope", var_name));
+            if let Some(local_var_info) = identifier_map.get(var_name) &&
+                local_var_info.from_current_scope &&
+                !(local_var_info.has_linkage && *stg_class == Some(StorageClass::Extern)) {
+
+                return Err(format!("Conflicting declarations for variable '{}'", var_name));
+            }
+
+            if *stg_class == Some(StorageClass::Extern) {
+                identifier_map.insert(
+                    var_name.clone(),
+                    IdentifierInfo { global_name: var_name.clone(), from_current_scope: true, has_linkage: true }
+                );
+                let resolved_init = if initializer.is_none() {
+                    None
+                }
+                else {
+                    let resolved_init_val = evaluate_constant_expression(initializer.as_ref().unwrap())?;
+                    Some(Expression::IntConstant(resolved_init_val))
+                };
+
+                return Ok(VariableDeclaration::Declarant(var_name.clone(), resolved_init, stg_class.clone()));
             }
 
             let temp_name = make_unique_global_name_for_local_variable(var_name);
@@ -314,7 +332,14 @@ fn resolve_variable_declaration(decl: &VariableDeclaration, identifier_map: &mut
 
             let resolved_initializer = match initializer {
                 Some(init_expression) => {
-                    let resolved_init_expression = resolve_expression(init_expression, identifier_map)?;
+                    let resolved_init_expression = if *stg_class == Some(StorageClass::Static) {
+                        let init_val = evaluate_constant_expression(init_expression)?;
+                        Expression::IntConstant(init_val)
+                    }
+                    else {
+                        resolve_expression(init_expression, identifier_map)?
+                    };
+
                     Some(resolved_init_expression)
                 },
                 None => None
@@ -386,13 +411,16 @@ fn resolve_local_declaration(decl: &Declaration, identifier_map: &mut HashMap<St
 {
     match decl {
         Declaration::VarDecl(VariableDeclaration::Declarant(var_name, initializer, stg_class )) => {
-            let resolved_var_decl = resolve_variable_declaration(&VariableDeclaration::Declarant(var_name.clone(), initializer.clone(), stg_class.clone()), identifier_map)?;
+            let resolved_var_decl = resolve_local_variable_declaration(&VariableDeclaration::Declarant(var_name.clone(), initializer.clone(), stg_class.clone()), identifier_map)?;
             Ok(Declaration::VarDecl(resolved_var_decl))
         },
         Declaration::FunDecl(func_decl) => {
             match func_decl {
                 FunctionDeclaration::Declarant(_,_,Some(_), _) => {
                     return Err(format!("Local function definitions are not allowed"));
+                },
+                FunctionDeclaration::Declarant(_,_,None, Some(StorageClass::Static)) => {
+                    return Err(format!("Functions with static storage class cannot be declared at local scope"));
                 },
                 _ => ()
             }
@@ -436,22 +464,58 @@ fn resolve_block(block: &Block, identifier_map: &mut HashMap<String, IdentifierI
 }
 
 
+fn resolve_file_scoped_variable_declaration(var_decl: &VariableDeclaration, identifier_map: &mut HashMap<String, IdentifierInfo>) -> Result<VariableDeclaration, String>
+{
+    let resolved_var_decl = match var_decl {
+        VariableDeclaration::Declarant(var_name, initializer, stg_class ) => {
+            identifier_map.insert(var_name.clone(), IdentifierInfo { global_name: var_name.clone(), from_current_scope: true, has_linkage: true });
+            let resolved_init = if initializer.is_none() {
+                None
+            }
+            else {
+                let resolved_init = evaluate_constant_expression(initializer.as_ref().unwrap())?;
+                Some(Expression::IntConstant(resolved_init))
+            };
+
+            VariableDeclaration::Declarant(var_name.clone(), resolved_init, stg_class.clone())
+        }
+    };
+
+    Ok(resolved_var_decl)
+}
+
+
+fn resolve_file_scoped_declaration(decl: &Declaration, identifier_map: &mut HashMap<String, IdentifierInfo>) -> Result<Declaration, String>
+{
+    let resolved_decl = match decl {
+        Declaration::VarDecl(file_scoped_var_decl) => {
+            let resolved_file_scoped_var_decl = resolve_file_scoped_variable_declaration(file_scoped_var_decl, identifier_map)?;
+            Declaration::VarDecl(resolved_file_scoped_var_decl)
+        },
+        Declaration::FunDecl(func_decl) => {
+            let resolved_func_decl = resolve_function_declaration(func_decl, identifier_map)?;
+            Declaration::FunDecl(resolved_func_decl)
+        }
+    };
+
+    Ok(resolved_decl)
+}
+
 
 pub fn resolve_program(prog: &Program) -> Result<Program, String>
 {
-    /*
-    match prog {
+
+    let resolved_prog = match prog {
         Program::ProgramDefinition(decls) => {
             let mut identifier_map = HashMap::new();
-            let mut resolved_func_decls = vec![];
+            let mut resolved_decls = vec![];
             for decl in decls {
-                let resolved_decl = resolve_declaration(decl, &mut identifier_map)?;
-                resolved_decls.push(resolved_func_decl);
+                let resolved_decl = resolve_file_scoped_declaration(decl, &mut identifier_map)?;
+                resolved_decls.push(resolved_decl);
             }
-            Ok(Program::ProgramDefinition(resolved_func_decls))
+            Program::ProgramDefinition(resolved_decls)
         }
-    }
-    */
+    };
 
-    panic!("resolve_program: No longer implemented/supported");
+    Ok(resolved_prog)
 }

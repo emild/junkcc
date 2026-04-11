@@ -155,7 +155,7 @@ pub fn evaluate_constant_expression(expr: &Expression) -> Result<i32, String>
         Expression::PreIncrement(_) |
         Expression::Var(_) |
         Expression::FunctionCall(_,_)=> {
-            return Err(format!("Non-constant expression in case label"))
+            return Err(format!("Non-constant expression: '{:?}'", expr));
         },
         Expression::Unary(unop, sub_expr) => {
             evaluate_constant_unary_operator(unop, sub_expr)?

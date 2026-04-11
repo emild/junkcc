@@ -898,3 +898,5 @@ pub fn parse_program(l: &mut lexer::Lexer) -> Result<Program, String>
 pub use pretty_print::pretty_print_ast;
 pub use semantic_analyzer::semantic_analysis;
 pub use semantic_analyzer::Type;
+pub use semantic_analyzer::IdentifierAttrs;
+pub use semantic_analyzer::SymbolInfo;
