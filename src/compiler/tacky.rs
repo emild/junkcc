@@ -1,11 +1,13 @@
-use std::{sync::atomic::{AtomicUsize, Ordering}};
+use std::{collections::HashMap, hash::Hash, sync::atomic::{AtomicUsize, Ordering}};
 
 pub mod ast;
 mod pretty_print;
 
 use ast::*;
 
+
 use super::parser;
+use super::parser::{IdentifierAttrs, SymbolInfo, InitialValue};
 
 
 static TMP_NAME_INDEX: AtomicUsize = AtomicUsize::new(0);
@@ -523,44 +525,66 @@ fn emit_tacky_block(block: &parser::ast::Block, instructions: &mut Vec<Instructi
 }
 
 
-fn emit_tacky_function_definition(func_def: &parser::ast::FunctionDeclaration) -> Result<FunctionDefinition, String>
+fn emit_tacky_function_definition(func_def: &parser::ast::FunctionDeclaration) -> Result<TopLevel, String>
 {
      match func_def {
-        parser::ast::FunctionDeclaration::Declarant(func_name, params, Some(block), _) => {
+        parser::ast::FunctionDeclaration::Declarant(func_name, params, Some(block), stg_class) => {
             let mut instructions = vec![];
 
             emit_tacky_block(block, &mut instructions)?;
 
             //Force the function to return, in case control reaches the end of its body
             instructions.push(Instruction::Return(Val::IntConstant(0)));
-            Ok(FunctionDefinition::Function(func_name.clone(), params.clone(), instructions))
+            let global = *stg_class != Some(parser::ast::StorageClass::Static);
+            Ok(TopLevel::Function(func_name.clone(), global, params.clone(), instructions))
         },
         _ => { return Err(format!("TACKY Conversion: expected function definition, got '{:?}'", *func_def)); }
     }
 }
 
 
-pub fn emit_tacky_program(program: &parser::ast::Program) -> Result<Program, String>
+fn emit_tacky_static_duration_variables(symbol_table: &HashMap<String, SymbolInfo>) -> Result<Vec<TopLevel>, String>
 {
-    /*
-    match program {
-        parser::ast::Program::ProgramDefinition(func_defs) => {
-            let mut tacky_func_defs = vec![];
-            for func_def in func_defs {
-                if let parser::ast::Declaration::Declarant(_, _, Some(_), _) = func_def {
-                    //Emit tacky only for function declarations that are definitions (i.e.  have bodies)
-                    let tacky_func_def = emit_tacky_function_definition(func_def)?;
-                    tacky_func_defs.push(tacky_func_def);
-                }
-            }
-            Ok(Program::ProgramDefinition(tacky_func_defs))
-        },
-        _ => { return Err(format!("Tacky conversion: expected ProgramDefinition, got '{:?}'", program)); }
+    let mut tacky_vars = vec![];
+    for (var_name, v) in symbol_table {
+        if let SymbolInfo { typ: _, attrs: IdentifierAttrs::StaticAttr(initial_value, global) } = v {
+            let init_val = match initial_value {
+                InitialValue::Initial(init_val) => *init_val,
+                InitialValue::Tentative => 0,
+                InitialValue::NoInitializer => { continue; }
+            };
+
+            tacky_vars.push(TopLevel::StaticVariable(var_name.clone(), *global, init_val));
+        }
     }
-    */
 
-    panic!("emit_tacky_program: No longer supported");
+    Ok(tacky_vars)
+}
 
+
+
+pub fn emit_tacky_program(program: &parser::ast::Program, symbol_table: &HashMap<String, SymbolInfo>) -> Result<Program, String>
+{
+    let parser::ast::Program::ProgramDefinition(decls) = program;
+
+    //Emit only the functions
+    let mut tacky_top_level_items = vec![];
+    for decl in decls {
+        if let parser::ast::Declaration::FunDecl(func_def) = decl {
+            if let parser::ast::FunctionDeclaration::Declarant(_,_,Some(_),_) = func_def {
+                //Emit tacky only for function declarations that are definitions (i.e.  have bodies)
+                let tacky_func_def = emit_tacky_function_definition(func_def)?;
+                tacky_top_level_items.push(tacky_func_def);
+            }
+        }
+    }
+
+    let mut tacky_static_vars = emit_tacky_static_duration_variables(symbol_table)?;
+
+    tacky_top_level_items.append(&mut tacky_static_vars);
+
+
+    Ok(Program::ProgramDefinition(tacky_top_level_items))
 }
 
 

@@ -1,13 +1,16 @@
 
 #[derive(Debug)]
 pub enum Program {
-    ProgramDefinition(Vec<FunctionDefinition>)
+    ProgramDefinition(Vec<TopLevel>)
 }
 
 #[derive(Debug)]
-pub enum FunctionDefinition {
-    Function(String /* name */, Vec<String> /* parameters */, Vec<Instruction> /* body */)
+pub enum TopLevel {
+    Function(String /* name */, bool /* global */, Vec<String> /* parameters */, Vec<Instruction> /* body */),
+    StaticVariable(String /* name */, bool /* global */, i32 /* init */)
 }
+
+
 
 #[derive(Debug)]
 pub enum Instruction {

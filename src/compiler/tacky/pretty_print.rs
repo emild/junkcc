@@ -159,41 +159,57 @@ fn pretty_print_tacky_instructions(instructions: &Vec<Instruction>, indent: usiz
 }
 
 
-fn pretty_print_tacky_function(f: &FunctionDefinition, indent: usize)
+fn pretty_print_tacky_function(func_name: &String, global: bool, params: &Vec<String>, instructions: &Vec<Instruction>, indent: usize)
 {
-    match f {
-        FunctionDefinition::Function(func_name, params, instructions) => {
-            println!("{}Function(", " ".repeat(indent));
-            println!("{}name={func_name}", " ".repeat(indent + 4));
-            print!("{}params=(", " ".repeat(indent + 4));
-            if !params.is_empty() {
-                print!("{}", params[0]);
-                for i in 1..params.len() {
-                    print!(", {}", params[i]);
-                }
-            }
-            println!(")");
-            println!("{}body=(", " ".repeat(indent + 4));
-            pretty_print_tacky_instructions(instructions, indent + 8);
-            println!("{})", " ".repeat(indent + 4));
-            println!("{})", " ".repeat(indent));
+    println!("{}Function(", " ".repeat(indent));
+    println!("{}name={func_name}", " ".repeat(indent + 4));
+    println!("{}global={global}", " ".repeat(indent + 4));
+    print!("{}params=(", " ".repeat(indent + 4));
+    if !params.is_empty() {
+        print!("{}", params[0]);
+        for i in 1..params.len() {
+            print!(", {}", params[i]);
         }
     }
+    println!(")");
+    println!("{}body=(", " ".repeat(indent + 4));
+    pretty_print_tacky_instructions(instructions, indent + 8);
+    println!("{})", " ".repeat(indent + 4));
+    println!("{})", " ".repeat(indent));
+}
+
+
+fn pretty_print_tacky_static_variable(var_name: &String, global: bool, init_value: i32, indent: usize)
+{
+    print!("{}", " ".repeat(indent));
+    if global {
+        print!("GLOBAL ");
+    }
+    println!("STATIC VAR {var_name} = {init_value}");
+}
+
+
+fn pretty_print_tacky_top_level_item(top_level_item: &TopLevel, indent: usize)
+{
+    match top_level_item {
+        TopLevel::Function(func_name, global, params, instructions) => {
+            pretty_print_tacky_function(func_name, *global, params, instructions, indent);
+        },
+        TopLevel::StaticVariable(var_name, global, init_value) => {
+            pretty_print_tacky_static_variable(var_name, *global, *init_value, indent);
+        }
+    };
 }
 
 
 fn pretty_print_tacky_program(p: &Program, indent: usize)
 {
     println!("{}Program(", " ".repeat(indent));
-    match p {
-        Program::ProgramDefinition(funcs) => {
-            for func in funcs {
-                pretty_print_tacky_function(func, indent + 4);
-            }
-        }
-        _ => ()
-    };
 
+    let Program::ProgramDefinition(top_level_items) = p;
+    for top_level_item in top_level_items {
+        pretty_print_tacky_top_level_item(top_level_item, indent + 4);
+    }
     println!("{})", " ".repeat(indent));
 }
 

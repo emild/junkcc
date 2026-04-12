@@ -900,3 +900,4 @@ pub use semantic_analyzer::semantic_analysis;
 pub use semantic_analyzer::Type;
 pub use semantic_analyzer::IdentifierAttrs;
 pub use semantic_analyzer::SymbolInfo;
+pub use semantic_analyzer::InitialValue;
