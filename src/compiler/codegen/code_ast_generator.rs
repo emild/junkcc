@@ -328,6 +328,8 @@ fn generate_code_for_tacky_instructions(tacky_instructions: &Vec<tacky::ast::Ins
 }
 
 
+/*
+
 fn generate_code_for_function_definition(func_def: &tacky::ast::FunctionDefinition) -> Result<FunctionDefinition, String>
 {
     match func_def {
@@ -365,18 +367,21 @@ fn generate_code_for_function_definition(func_def: &tacky::ast::FunctionDefiniti
     }
 
 }
-
+*/
 
 
 pub fn generate_code(program: &tacky::ast::Program) -> Result<Program, String>
 {
+    panic!("generate_code() Not implemented yet!");
     let func_defs = match program {
             tacky::ast::Program::ProgramDefinition(func_defs) => {
             let mut fds = vec![];
 
             for func_def in func_defs {
+                /*
                 let fd = generate_code_for_function_definition(&func_def)?;
                 fds.push(fd);
+                */
             }
 
             fds
