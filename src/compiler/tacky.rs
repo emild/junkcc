@@ -7,7 +7,7 @@ use ast::*;
 
 
 use super::parser;
-use super::parser::{IdentifierAttrs, SymbolInfo, InitialValue};
+use super::parser::{IdentifierAttrs, SymbolInfo, InitialValue, Type};
 
 
 static TMP_NAME_INDEX: AtomicUsize = AtomicUsize::new(0);
@@ -525,7 +525,7 @@ fn emit_tacky_block(block: &parser::ast::Block, instructions: &mut Vec<Instructi
 }
 
 
-fn emit_tacky_function_definition(func_def: &parser::ast::FunctionDeclaration) -> Result<TopLevel, String>
+fn emit_tacky_function_definition(func_def: &parser::ast::FunctionDeclaration, symbol_table: &HashMap<String, SymbolInfo>) -> Result<TopLevel, String>
 {
      match func_def {
         parser::ast::FunctionDeclaration::Declarant(func_name, params, Some(block), stg_class) => {
@@ -535,8 +535,15 @@ fn emit_tacky_function_definition(func_def: &parser::ast::FunctionDeclaration) -
 
             //Force the function to return, in case control reaches the end of its body
             instructions.push(Instruction::Return(Val::IntConstant(0)));
-            let global = *stg_class != Some(parser::ast::StorageClass::Static);
-            Ok(TopLevel::Function(func_name.clone(), global, params.clone(), instructions))
+
+            //Must look at the symbol table and not at the actual declaration
+            //because static functions can be declared multiple times
+            let global = match symbol_table.get(func_name) {
+                Some(SymbolInfo {typ: Type::FuncType(_,_), attrs: IdentifierAttrs::FuncAttr(_, global)}) => global,
+                _ => { return Err(format!("Function '{func_name}()' not found in symbol table")); }
+            };
+
+            Ok(TopLevel::Function(func_name.clone(), *global, params.clone(), instructions))
         },
         _ => { return Err(format!("TACKY Conversion: expected function definition, got '{:?}'", *func_def)); }
     }
@@ -573,7 +580,7 @@ pub fn emit_tacky_program(program: &parser::ast::Program, symbol_table: &HashMap
         if let parser::ast::Declaration::FunDecl(func_def) = decl {
             if let parser::ast::FunctionDeclaration::Declarant(_,_,Some(_),_) = func_def {
                 //Emit tacky only for function declarations that are definitions (i.e.  have bodies)
-                let tacky_func_def = emit_tacky_function_definition(func_def)?;
+                let tacky_func_def = emit_tacky_function_definition(func_def, symbol_table)?;
                 tacky_top_level_items.push(tacky_func_def);
             }
         }
