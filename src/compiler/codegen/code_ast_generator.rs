@@ -328,69 +328,69 @@ fn generate_code_for_tacky_instructions(tacky_instructions: &Vec<tacky::ast::Ins
 }
 
 
-/*
 
-fn generate_code_for_function_definition(func_def: &tacky::ast::FunctionDefinition) -> Result<FunctionDefinition, String>
+fn generate_code_for_function_definition(func_name: &String, global: bool, params: &Vec<String>, tacky_instructions: &Vec<tacky::ast::Instruction>) -> Result<TopLevel, String>
 {
-    match func_def {
-        tacky::ast::FunctionDefinition::Function(func_name, params, tacky_instructions) => {
-            let mut new_instructions = vec![];
-            // First 6 parameters are found in the registers below; The following parameters are pushed onto stack, in reverse order
-            let params_registers = [
-                Register::DI,
-                Register::SI,
-                Register::DX,
-                Register::CX,
-                Register::R8,
-                Register::R9
-            ];
+    let mut new_instructions = vec![];
+    // First 6 parameters are found in the registers below; The following parameters are pushed onto stack, in reverse order
+    let params_registers = [
+        Register::DI,
+        Register::SI,
+        Register::DX,
+        Register::CX,
+        Register::R8,
+        Register::R9
+    ];
 
-            let num_reg_params = min(params.len(), params_registers.len());
+    let num_reg_params = min(params.len(), params_registers.len());
 
-            for reg_idx in 0..num_reg_params {
-                new_instructions.push(Instruction::Mov(Operand::Reg(params_registers[reg_idx].clone()), Operand::Pseudo(params[reg_idx].clone())));
-            }
-
-            for param_idx in num_reg_params.. params.len() {
-                let stack_idx =  16 + 8 * (param_idx - num_reg_params);
-                new_instructions.push(Instruction::Mov(Operand::Stack(stack_idx as i64), Operand::Pseudo(params[param_idx].clone())));
-            }
-
-            generate_code_for_tacky_instructions(tacky_instructions, &mut new_instructions)?;
-
-            Ok(FunctionDefinition::Function(func_name.clone(), new_instructions))
-        }
-        //,
-        //_ => {
-        //    return Err(format!("Expected function definitions, got {:?}", func_def));
-        //}
+    for reg_idx in 0..num_reg_params {
+        new_instructions.push(Instruction::Mov(Operand::Reg(params_registers[reg_idx].clone()), Operand::Pseudo(params[reg_idx].clone())));
     }
 
+    for param_idx in num_reg_params.. params.len() {
+        let stack_idx =  16 + 8 * (param_idx - num_reg_params);
+        new_instructions.push(Instruction::Mov(Operand::Stack(stack_idx as i64), Operand::Pseudo(params[param_idx].clone())));
+    }
+
+    generate_code_for_tacky_instructions(tacky_instructions, &mut new_instructions)?;
+
+    Ok(TopLevel::Function(func_name.clone(), global, new_instructions))
+
 }
-*/
+
+
+
+pub fn generate_code_for_top_level_item(tacky_top_level_item: &tacky::ast::TopLevel) -> Result<TopLevel, String>
+{
+    let top_level_item = match tacky_top_level_item {
+        tacky::ast::TopLevel::Function(func_name, global, params, tacky_instructions) => {
+            let top_level_item = generate_code_for_function_definition(func_name, *global, params, tacky_instructions)?;
+            top_level_item
+        },
+
+        tacky::ast::TopLevel::StaticVariable(var_name, global, initial_value) => {
+            let top_level_item = TopLevel::StaticVariable(var_name.clone(), *global, *initial_value);
+            top_level_item
+        }
+    };
+
+    Ok(top_level_item)
+}
 
 
 pub fn generate_code(program: &tacky::ast::Program) -> Result<Program, String>
 {
-    panic!("generate_code() Not implemented yet!");
-    let func_defs = match program {
-            tacky::ast::Program::ProgramDefinition(func_defs) => {
-            let mut fds = vec![];
 
-            for func_def in func_defs {
-                /*
-                let fd = generate_code_for_function_definition(&func_def)?;
-                fds.push(fd);
-                */
-            }
+    let tacky::ast::Program::ProgramDefinition(tacky_top_level_items) = program;
+    let mut top_level_items = vec![];
 
-            fds
-        }
-        //,
-        //_ => {
-        //    return Err(format!("Expected program definition, got {:?}", program));
-        //}
-    };
+    for tacky_top_level_item in tacky_top_level_items {
 
-    Ok(Program::ProgramDefinition(func_defs))
+        let top_level_item = generate_code_for_top_level_item(&tacky_top_level_item)?;
+        top_level_items.push(top_level_item);
+
+    }
+
+    Ok(Program::ProgramDefinition(top_level_items))
 }

@@ -27,7 +27,8 @@ pub enum Operand {
     Imm(i32),
     Reg(Register),
     Pseudo(String),
-    Stack(i64)
+    Stack(i64),
+    Data(String)
 }
 
 
@@ -70,11 +71,12 @@ pub enum Instruction {
 }
 
 #[derive(Debug)]
-pub enum FunctionDefinition {
-    Function(String, Vec<Instruction>)
+pub enum TopLevel {
+    Function(String /* name */, bool /* global */, Vec<Instruction> /* body */),
+    StaticVariable(String /* name */, bool /* global */, i32 /* initial_value */)
 }
 
 #[derive(Debug)]
 pub enum Program {
-    ProgramDefinition(Vec<FunctionDefinition>)
+    ProgramDefinition(Vec<TopLevel>)
 }

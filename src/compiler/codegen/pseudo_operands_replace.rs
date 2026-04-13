@@ -1,18 +1,25 @@
 use std::collections::HashMap;
 
+use crate::compiler::parser::IdentifierAttrs;
+
+use super::super::parser::SymbolInfo;
+use super::super::parser::Type;
+
 use super::ast::*;
 use super::fixup_function_instructions;
 
-struct PseudoOperandState {
+struct PseudoOperandState<'a> {
     pseudo_op_table: HashMap<String, i64>,
-    current_stack_index: i64
+    current_stack_index: i64,
+    symbol_table: &'a HashMap<String, SymbolInfo>
 }
 
-impl PseudoOperandState {
-    pub fn new() -> PseudoOperandState {
+impl<'a> PseudoOperandState<'a> {
+    pub fn new(symbol_table: &'a HashMap<String, SymbolInfo>) -> PseudoOperandState {
         PseudoOperandState {
             pseudo_op_table: HashMap::new(),
-            current_stack_index: 0
+            current_stack_index: 0,
+            symbol_table
         }
     }
 
@@ -20,6 +27,18 @@ impl PseudoOperandState {
     {
         match operand {
             Operand::Pseudo(var_name) => {
+                if !self.pseudo_op_table.contains_key(var_name) {
+                    match self.symbol_table.get(var_name) {
+                        Some(SymbolInfo{ typ: Type::Int, attrs: IdentifierAttrs::StaticAttr(_,_) }) =>  {
+                            return Operand::Data(var_name.clone());
+                        },
+                        Some(SymbolInfo{typ: Type::FuncType(_,_ ), attrs:_}) => {
+                            //TODO: Remove once function pointers are implemented??
+                            panic!("Symbol '{var_name}' found in symbol table, but it is not a variable");
+                        },
+                        _ => {}
+                    };
+                }
                 let stack_index = self.pseudo_op_table.entry(var_name.clone()).or_insert_with(
                     ||
                     {
@@ -36,10 +55,10 @@ impl PseudoOperandState {
 }
 
 
-fn replace_pseudo_operands_in_function_body(instructions: &mut Vec<Instruction>) -> Result<usize, String>
+fn replace_pseudo_operands_in_function_body(instructions: &mut Vec<Instruction>, symbol_table: &HashMap<String, SymbolInfo>) -> Result<usize, String>
 {
 
-    let mut pseudo_operand_state = PseudoOperandState::new();
+    let mut pseudo_operand_state = PseudoOperandState::new(symbol_table);
 
     for it in instructions.iter_mut() {
         let replace_instruction = match it {
@@ -86,14 +105,15 @@ fn replace_pseudo_operands_in_function_body(instructions: &mut Vec<Instruction>)
 }
 
 //Any pseudo operands are replaced with stack locations
-pub fn replace_pseudo_operands(program: &mut Program) -> Result<(), String>
+pub fn replace_pseudo_operands(program: &mut Program, symbol_table: &HashMap<String, SymbolInfo>) -> Result<(), String>
 {
     match program {
-        Program::ProgramDefinition(func_defs) => {
-            for func_def in func_defs {
-                let FunctionDefinition::Function(_, instructions ) = func_def;
-                let stack_allocation_size = replace_pseudo_operands_in_function_body(instructions)?;
-                fixup_function_instructions(func_def, stack_allocation_size)?;
+        Program::ProgramDefinition(top_level_items) => {
+            for top_level_item in top_level_items {
+                if let TopLevel::Function(_, _, instructions ) = top_level_item {
+                    let stack_allocation_size = replace_pseudo_operands_in_function_body(instructions, symbol_table)?;
+                    fixup_function_instructions(top_level_item, stack_allocation_size)?;
+                }
             }
             Ok(())
         }

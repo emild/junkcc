@@ -75,7 +75,7 @@ pub fn run(config: &Config, input_file_path: &str, output_file_path: &str) -> Re
             println!("\nAFTER STAGE: CODE GENERATION");
             codegen::pretty_print_code_ast(&prog_code_ast);
 
-            codegen::replace_pseudo_operands(&mut prog_code_ast)?;
+            codegen::replace_pseudo_operands(&mut prog_code_ast, &symbol_table)?;
 
             println!("\nAFTER STAGE: PSEUDO REGISTERS REPLACEMENT");
             codegen::pretty_print_code_ast(&prog_code_ast);

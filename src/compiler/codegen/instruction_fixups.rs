@@ -11,12 +11,29 @@ fn fixup_instruction_operands(instruction: &Instruction) -> Option<Vec<Instructi
                 Instruction::Mov(Operand::Reg(Register::R10), Operand::Stack(*dst_idx))
             ])
         },
-        Instruction::Binary(BinaryOperator::Add, Operand::Stack(src_idx), Operand::Stack(dst_idx)) => {
+        Instruction::Mov(Operand::Stack(src_idx), Operand::Data(dst_var_name)) => {
+            Some(vec![
+                Instruction::Mov(Operand::Stack(*src_idx), Operand::Reg(Register::R10)),
+                Instruction::Mov(Operand::Reg(Register::R10), Operand::Data(dst_var_name.clone()))
+            ])
+        },
+        Instruction::Mov(Operand::Data(src_var_name), Operand::Stack(dst_idx))=> {
+            Some(vec![
+                Instruction::Mov(Operand::Data(src_var_name.clone()), Operand::Reg(Register::R10)),
+                Instruction::Mov(Operand::Reg(Register::R10), Operand::Stack(*dst_idx))
+            ])
+        },
+        Instruction::Mov(Operand::Data(src_var_name), Operand::Data(dst_var_name)) => {
+            Some(vec![
+                Instruction::Mov(Operand::Data(src_var_name.clone()),  Operand::Reg(Register::R10)),
+                Instruction::Mov(Operand::Reg(Register::R10), Operand::Data(dst_var_name.clone()))
+            ])
+        },
+        /*Instruction::Binary(BinaryOperator::Add, Operand::Stack(src_idx), Operand::Stack(dst_idx)) => {
             Some(vec![
                 Instruction::Mov(Operand::Stack(*src_idx), Operand::Reg(Register::R10)),
                 Instruction::Binary(BinaryOperator::Add, Operand::Reg(Register::R10), Operand::Stack(*dst_idx))
             ])
-
         },
         Instruction::Binary(BinaryOperator::Sub, Operand::Stack(src_idx), Operand::Stack(dst_idx)) => {
             Some(vec![
@@ -41,7 +58,7 @@ fn fixup_instruction_operands(instruction: &Instruction) -> Option<Vec<Instructi
                 Instruction::Mov(Operand::Stack(*src_idx), Operand::Reg(Register::R10)),
                 Instruction::Binary(BinaryOperator::Xor, Operand::Reg(Register::R10), Operand::Stack(*dst_idx))
             ])
-        },
+        },*/
         Instruction::Binary(BinaryOperator::Shl, src, dst) => {
             let result = match src {
                 Operand::Reg(Register::CX) => None,
@@ -65,12 +82,6 @@ fn fixup_instruction_operands(instruction: &Instruction) -> Option<Vec<Instructi
 
             result
         },
-        Instruction::Idiv(Operand::Imm(c)) => {
-            Some(vec![
-                Instruction::Mov(Operand::Imm(*c), Operand::Reg(Register::R10)),
-                Instruction::Idiv(Operand::Reg(Register::R10))
-            ])
-        },
         Instruction::Binary(BinaryOperator::Mul, src, Operand::Stack(stack_idx)) => {
             Some(vec![
                 Instruction::Mov(Operand::Stack(*stack_idx), Operand::Reg(Register::R11)),
@@ -78,10 +89,66 @@ fn fixup_instruction_operands(instruction: &Instruction) -> Option<Vec<Instructi
                 Instruction::Mov(Operand::Reg(Register::R11), Operand::Stack(*stack_idx))
             ])
         },
+        Instruction::Binary(BinaryOperator::Mul, src, Operand::Data(glob_var_name)) => {
+            Some(vec![
+                Instruction::Mov(Operand::Data(glob_var_name.clone()), Operand::Reg(Register::R11)),
+                Instruction::Binary(BinaryOperator::Mul, src.clone(), Operand::Reg(Register::R11)),
+                Instruction::Mov(Operand::Reg(Register::R11), Operand::Data(glob_var_name.clone()))
+            ])
+        },
+        Instruction::Binary(binop, Operand::Stack(src_idx), Operand::Stack(dst_idx)) => {
+            Some(vec![
+                Instruction::Mov(Operand::Stack(*src_idx), Operand::Reg(Register::R10)),
+                Instruction::Binary(binop.clone(), Operand::Reg(Register::R10), Operand::Stack(*dst_idx))
+            ])
+        },
+        Instruction::Binary(binop, Operand::Stack(src_idx), Operand::Data(dst_var_name)) => {
+            Some(vec![
+                Instruction::Mov(Operand::Stack(*src_idx), Operand::Reg(Register::R10)),
+                Instruction::Binary(binop.clone(), Operand::Reg(Register::R10), Operand::Data(dst_var_name.clone()))
+            ])
+        },
+        Instruction::Binary(binop, Operand::Data(src_var_name), Operand::Stack(dst_idx)) => {
+            Some(vec![
+                Instruction::Mov(Operand::Data(src_var_name.clone()), Operand::Reg(Register::R10)),
+                Instruction::Binary(binop.clone(), Operand::Reg(Register::R10), Operand::Stack(*dst_idx))
+            ])
+        },
+
+        Instruction::Binary(binop, Operand::Data(src_var_name),  Operand::Data(dst_var_name)) => {
+            Some(vec![
+                Instruction::Mov(Operand::Data(src_var_name.clone()), Operand::Reg(Register::R10)),
+                Instruction::Binary(binop.clone(), Operand::Reg(Register::R10), Operand::Data(dst_var_name.clone()))
+            ])
+        },
+        Instruction::Idiv(Operand::Imm(c)) => {
+            Some(vec![
+                Instruction::Mov(Operand::Imm(*c), Operand::Reg(Register::R10)),
+                Instruction::Idiv(Operand::Reg(Register::R10))
+            ])
+        },
         Instruction::Cmp(Operand::Stack(src1_idx), Operand::Stack(src2_idx)) => {
             Some(vec![
                 Instruction::Mov(Operand::Stack(*src1_idx), Operand::Reg(Register::R10)),
                 Instruction::Cmp(Operand::Reg(Register::R10), Operand::Stack(*src2_idx))
+            ])
+        },
+        Instruction::Cmp(Operand::Stack(src1_idx), Operand::Data(dst_var_name)) => {
+            Some(vec![
+                Instruction::Mov(Operand::Stack(*src1_idx), Operand::Reg(Register::R10)),
+                Instruction::Cmp(Operand::Reg(Register::R10), Operand::Data(dst_var_name.clone()))
+            ])
+        },
+        Instruction::Cmp(Operand::Data(src_var_name), Operand::Stack(src2_idx)) => {
+            Some(vec![
+                Instruction::Mov(Operand::Data(src_var_name.clone()), Operand::Reg(Register::R10)),
+                Instruction::Cmp(Operand::Reg(Register::R10), Operand::Stack(*src2_idx))
+            ])
+        },
+        Instruction::Cmp(Operand::Data(src_var_name), Operand::Data(dst_var_name)) => {
+            Some(vec![
+                Instruction::Mov(Operand::Data(src_var_name.clone()), Operand::Reg(Register::R10)),
+                Instruction::Cmp(Operand::Reg(Register::R10), Operand::Data(dst_var_name.clone()))
             ])
         },
         Instruction::Cmp(src1, Operand::Imm(src2_c)) => {
@@ -118,15 +185,16 @@ fn fixup_function_body_instructions(instructions: &mut Vec<Instruction>, stack_a
 
 
 
-pub fn fixup_function_instructions(func_def: &mut FunctionDefinition, stack_allocation_size: usize) -> Result<(), String>
+pub fn fixup_function_instructions(top_level_item: &mut TopLevel, stack_allocation_size: usize) -> Result<(), String>
 {
-    match  func_def {
-        FunctionDefinition::Function(func_name, instructions) => {
+    match  top_level_item {
+        TopLevel::Function(func_name, global, instructions) => {
             fixup_function_body_instructions(instructions, stack_allocation_size)?;
         },
-        _ => {
-            return Err(format!("Fixup Instructions: Expected FunctionDefinion, got '{:?}'", func_def));
-        }
+        TopLevel::StaticVariable(_,_,_) => {}
+        //_ => {
+        //    return Err(format!("Fixup Instructions: Expected FunctionDefinion, got '{:?}'", top_level_item));
+        //}
     };
 
     Ok(())

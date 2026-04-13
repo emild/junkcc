@@ -14,6 +14,9 @@ fn pretty_print_operand(op: &Operand)
         },
         Operand::Stack(idx) => {
             print!("STACK({})", idx);
+        },
+        Operand::Data(var_name) => {
+            print!("DATA({})", var_name);
         }
         //,
         // => { panic!("Invalid operand: '{:?}'", op); }
@@ -154,18 +157,26 @@ fn pretty_print_instructions(instructions: &Vec<Instruction>, indent: usize)
     }
 }
 
-fn pretty_print_function(f: &FunctionDefinition, indent: usize)
+fn pretty_print_top_level_item(top_level_item: &TopLevel, indent: usize)
 {
-    match f {
-        FunctionDefinition::Function(func_name, instructions) => {
+    match top_level_item {
+        TopLevel::Function(func_name, global, instructions) => {
             println!("{}Function(", " ".repeat(indent));
             println!("{}name={func_name}", " ".repeat(indent + 4));
+            println!("{}global={global}", " ".repeat(indent + 4));
             println!("{}body=(", " ".repeat(indent + 4));
             pretty_print_instructions(instructions, indent + 8);
             println!("{})", " ".repeat(indent + 4));
             println!("{})", " ".repeat(indent));
         },
-        //_ => { panic!("Invalid function definiton: '{:?}'", f); }
+        TopLevel::StaticVariable(var_name, global, init_value) => {
+            print!("{}", " ".repeat(indent));
+            if *global {
+                print!("GLOBAL ");
+            }
+            println!("Static var {var_name} = {init_value}");
+        }
+        //_ => { panic!("Invalid top level item: '{:?}'", f); }
     }
 }
 
@@ -176,7 +187,7 @@ fn pretty_print_program(p: &Program, indent: usize)
     match p {
         Program::ProgramDefinition(func_defs) => {
             for func_def in func_defs {
-                pretty_print_function(func_def, indent + 4);
+                pretty_print_top_level_item(func_def, indent + 4);
                 println!("");
             }
         },
