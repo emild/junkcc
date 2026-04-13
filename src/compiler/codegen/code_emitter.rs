@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 use std::fs;
+use std::fs::write;
 use std::io::Write;
 use std::io::BufWriter;
 use super::ast::*;
@@ -118,6 +119,10 @@ fn emit_operand(op: &Operand, op_size: &OperandSize, buf_writer: &mut BufWriter<
         },
         Operand::Stack(stack_idx) => {
             write!(buf_writer, "{}(%rbp)", stack_idx)?;
+            Ok(())
+        },
+        Operand::Data(global_var_name) => {
+            write!(buf_writer, "{}(%rip)", global_var_name)?;
             Ok(())
         }
         _ => { return Err(std::io::Error::other(format!("Emit Code: Unsupported operand '{:?}'", op))); }
@@ -310,17 +315,18 @@ fn emit_body(instructions: &Vec<Instruction>, symbol_table: &HashMap<String, Sym
 
 
 
-fn emit_function(f: &TopLevel, symbol_table: &HashMap<String, SymbolInfo>, buf_writer: &mut BufWriter<fs::File>) -> std::io::Result<()>
+fn emit_function(top_level_item: &TopLevel, symbol_table: &HashMap<String, SymbolInfo>, buf_writer: &mut BufWriter<fs::File>) -> std::io::Result<()>
 {
-    panic!("emit_function(): NO LONGER IMPLEMENTED!!");
-    /*
-    match f {
-        TopLevel::Function(func_name, instructions) => {
+    match top_level_item {
+        TopLevel::Function(func_name, global, instructions) => {
             writeln!(buf_writer, "{}", "#".repeat(40))?;
-            writeln!(buf_writer, "# {}", func_name)?;
+            writeln!(buf_writer, "# FUNCTION: {}", func_name)?;
             writeln!(buf_writer, "{}\n", "#".repeat(40))?;
-            writeln!(buf_writer, "{}.globl {}", " ".repeat(16), func_name)?;
-            writeln!(buf_writer, "")?;
+            if *global {
+                writeln!(buf_writer, "{}.globl {}", " ".repeat(16), func_name)?;
+                writeln!(buf_writer, "")?;
+            }
+            writeln!(buf_writer, "{}.text", " ".repeat(16))?;
             writeln!(buf_writer, "{}:", func_name)?;
             //(Pre(?)Prolog
             writeln!(buf_writer, "{}pushq %rbp", " ".repeat(16))?;
@@ -331,9 +337,33 @@ fn emit_function(f: &TopLevel, symbol_table: &HashMap<String, SymbolInfo>, buf_w
             writeln!(buf_writer, "")?;
             Ok(())
         },
-        _ => Err(std::io::Error::other(format!("Unsupported function definition: '{:?}'", f)))
+        TopLevel::StaticVariable(var_name, global, init_value) => {
+            writeln!(buf_writer, "{}", "#".repeat(40))?;
+            writeln!(buf_writer, "# VARIABLE: {}", var_name)?;
+            writeln!(buf_writer, "{}\n", "#".repeat(40))?;
+            if *global {
+                writeln!(buf_writer, "{}.globl {}", " ".repeat(16), var_name)?;
+                writeln!(buf_writer, "")?;
+            }
+            if *init_value == 0 {
+                writeln!(buf_writer, "{}.bss", " ".repeat(16))?;
+                writeln!(buf_writer, "{}.align 4", " ".repeat(16))?;
+                writeln!(buf_writer, "{}:", var_name)?;
+                writeln!(buf_writer, "{}.zero 4", " ".repeat(16))?;
+            }
+            else {
+                writeln!(buf_writer, "{}.data", " ".repeat(16))?;
+                writeln!(buf_writer, "{}.align 4", " ".repeat(16))?;
+                writeln!(buf_writer, "{}:", var_name)?;
+                writeln!(buf_writer, "{}.long {}", " ".repeat(16), init_value)?;
+            }
+
+            Ok(())
+        },
+        _ => {
+            Err(std::io::Error::other(format!("Unsupported function definition: '{:?}'", top_level_item)))
+        }
     }
-    */
 }
 
 
