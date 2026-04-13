@@ -310,10 +310,12 @@ fn emit_body(instructions: &Vec<Instruction>, symbol_table: &HashMap<String, Sym
 
 
 
-fn emit_function(f: &FunctionDefinition, symbol_table: &HashMap<String, SymbolInfo>, buf_writer: &mut BufWriter<fs::File>) -> std::io::Result<()>
+fn emit_function(f: &TopLevel, symbol_table: &HashMap<String, SymbolInfo>, buf_writer: &mut BufWriter<fs::File>) -> std::io::Result<()>
 {
+    panic!("emit_function(): NO LONGER IMPLEMENTED!!");
+    /*
     match f {
-        FunctionDefinition::Function(func_name, instructions) => {
+        TopLevel::Function(func_name, instructions) => {
             writeln!(buf_writer, "{}", "#".repeat(40))?;
             writeln!(buf_writer, "# {}", func_name)?;
             writeln!(buf_writer, "{}\n", "#".repeat(40))?;
@@ -331,6 +333,7 @@ fn emit_function(f: &FunctionDefinition, symbol_table: &HashMap<String, SymbolIn
         },
         _ => Err(std::io::Error::other(format!("Unsupported function definition: '{:?}'", f)))
     }
+    */
 }
 
 
