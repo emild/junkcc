@@ -29,36 +29,7 @@ fn fixup_instruction_operands(instruction: &Instruction) -> Option<Vec<Instructi
                 Instruction::Mov(Operand::Reg(Register::R10), Operand::Data(dst_var_name.clone()))
             ])
         },
-        /*Instruction::Binary(BinaryOperator::Add, Operand::Stack(src_idx), Operand::Stack(dst_idx)) => {
-            Some(vec![
-                Instruction::Mov(Operand::Stack(*src_idx), Operand::Reg(Register::R10)),
-                Instruction::Binary(BinaryOperator::Add, Operand::Reg(Register::R10), Operand::Stack(*dst_idx))
-            ])
-        },
-        Instruction::Binary(BinaryOperator::Sub, Operand::Stack(src_idx), Operand::Stack(dst_idx)) => {
-            Some(vec![
-                Instruction::Mov(Operand::Stack(*src_idx), Operand::Reg(Register::R10)),
-                Instruction::Binary(BinaryOperator::Sub, Operand::Reg(Register::R10), Operand::Stack(*dst_idx))
-            ])
-        },
-        Instruction::Binary(BinaryOperator::And, Operand::Stack(src_idx), Operand::Stack(dst_idx)) => {
-            Some(vec![
-                Instruction::Mov(Operand::Stack(*src_idx), Operand::Reg(Register::R10)),
-                Instruction::Binary(BinaryOperator::And, Operand::Reg(Register::R10), Operand::Stack(*dst_idx))
-            ])
-        },
-        Instruction::Binary(BinaryOperator::Or, Operand::Stack(src_idx), Operand::Stack(dst_idx)) => {
-            Some(vec![
-                Instruction::Mov(Operand::Stack(*src_idx), Operand::Reg(Register::R10)),
-                Instruction::Binary(BinaryOperator::Or, Operand::Reg(Register::R10), Operand::Stack(*dst_idx))
-            ])
-        },
-        Instruction::Binary(BinaryOperator::Xor, Operand::Stack(src_idx), Operand::Stack(dst_idx)) => {
-            Some(vec![
-                Instruction::Mov(Operand::Stack(*src_idx), Operand::Reg(Register::R10)),
-                Instruction::Binary(BinaryOperator::Xor, Operand::Reg(Register::R10), Operand::Stack(*dst_idx))
-            ])
-        },*/
+
         Instruction::Binary(BinaryOperator::Shl, src, dst) => {
             let result = match src {
                 Operand::Reg(Register::CX) => None,
