@@ -322,7 +322,7 @@ fn emit_tacky_for_init(for_init: &parser::ast::ForInit, instructions: &mut Vec<I
 {
     match for_init {
         parser::ast::ForInit::InitDecl(decl) => {
-            emit_tacky_variable_declaration(decl, instructions)?;
+            emit_tacky_local_variable_declaration(decl, instructions)?;
         },
         parser::ast::ForInit::InitExp(Some(expr)) => {
             emit_tacky_expression(expr, instructions)?;
@@ -473,14 +473,14 @@ fn emit_tacky_unlabeled_statement(stmnt: &parser::ast::UnlabeledStatement, instr
 }
 
 
-fn emit_tacky_variable_declaration(decl: &parser::ast::VariableDeclaration, instructions: &mut Vec<Instruction>) -> Result<(), String>
+fn emit_tacky_local_variable_declaration(decl: &parser::ast::VariableDeclaration, instructions: &mut Vec<Instruction>) -> Result<(), String>
 {
     match decl {
-        parser::ast::VariableDeclaration::Declarant(var_name, Some(init_expr), _) => {
+        parser::ast::VariableDeclaration::Declarant(var_name, Some(init_expr), None) => {
             let init_val = emit_tacky_expression(init_expr, instructions)?;
             instructions.push(Instruction::Copy(init_val, Val::Var(var_name.clone())));
         },
-        parser::ast::VariableDeclaration::Declarant(_, None, _) => {}
+        parser::ast::VariableDeclaration::Declarant(_, _, _) => {}
     };
 
     Ok(())
@@ -496,7 +496,7 @@ fn emit_tacky_block_item(block_item: &parser::ast::BlockItem, instructions: &mut
         parser::ast::BlockItem::D(decl) => {
             match decl {
                 parser::ast::Declaration::VarDecl(var_decl) => {
-                    emit_tacky_variable_declaration(var_decl, instructions)?;
+                    emit_tacky_local_variable_declaration(var_decl, instructions)?;
                 },
                 parser::ast::Declaration::FunDecl(parser::ast::FunctionDeclaration::Declarant(_ , _, None, _)) => {
                     /* Nothing to emit */
