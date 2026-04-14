@@ -92,7 +92,7 @@ pub struct Lexer {
 
 struct RegexTableEntry {
     r: Regex,
-    f: fn(&RegexTable, &str) -> Token
+    f: fn(&RegexTable, &str) -> Result<Token, String>
 }
 
 struct RegexTable {
@@ -109,58 +109,58 @@ impl RegexTable {
             RegexTableEntry { r: Regex::new(r"^[a-zA-Z_]\w*\b").unwrap(),   f: Self::parse_id },
             RegexTableEntry { r: Regex::new(r"^[0-9]+[lL]\b").unwrap(),     f: Self::parse_long_constant },
             RegexTableEntry { r: Regex::new(r"^[0-9]+\b").unwrap(),         f: Self::parse_int_constant },
-            RegexTableEntry { r: Regex::new(r"^\?").unwrap(),               f: |_, _| Token::QuestionMark },
-            RegexTableEntry { r: Regex::new(r"^\(").unwrap(),               f: |_, _| Token::OpenParenthesis },
-            RegexTableEntry { r: Regex::new(r"^\)").unwrap(),               f: |_, _| Token::CloseParenthesis },
-            RegexTableEntry { r: Regex::new(r"^\{").unwrap(),               f: |_, _| Token::OpenBrace },
-            RegexTableEntry { r: Regex::new(r"^\}").unwrap(),               f: |_, _| Token::CloseBrace },
-            RegexTableEntry { r: Regex::new(r"^;").unwrap(),                f: |_, _| Token::Semicolon },
-            RegexTableEntry { r: Regex::new(r"^:").unwrap(),                f: |_, _| Token::Colon },
-            RegexTableEntry { r: Regex::new(r"^,").unwrap(),                f: |_, _| Token::Comma },
+            RegexTableEntry { r: Regex::new(r"^\?").unwrap(),               f: |_, _| Ok(Token::QuestionMark) },
+            RegexTableEntry { r: Regex::new(r"^\(").unwrap(),               f: |_, _| Ok(Token::OpenParenthesis) },
+            RegexTableEntry { r: Regex::new(r"^\)").unwrap(),               f: |_, _| Ok(Token::CloseParenthesis) },
+            RegexTableEntry { r: Regex::new(r"^\{").unwrap(),               f: |_, _| Ok(Token::OpenBrace) },
+            RegexTableEntry { r: Regex::new(r"^\}").unwrap(),               f: |_, _| Ok(Token::CloseBrace) },
+            RegexTableEntry { r: Regex::new(r"^;").unwrap(),                f: |_, _| Ok(Token::Semicolon) },
+            RegexTableEntry { r: Regex::new(r"^:").unwrap(),                f: |_, _| Ok(Token::Colon) },
+            RegexTableEntry { r: Regex::new(r"^,").unwrap(),                f: |_, _| Ok(Token::Comma) },
             // '--' and '-=' must be before '-'
-            RegexTableEntry { r: Regex::new(r"^--").unwrap(),               f: |_, _| Token::Decrement },
-            RegexTableEntry { r: Regex::new(r"^-=").unwrap(),               f: |_, _| Token::SubAssign },
-            RegexTableEntry { r: Regex::new(r"^-").unwrap(),                f: |_, _| Token::Minus },
-            RegexTableEntry { r: Regex::new(r"^~").unwrap(),                f: |_, _| Token::Tilde },
+            RegexTableEntry { r: Regex::new(r"^--").unwrap(),               f: |_, _| Ok(Token::Decrement) },
+            RegexTableEntry { r: Regex::new(r"^-=").unwrap(),               f: |_, _| Ok(Token::SubAssign) },
+            RegexTableEntry { r: Regex::new(r"^-").unwrap(),                f: |_, _| Ok(Token::Minus) },
+            RegexTableEntry { r: Regex::new(r"^~").unwrap(),                f: |_, _| Ok(Token::Tilde) },
             // '++' and '+=' must be before '+'
-            RegexTableEntry { r: Regex::new(r"^[+][+]").unwrap(),           f: |_, _| Token::Increment },
-            RegexTableEntry { r: Regex::new(r"^[+]=").unwrap(),             f: |_, _| Token::AddAssign },
-            RegexTableEntry { r: Regex::new(r"^[+]").unwrap(),              f: |_, _| Token::Plus },
+            RegexTableEntry { r: Regex::new(r"^[+][+]").unwrap(),           f: |_, _| Ok(Token::Increment) },
+            RegexTableEntry { r: Regex::new(r"^[+]=").unwrap(),             f: |_, _| Ok(Token::AddAssign) },
+            RegexTableEntry { r: Regex::new(r"^[+]").unwrap(),              f: |_, _| Ok(Token::Plus) },
             // '*=' must be before '*'
-            RegexTableEntry { r: Regex::new(r"^\*=").unwrap(),              f: |_, _| Token::MulAssign },
-            RegexTableEntry { r: Regex::new(r"^\*").unwrap(),               f: |_, _| Token::Asterisk },
+            RegexTableEntry { r: Regex::new(r"^\*=").unwrap(),              f: |_, _| Ok(Token::MulAssign) },
+            RegexTableEntry { r: Regex::new(r"^\*").unwrap(),               f: |_, _| Ok(Token::Asterisk) },
             // '/=' must be before '/'
-            RegexTableEntry { r: Regex::new(r"^/=").unwrap(),               f: |_, _| Token::DivAssign },
-            RegexTableEntry { r: Regex::new(r"^/").unwrap(),                f: |_, _| Token::Slash },
+            RegexTableEntry { r: Regex::new(r"^/=").unwrap(),               f: |_, _| Ok(Token::DivAssign) },
+            RegexTableEntry { r: Regex::new(r"^/").unwrap(),                f: |_, _| Ok(Token::Slash) },
             // '%=' must be before '%'
-            RegexTableEntry { r: Regex::new(r"^%=").unwrap(),               f: |_, _| Token::ModAssign },
-            RegexTableEntry { r: Regex::new(r"^%").unwrap(),                f: |_, _| Token::Percent },
+            RegexTableEntry { r: Regex::new(r"^%=").unwrap(),               f: |_, _| Ok(Token::ModAssign) },
+            RegexTableEntry { r: Regex::new(r"^%").unwrap(),                f: |_, _| Ok(Token::Percent) },
             // '||' and '|=' must be before '|'
-            RegexTableEntry { r: Regex::new(r"^\|\|").unwrap(),             f: |_, _| Token::LogicalOr },
-            RegexTableEntry { r: Regex::new(r"^\|=").unwrap(),              f: |_, _| Token::BitwiseOrAssign },
-            RegexTableEntry { r: Regex::new(r"^\|").unwrap(),               f: |_, _| Token::VerticalBar },
+            RegexTableEntry { r: Regex::new(r"^\|\|").unwrap(),             f: |_, _| Ok(Token::LogicalOr) },
+            RegexTableEntry { r: Regex::new(r"^\|=").unwrap(),              f: |_, _| Ok(Token::BitwiseOrAssign) },
+            RegexTableEntry { r: Regex::new(r"^\|").unwrap(),               f: |_, _| Ok(Token::VerticalBar) },
             // '&&' and '&=' must be before '&'
-            RegexTableEntry { r: Regex::new(r"^&&").unwrap(),               f: |_, _| Token::LogicalAnd },
-            RegexTableEntry { r: Regex::new(r"^&=").unwrap(),               f: |_, _| Token::BitwiseAndAssign },
-            RegexTableEntry { r: Regex::new(r"^&").unwrap(),                f: |_, _| Token::Ampersand },
+            RegexTableEntry { r: Regex::new(r"^&&").unwrap(),               f: |_, _| Ok(Token::LogicalAnd) },
+            RegexTableEntry { r: Regex::new(r"^&=").unwrap(),               f: |_, _| Ok(Token::BitwiseAndAssign) },
+            RegexTableEntry { r: Regex::new(r"^&").unwrap(),                f: |_, _| Ok(Token::Ampersand) },
             // '^=' must be before '^'
-            RegexTableEntry { r: Regex::new(r"^\^=").unwrap(),              f: |_, _| Token::BitwiseXorAssign },
-            RegexTableEntry { r: Regex::new(r"^\^").unwrap(),               f: |_, _| Token::Caret },
+            RegexTableEntry { r: Regex::new(r"^\^=").unwrap(),              f: |_, _| Ok(Token::BitwiseXorAssign) },
+            RegexTableEntry { r: Regex::new(r"^\^").unwrap(),               f: |_, _| Ok(Token::Caret) },
             //'<<=' must be before '<<'
-            RegexTableEntry { r: Regex::new(r"^<<=").unwrap(),              f: |_, _| Token::ShiftLeftAssign },
+            RegexTableEntry { r: Regex::new(r"^<<=").unwrap(),              f: |_, _| Ok(Token::ShiftLeftAssign) },
             //'>>=' must be before '>>'
-            RegexTableEntry { r: Regex::new(r"^>>=").unwrap(),              f: |_, _| Token::ShiftRightAssign },
-            RegexTableEntry { r: Regex::new(r"^<<").unwrap(),               f: |_, _| Token::ShiftLeft },
-            RegexTableEntry { r: Regex::new(r"^>>").unwrap(),               f: |_, _| Token::ShiftRight },
-            RegexTableEntry { r: Regex::new(r"^<=").unwrap(),               f: |_, _| Token::LessOrEqual },
-            RegexTableEntry { r: Regex::new(r"^>=").unwrap(),               f: |_, _| Token::GreaterOrEqual },
-            RegexTableEntry { r: Regex::new(r"^<").unwrap(),                f: |_, _| Token::OpenAngleBracket },
-            RegexTableEntry { r: Regex::new(r"^>").unwrap(),                f: |_, _| Token::CloseAngleBracket },
+            RegexTableEntry { r: Regex::new(r"^>>=").unwrap(),              f: |_, _| Ok(Token::ShiftRightAssign) },
+            RegexTableEntry { r: Regex::new(r"^<<").unwrap(),               f: |_, _| Ok(Token::ShiftLeft) },
+            RegexTableEntry { r: Regex::new(r"^>>").unwrap(),               f: |_, _| Ok(Token::ShiftRight) },
+            RegexTableEntry { r: Regex::new(r"^<=").unwrap(),               f: |_, _| Ok(Token::LessOrEqual) },
+            RegexTableEntry { r: Regex::new(r"^>=").unwrap(),               f: |_, _| Ok(Token::GreaterOrEqual) },
+            RegexTableEntry { r: Regex::new(r"^<").unwrap(),                f: |_, _| Ok(Token::OpenAngleBracket) },
+            RegexTableEntry { r: Regex::new(r"^>").unwrap(),                f: |_, _| Ok(Token::CloseAngleBracket) },
             // '==' must come before plain '='
-            RegexTableEntry { r: Regex::new(r"^==").unwrap(),               f: |_, _| Token::EqualTo },
-            RegexTableEntry { r: Regex::new(r"^!=").unwrap(),               f: |_, _| Token::NotEqualTo },
-            RegexTableEntry { r: Regex::new(r"^!").unwrap(),                f: |_, _| Token::ExclamationMark },
-            RegexTableEntry { r: Regex::new(r"^=").unwrap(),                f: |_, _| Token::EqualSign }
+            RegexTableEntry { r: Regex::new(r"^==").unwrap(),               f: |_, _| Ok(Token::EqualTo) },
+            RegexTableEntry { r: Regex::new(r"^!=").unwrap(),               f: |_, _| Ok(Token::NotEqualTo) },
+            RegexTableEntry { r: Regex::new(r"^!").unwrap(),                f: |_, _| Ok(Token::ExclamationMark) },
+            RegexTableEntry { r: Regex::new(r"^=").unwrap(),                f: |_, _| Ok(Token::EqualSign) }
         ];
 
         RegexTable {
@@ -188,28 +188,37 @@ impl RegexTable {
         }
     }
 
-    fn parse_id(&self, s: &str) -> Token {
+    fn parse_id(&self, s: &str) -> Result<Token, String> {
         if let Some(kw) = self.keyword_table.get(s) {
-            return kw.clone();
+            return Ok(kw.clone());
         }
 
-        Token::Identifier(String::from(s))
+        Ok(Token::Identifier(String::from(s)))
     }
 
-    fn parse_int_constant(&self, s: &str) -> Token {
+    fn parse_int_constant(&self, s: &str) -> Result<Token, String> {
         if let Ok(int_const) = String::from(s).parse::<i32>() {
-            Token::IntConstant(int_const)
+            Ok(Token::IntConstant(int_const))
+        }
+        else if let Ok(long_const) = String::from(s).parse::<i64>() {
+            Ok(Token::LongConstant(long_const))
         }
         else {
-            Token::LongConstant(String::from(s).parse::<i64>().unwrap())
+            Err(format!("Failed to parse integer constant: '{}' Overflow??", s))
         }
     }
 
-    fn parse_long_constant(&self, s: &str) -> Token {
+    fn parse_long_constant(&self, s: &str) -> Result<Token, String> {
         let mut long_str = String::from(s);
         let suffix = long_str.pop().unwrap();
         assert_eq!(suffix.to_ascii_lowercase(), 'l');
-        Token::LongConstant(long_str.parse::<i64>().unwrap())
+
+        if let Ok(long_constant) = long_str.parse::<i64>() {
+            Ok(Token::LongConstant(long_constant))
+        }
+        else {
+            Err(format!("Failed to parse long constant: '{}' Overflow??", s))
+        }
     }
 
 }
@@ -298,11 +307,17 @@ impl Lexer {
                 for rte in self.regex_table.regexes.iter() {
                     if let Some(token_match) = rte.r.find(&self.current_line[self.current_line_position..]) {
                         if !token_match.is_empty() {
-                            let token = (rte.f)(&self.regex_table, token_match.as_str());
-                            trace!("FOUND TOKEN {token:?} between [{}..{}]", self.current_line_position + token_match.start(), self.current_line_position + token_match.end());
-                            self.current_line_position += token_match.len();
-
-                            return Ok(token);
+                            match (rte.f)(&self.regex_table, token_match.as_str()) {
+                                Ok(token) => {
+                                    trace!("FOUND TOKEN {token:?} between [{}..{}]", self.current_line_position + token_match.start(), self.current_line_position + token_match.end());
+                                    self.current_line_position += token_match.len();
+                                    return Ok(token);
+                                },
+                                Err(e) => {
+                                    error!("Token parse error at line '{}', position {}: {}", self.current_line, self.current_line_position, e);
+                                    return Err(format!("Token parse error at line '{}', position {}: {}", self.current_line, self.current_line_position, e));
+                                }
+                            }
                         }
                     }
                 }
