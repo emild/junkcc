@@ -10,8 +10,10 @@ use regex::Regex;
 pub enum Token {
     Identifier(String),
     IntConstant(i32),
+    LongConstant(i64),
 
     KwInt,
+    KwLong,
     KwVoid,
     KwReturn,
     KwIf,
@@ -105,6 +107,7 @@ impl RegexTable {
     fn new() -> RegexTable {
         let regexes = vec![
             RegexTableEntry { r: Regex::new(r"^[a-zA-Z_]\w*\b").unwrap(),   f: Self::parse_id },
+            RegexTableEntry { r: Regex::new(r"^[0-9]+[lL]\b").unwrap(),     f: Self::parse_long_constant },
             RegexTableEntry { r: Regex::new(r"^[0-9]+\b").unwrap(),         f: Self::parse_int_constant },
             RegexTableEntry { r: Regex::new(r"^\?").unwrap(),               f: |_, _| Token::QuestionMark },
             RegexTableEntry { r: Regex::new(r"^\(").unwrap(),               f: |_, _| Token::OpenParenthesis },
@@ -167,6 +170,7 @@ impl RegexTable {
                 ("else",        Token::KwElse),
                 ("if",          Token::KwIf),
                 ("int",         Token::KwInt),
+                ("long",        Token::KwLong),
                 ("return",      Token::KwReturn),
                 ("void",        Token::KwVoid),
                 ("goto",        Token::KwGoto),
@@ -192,7 +196,21 @@ impl RegexTable {
         Token::Identifier(String::from(s))
     }
 
-    fn parse_int_constant(&self, s: &str) -> Token { Token::IntConstant(String::from(s).parse().unwrap()) }
+    fn parse_int_constant(&self, s: &str) -> Token {
+        if let Ok(int_const) = String::from(s).parse::<i32>() {
+            Token::IntConstant(int_const)
+        }
+        else {
+            Token::LongConstant(String::from(s).parse::<i64>().unwrap())
+        }
+    }
+
+    fn parse_long_constant(&self, s: &str) -> Token {
+        let mut long_str = String::from(s);
+        let suffix = long_str.pop().unwrap();
+        assert_eq!(suffix.to_ascii_lowercase(), 'l');
+        Token::LongConstant(long_str.parse::<i64>().unwrap())
+    }
 
 }
 
