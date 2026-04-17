@@ -129,8 +129,11 @@ fn emit_tacky_post_inc_dec(bin_op: BinaryOperator, var_name: &String, instructio
 fn emit_tacky_expression(expr: &parser::ast::Expression, instructions: &mut Vec<Instruction>) -> Result<Val, String>
 {
     let val = match expr {
-        parser::ast::Expression::IntConstant(c) => {
+        parser::ast::Expression::Constant(parser::ast::Const::ConstInt(c)) => {
             Val::IntConstant(*c)
+        },
+        parser::ast::Expression::Constant(parser::ast::Const::ConstLong(c)) => {
+            panic!("EMIL: Constant Long Expressions not implemented [YET]");
         },
         parser::ast::Expression::Var(var_name) => {
             Val::Var(var_name.clone())
@@ -279,8 +282,8 @@ fn emit_tacky_expression(expr: &parser::ast::Expression, instructions: &mut Vec<
 
             ret_val
         }
-        //,
-        //  _ => { panic!("TACKY Conversion: unsupported/unimplemented expression, got '{:?}'", expr); }
+        ,
+          _ => { panic!("TACKY Conversion: unsupported/unimplemented expression, got '{:?}'", expr); }
     };
 
     Ok(val)
@@ -476,11 +479,11 @@ fn emit_tacky_unlabeled_statement(stmnt: &parser::ast::UnlabeledStatement, instr
 fn emit_tacky_local_variable_declaration(decl: &parser::ast::VariableDeclaration, instructions: &mut Vec<Instruction>) -> Result<(), String>
 {
     match decl {
-        parser::ast::VariableDeclaration::Declarant(var_name, Some(init_expr), None) => {
+        parser::ast::VariableDeclaration::Declarant(var_name, Some(init_expr), typ, None) => {
             let init_val = emit_tacky_expression(init_expr, instructions)?;
             instructions.push(Instruction::Copy(init_val, Val::Var(var_name.clone())));
         },
-        parser::ast::VariableDeclaration::Declarant(_, _, _) => {}
+        parser::ast::VariableDeclaration::Declarant(_, _, _, _) => {}
     };
 
     Ok(())
@@ -498,10 +501,10 @@ fn emit_tacky_block_item(block_item: &parser::ast::BlockItem, instructions: &mut
                 parser::ast::Declaration::VarDecl(var_decl) => {
                     emit_tacky_local_variable_declaration(var_decl, instructions)?;
                 },
-                parser::ast::Declaration::FunDecl(parser::ast::FunctionDeclaration::Declarant(_ , _, None, _)) => {
+                parser::ast::Declaration::FunDecl(parser::ast::FunctionDeclaration::Declarant(_ , _, None, _, _)) => {
                     /* Nothing to emit */
                 },
-                parser::ast::Declaration::FunDecl(parser::ast::FunctionDeclaration::Declarant(_ , _, Some(_), _)) => {
+                parser::ast::Declaration::FunDecl(parser::ast::FunctionDeclaration::Declarant(_ , _, Some(_), _, _)) => {
                     panic!("BUG: Local function definitions are not supported (the semantic analyzer should have caught this)");
                 }
             };
@@ -528,7 +531,7 @@ fn emit_tacky_block(block: &parser::ast::Block, instructions: &mut Vec<Instructi
 fn emit_tacky_function_definition(func_def: &parser::ast::FunctionDeclaration, symbol_table: &HashMap<String, SymbolInfo>) -> Result<TopLevel, String>
 {
      match func_def {
-        parser::ast::FunctionDeclaration::Declarant(func_name, params, Some(block), stg_class) => {
+        parser::ast::FunctionDeclaration::Declarant(func_name, params, Some(block), typ, stg_class) => {
             let mut instructions = vec![];
 
             emit_tacky_block(block, &mut instructions)?;
@@ -578,7 +581,7 @@ pub fn emit_tacky_program(program: &parser::ast::Program, symbol_table: &HashMap
     let mut tacky_top_level_items = vec![];
     for decl in decls {
         if let parser::ast::Declaration::FunDecl(func_def) = decl {
-            if let parser::ast::FunctionDeclaration::Declarant(_,_,Some(_),_) = func_def {
+            if let parser::ast::FunctionDeclaration::Declarant(_,_,Some(_),_,_) = func_def {
                 //Emit tacky only for function declarations that are definitions (i.e.  have bodies)
                 let tacky_func_def = emit_tacky_function_definition(func_def, symbol_table)?;
                 tacky_top_level_items.push(tacky_func_def);

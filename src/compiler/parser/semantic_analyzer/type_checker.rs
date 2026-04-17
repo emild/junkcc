@@ -164,7 +164,7 @@ fn typecheck_expression(expr: &Expression, symbol_table: &mut HashMap<String, Sy
         Expression::Conditional(cond, true_expr, false_expr ) => {
             typecheck_expr_conditional(cond, true_expr, false_expr, symbol_table)?;
         },
-        Expression::IntConstant(_) => {
+        Expression::Constant(_) => {
 
         },
         Expression::PostDecrement(expr) |
@@ -176,6 +176,9 @@ fn typecheck_expression(expr: &Expression, symbol_table: &mut HashMap<String, Sy
 
         Expression::Unary(_,expr ) => {
             typecheck_expr_unary(expr, symbol_table)?;
+        },
+        Expression::Cast(_,_) => {
+            panic!("EMIL: Cast expression not implemented [YET]");
         }
 
     }
@@ -185,7 +188,7 @@ fn typecheck_expression(expr: &Expression, symbol_table: &mut HashMap<String, Sy
 
 fn typecheck_local_variable_declaration(var_decl: &VariableDeclaration, symbol_table: &mut HashMap<String, SymbolInfo>) -> Result<(), String>
 {
-    let VariableDeclaration::Declarant(var_name, initializer, stg_class) = var_decl;
+    let VariableDeclaration::Declarant(var_name, initializer, typ, stg_class) = var_decl;
 
     match stg_class {
         Some(StorageClass::Extern) => {
@@ -208,7 +211,7 @@ fn typecheck_local_variable_declaration(var_decl: &VariableDeclaration, symbol_t
 
         Some(StorageClass::Static) => {
             let initial_value = match initializer {
-                Some(Expression::IntConstant(init_val)) => {
+                Some(Expression::Constant(Const::ConstInt(init_val))) => {
                     InitialValue::Initial(*init_val)
                 },
                 None => {
@@ -244,9 +247,9 @@ fn typecheck_local_variable_declaration(var_decl: &VariableDeclaration, symbol_t
 
 fn typecheck_file_scope_variable_declaration(var_decl: &VariableDeclaration, symbol_table: &mut HashMap<String, SymbolInfo>) -> Result<(), String>
 {
-    let VariableDeclaration::Declarant(var_name, initializer, stg_class) = var_decl;
+    let VariableDeclaration::Declarant(var_name, initializer, typ, stg_class) = var_decl;
     let mut initial_value = match initializer {
-        Some(Expression::IntConstant(init_val)) => {
+        Some(Expression::Constant(Const::ConstInt(init_val))) => {
             InitialValue::Initial(*init_val)
         },
         None => {
@@ -320,7 +323,7 @@ fn typecheck_file_scope_variable_declaration(var_decl: &VariableDeclaration, sym
 fn typecheck_function_declaration(func_decl: &FunctionDeclaration, symbol_table: &mut HashMap<String, SymbolInfo>) -> Result<(), String>
 {
     match func_decl {
-        FunctionDeclaration::Declarant(func_name, params, body, stg_class ) => {
+        FunctionDeclaration::Declarant(func_name, params, body, typ, stg_class ) => {
             let func_type = params.len();
             let has_body = body.is_some();
             let mut already_defined = false;

@@ -162,8 +162,9 @@ pub fn evaluate_constant_expression(expr: &Expression) -> Result<i32, String>
         },
         Expression::Binary(binop, sub_expr_1 , sub_expr_2) => {
             evaluate_constant_binary_operator(binop, sub_expr_1, sub_expr_2)?
-        }
-        Expression::IntConstant(c) => *c,
+        },
+        Expression::Constant(Const::ConstInt(c)) => *c,
+        Expression::Constant(Const::ConstLong(c)) => { panic!("Long constant expressions not implemented YET"); },
         Expression::Conditional(cond_exp, true_exp, false_exp) => {
             let cond_val = evaluate_constant_expression(cond_exp)?;
             let val = if cond_val != 0 {
@@ -174,6 +175,9 @@ pub fn evaluate_constant_expression(expr: &Expression) -> Result<i32, String>
             };
 
             val
+        },
+        Expression::Cast(typ, inner_exp) => {
+            panic!("EMIL: Cast not implemented YET");
         }
     };
 

@@ -138,8 +138,17 @@ fn resolve_expression(expr: &Expression, identifier_map: &mut HashMap<String, Id
             Ok(Expression::Unary(unary_op.clone(), Box::new(resolved_expr)))
         },
 
-        Expression::IntConstant(c) => {
-            Ok(Expression::IntConstant(*c))
+        Expression::Constant(Const::ConstInt(c)) => {
+            Ok(Expression::Constant(Const::ConstInt(*c)))
+        },
+
+        Expression::Constant(Const::ConstLong(c)) => {
+            panic!("EMIL: Expression: Long constants not implented [YET]");
+        },
+
+
+        Expression::Cast(_,_) => {
+            panic!("EMIL: Cast expression not implemented [YET]");
         }
 
     }
@@ -164,7 +173,7 @@ fn resolve_statement(stmnt: &Statement, identifier_map: &mut HashMap<String, Ide
                     },
                     Label::Case(expr) => {
                         let case_val = evaluate_constant_expression(expr)?;
-                        resolved_stmnt_labels.push(Label::Case(Expression::IntConstant(case_val)));
+                        resolved_stmnt_labels.push(Label::Case(Expression::Constant(Const::ConstInt(case_val))));
                     },
                     Label::Default => {
                         resolved_stmnt_labels.push(Label::Default);
@@ -299,7 +308,7 @@ fn resolve_unlabeled_statement(stmnt: &UnlabeledStatement, identifier_map: &mut 
 fn resolve_local_variable_declaration(decl: &VariableDeclaration, identifier_map: &mut HashMap<String, IdentifierInfo>) -> Result<VariableDeclaration, String>
 {
     match decl {
-        VariableDeclaration::Declarant(var_name, initializer, stg_class) => {
+        VariableDeclaration::Declarant(var_name, initializer, typ, stg_class) => {
             if let Some(local_var_info) = identifier_map.get(var_name) &&
                 local_var_info.from_current_scope &&
                 !(local_var_info.has_linkage && *stg_class == Some(StorageClass::Extern)) {
@@ -317,10 +326,10 @@ fn resolve_local_variable_declaration(decl: &VariableDeclaration, identifier_map
                 }
                 else {
                     let resolved_init_val = evaluate_constant_expression(initializer.as_ref().unwrap())?;
-                    Some(Expression::IntConstant(resolved_init_val))
+                    Some(Expression::Constant(Const::ConstInt(resolved_init_val)))
                 };
 
-                return Ok(VariableDeclaration::Declarant(var_name.clone(), resolved_init, stg_class.clone()));
+                return Ok(VariableDeclaration::Declarant(var_name.clone(), resolved_init, typ.clone(), stg_class.clone()));
             }
 
             let temp_name = make_unique_global_name_for_local_variable(var_name);
@@ -334,7 +343,7 @@ fn resolve_local_variable_declaration(decl: &VariableDeclaration, identifier_map
                 Some(init_expression) => {
                     let resolved_init_expression = if *stg_class == Some(StorageClass::Static) {
                         let init_val = evaluate_constant_expression(init_expression)?;
-                        Expression::IntConstant(init_val)
+                        Expression::Constant(Const::ConstInt(init_val))
                     }
                     else {
                         resolve_expression(init_expression, identifier_map)?
@@ -345,7 +354,7 @@ fn resolve_local_variable_declaration(decl: &VariableDeclaration, identifier_map
                 None => None
             };
 
-            Ok(VariableDeclaration::Declarant(temp_name, resolved_initializer, stg_class.clone()))
+            Ok(VariableDeclaration::Declarant(temp_name, resolved_initializer, typ.clone(), stg_class.clone()))
         }
     }
 }
@@ -373,7 +382,7 @@ fn resolve_param(param: &String, identifier_map: &mut HashMap<String, Identifier
 fn resolve_function_declaration(func_decl: &FunctionDeclaration, identifier_map: &mut HashMap<String, IdentifierInfo>) -> Result<FunctionDeclaration, String>
 {
     match func_decl {
-        FunctionDeclaration::Declarant(func_name, params, body, stg_class) => {
+        FunctionDeclaration::Declarant(func_name, params, body, typ, stg_class) => {
             let prev_entry = identifier_map.get(func_name);
             if let Some(prev_entry) = prev_entry {
                 if prev_entry.from_current_scope && !prev_entry.has_linkage {
@@ -400,7 +409,7 @@ fn resolve_function_declaration(func_decl: &FunctionDeclaration, identifier_map:
                 new_body.replace(resolved_body);
             }
 
-            Ok(FunctionDeclaration::Declarant(func_name.clone(), new_params, new_body, stg_class.clone()))
+            Ok(FunctionDeclaration::Declarant(func_name.clone(), new_params, new_body, typ.clone(), stg_class.clone()))
         }
     }
 
@@ -410,16 +419,16 @@ fn resolve_function_declaration(func_decl: &FunctionDeclaration, identifier_map:
 fn resolve_local_declaration(decl: &Declaration, identifier_map: &mut HashMap<String, IdentifierInfo>) -> Result<Declaration, String>
 {
     match decl {
-        Declaration::VarDecl(VariableDeclaration::Declarant(var_name, initializer, stg_class )) => {
-            let resolved_var_decl = resolve_local_variable_declaration(&VariableDeclaration::Declarant(var_name.clone(), initializer.clone(), stg_class.clone()), identifier_map)?;
+        Declaration::VarDecl(VariableDeclaration::Declarant(var_name, initializer, typ, stg_class )) => {
+            let resolved_var_decl = resolve_local_variable_declaration(&VariableDeclaration::Declarant(var_name.clone(), initializer.clone(), typ.clone(), stg_class.clone()), identifier_map)?;
             Ok(Declaration::VarDecl(resolved_var_decl))
         },
         Declaration::FunDecl(func_decl) => {
             match func_decl {
-                FunctionDeclaration::Declarant(_,_,Some(_), _) => {
+                FunctionDeclaration::Declarant(_,_,Some(_), _, _) => {
                     return Err(format!("Local function definitions are not allowed"));
                 },
-                FunctionDeclaration::Declarant(_,_,None, Some(StorageClass::Static)) => {
+                FunctionDeclaration::Declarant(_,_,None, _, Some(StorageClass::Static)) => {
                     return Err(format!("Functions with static storage class cannot be declared at local scope"));
                 },
                 _ => ()
@@ -467,17 +476,17 @@ fn resolve_block(block: &Block, identifier_map: &mut HashMap<String, IdentifierI
 fn resolve_file_scoped_variable_declaration(var_decl: &VariableDeclaration, identifier_map: &mut HashMap<String, IdentifierInfo>) -> Result<VariableDeclaration, String>
 {
     let resolved_var_decl = match var_decl {
-        VariableDeclaration::Declarant(var_name, initializer, stg_class ) => {
+        VariableDeclaration::Declarant(var_name, initializer, typ, stg_class ) => {
             identifier_map.insert(var_name.clone(), IdentifierInfo { global_name: var_name.clone(), from_current_scope: true, has_linkage: true });
             let resolved_init = if initializer.is_none() {
                 None
             }
             else {
                 let resolved_init = evaluate_constant_expression(initializer.as_ref().unwrap())?;
-                Some(Expression::IntConstant(resolved_init))
+                Some(Expression::Constant(Const::ConstInt(resolved_init)))
             };
 
-            VariableDeclaration::Declarant(var_name.clone(), resolved_init, stg_class.clone())
+            VariableDeclaration::Declarant(var_name.clone(), resolved_init, typ.clone(), stg_class.clone())
         }
     };
 
