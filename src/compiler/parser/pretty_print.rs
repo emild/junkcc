@@ -3,8 +3,11 @@ use super::ast::*;
 fn pretty_print_expression(expr: &Expression, indent: usize)
 {
     match expr {
-        Expression::IntConstant(c) => {
-            println!("{}Constant({})", " ".repeat(indent), c);
+        Expression::Constant(Const::ConstInt(c)) => {
+            println!("{}Constant(INT = {})", " ".repeat(indent), c);
+        },
+        Expression::Constant(Const::ConstLong(c)) => {
+            println!("{}Constant(LONG = {})", " ".repeat(indent), c);
         },
         Expression::Var(var_name) => {
             println!("{}Var({})", " ".repeat(indent), var_name);
@@ -38,6 +41,9 @@ fn pretty_print_expression(expr: &Expression, indent: usize)
         },
         Expression::Conditional(cond, true_exp, false_exp) => {
             pretty_print_conditional(cond, true_exp, false_exp, indent);
+        },
+        Expression::Cast(typ, expr) => {
+            pretty_print_cast(typ, expr, indent);
         }
     }
 }
@@ -226,6 +232,14 @@ fn pretty_print_conditional(cond: &Expression, true_exp: &Expression, false_exp:
     println!("{})", " ".repeat(indent));
 }
 
+
+fn pretty_print_cast(typ: &Type, expr: &Expression, indent: usize) {
+    println!("{}CastTo({},", " ".repeat(indent), type_str(typ));
+    pretty_print_expression(expr, indent + 4);
+    println!("{})", " ".repeat(indent));
+}
+
+
 fn pretty_print_labels(labels: &Vec<Label>, indent: usize)
 {
     for label in labels {
@@ -396,6 +410,16 @@ fn pretty_print_unlabeled_statement(s: &UnlabeledStatement, indent: usize)
 }
 
 
+fn type_str(typ: &Type) -> &str
+{
+    match typ {
+        Type::Int           => "INT",
+        Type::Long          => "LONG",
+        Type::FuncType(_,_) => "FUNCTION"
+    }
+}
+
+
 fn storage_class_str(stg_class: &Option<StorageClass>) -> &str
 {
     match stg_class {
@@ -408,13 +432,13 @@ fn storage_class_str(stg_class: &Option<StorageClass>) -> &str
 fn pretty_print_variable_declaration(decl: &VariableDeclaration, indent: usize)
 {
     match decl {
-        VariableDeclaration::Declarant(var_name, Some(expr_init), stg_class) => {
-            println!("{}{} Var {} = (", " ".repeat(indent), storage_class_str(stg_class), var_name);
+        VariableDeclaration::Declarant(var_name, Some(expr_init), typ, stg_class) => {
+            println!("{}{}{} Var {} = (", " ".repeat(indent), storage_class_str(stg_class), type_str(typ), var_name);
             pretty_print_expression(expr_init, indent + 4);
             println!("{})", " ".repeat(indent));
         },
-        VariableDeclaration::Declarant(var_name,None, stg_class ) => {
-            println!("{}{} var {}", " ".repeat(indent),  storage_class_str(stg_class), var_name);
+        VariableDeclaration::Declarant(var_name,None, typ, stg_class ) => {
+            println!("{}{}{} var {}", " ".repeat(indent),  storage_class_str(stg_class), type_str(typ), var_name);
         }
     }
 }
@@ -424,9 +448,10 @@ fn pretty_print_variable_declaration(decl: &VariableDeclaration, indent: usize)
 fn pretty_print_function_declaration(func_decl: &FunctionDeclaration, indent: usize)
 {
     match func_decl {
-        FunctionDeclaration::Declarant(func_name, param_list, body, stg_class) => {
+        FunctionDeclaration::Declarant(func_name, param_list, body, typ, stg_class) => {
             println!("{}{} Function(", " ".repeat(indent), storage_class_str(stg_class));
             println!("{}name={func_name}", " ".repeat(indent + 4));
+            println!("{}type={}", " ".repeat(indent + 4), type_str(typ));
             println!("{}params=(", " ".repeat(indent + 4));
             if !param_list.is_empty() {
                 print!("{}{}", " ".repeat(indent + 8), param_list[0]);

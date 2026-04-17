@@ -15,7 +15,8 @@ use ast::*;
 
 lazy_static! {
     static ref TOKENS_TO_TYPES: HashMap<Token, ast::Type> = HashMap:: from([
-        (Token::KwInt, ast::Type::Int)
+        (Token::KwInt, ast::Type::Int),
+        (Token::KwLong, ast::Type::Long)
     ]);
 
     static ref TOKENS_TO_STORAGE_CLASSES: HashMap<Token, ast::StorageClass> = HashMap:: from([
@@ -32,15 +33,50 @@ fn is_type(t: &Token) -> bool
 }
 
 
-fn parse_type(t: &Token) -> Result<ast::Type, String>
+fn check_type(tokens: &Vec<Token>) -> Result<ast::Type, String>
 {
-    let typ = (*TOKENS_TO_TYPES).get(t);
+    let typ = match tokens.len() {
+        1 => match &tokens[0] {
+            Token::KwInt  => ast::Type::Int,
+            Token::KwLong => ast::Type::Long,
+            _ => { return Err(format!("Invalid type specifier: '{:?}'", tokens)); }
+        },
+        2 => match (&tokens[0], &tokens[1]) {
+            (Token::KwLong, Token::KwInt) |
+            (Token::KwInt, Token::KwLong) => ast::Type::Long,
+            _ => { return Err(format!("Invalid type specifier: '{:?}'", tokens)); }
+        },
+        _ => { return Err(format!("Invalid type specifier: '{:?}'", tokens)); }
+    };
 
-    match typ {
-        Some(typ) => Ok(typ.clone()),
-        None => { return Err(format!("Invalid type: '{:?}'", t)); }
-    }
+    Ok(typ)
 }
+
+
+
+fn parse_type(l: &mut lexer::Lexer) -> Result<ast::Type, String>
+{
+    let mut type_tokens = vec![];
+
+    loop {
+        let t = l.get_token()?;
+        match t {
+            Token::EOS => {
+                return Err(format!("Unexpected End of file while reading type specifier"));
+            },
+            _ if is_type(&t) => {
+                type_tokens.push(t);
+            },
+            _ => {
+                l.putback_token(t)?;
+                break;
+            }
+        };
+    }
+
+    check_type(&type_tokens)
+}
+
 
 
 fn is_storage_class(t: &Token) -> bool
@@ -49,7 +85,7 @@ fn is_storage_class(t: &Token) -> bool
 }
 
 
-fn parse_storage_class(t: &Token) -> Result<ast::StorageClass, String>
+fn check_storage_class(t: &Token) -> Result<ast::StorageClass, String>
 {
     let storage_class = TOKENS_TO_STORAGE_CLASSES.get(t);
 
@@ -60,9 +96,10 @@ fn parse_storage_class(t: &Token) -> Result<ast::StorageClass, String>
 }
 
 
-fn parse_param_list(l: &mut lexer::Lexer) -> Result<Vec<String>, String>
+fn parse_param_list(l: &mut lexer::Lexer) -> Result<(Vec<ast::Type>, Vec<String>), String>
 {
  //void or )
+    let mut type_list = vec![];
     let mut param_list = vec![];
     let t = l.peek_token()?;
     let is_void = match t {
@@ -73,19 +110,19 @@ fn parse_param_list(l: &mut lexer::Lexer) -> Result<Vec<String>, String>
     };
 
     if is_void {
-        return Ok(param_list);
+        return Ok((type_list, param_list));
     }
 
     loop {
-
         let mut t = l.peek_token()?;
         match t {
             Token::EOS => { return Err(format!("Expected parameter type or ')', got end of file")); },
+            _ if is_type(&t) => {
+                let typ = parse_type(l)?;
+                type_list.push(typ);
+            }
             _ => {
-                if !is_type(&t) {
-                    return Err(format!("Expected parameter type, got '{:?}'", t));
-                }
-                l.get_token()?;
+                return Err(format!("Expected parameter type, got '{:?}'", t));
             }
         };
 
@@ -107,31 +144,33 @@ fn parse_param_list(l: &mut lexer::Lexer) -> Result<Vec<String>, String>
         };
     }
 
-    Ok(param_list)
+    Ok((type_list, param_list))
 
 }
 
 
 
-fn parse_function_declaration(l: &mut lexer::Lexer, _typ: ast::Type, stg_class: Option<StorageClass>, func_name: String) -> Result<FunctionDeclaration, String>
+fn parse_function_declaration(l: &mut lexer::Lexer, ret_type: ast::Type, stg_class: Option<StorageClass>, func_name: String) -> Result<FunctionDeclaration, String>
 {
     // (
     check_open_paren(l)?;
 
-    let param_list = parse_param_list(l)?;
+    let (param_types, param_names) = parse_param_list(l)?;
 
     check_close_paren(l)?;
+
+    let func_type = ast::Type::FuncType(param_types, Box::new(ret_type));
 
     let t = l.peek_token()?;
 
     match t {
         Token::Semicolon => {
             l.get_token()?;
-            Ok(FunctionDeclaration::Declarant(func_name, param_list, None, stg_class))
+            Ok(FunctionDeclaration::Declarant(func_name, param_names, None, func_type, stg_class))
         },
         Token::OpenBrace => {
             let block = parse_block(l)?;
-            Ok(FunctionDeclaration::Declarant(func_name, param_list, Some(block), stg_class))
+            Ok(FunctionDeclaration::Declarant(func_name, param_names, Some(block), func_type, stg_class))
         },
         Token::EOS => { return Err(format!("Unexpected end of file at the end of function declaration")); },
         _ => { return Err(format!("Expected ';' or '{{', got '{:?}", t)); }
@@ -140,7 +179,7 @@ fn parse_function_declaration(l: &mut lexer::Lexer, _typ: ast::Type, stg_class: 
 }
 
 
-fn parse_variable_declaration(l: &mut lexer::Lexer, _typ: ast::Type, stg_class: Option<StorageClass>, var_name: String) -> Result<VariableDeclaration, String>
+fn parse_variable_declaration(l: &mut lexer::Lexer, typ: ast::Type, stg_class: Option<StorageClass>, var_name: String) -> Result<VariableDeclaration, String>
 {
     let t = l.peek_token()?;
     let initial_value = match t {
@@ -156,69 +195,64 @@ fn parse_variable_declaration(l: &mut lexer::Lexer, _typ: ast::Type, stg_class: 
 
     let t = l.get_token()?;
     match t {
-        Token::Semicolon => { return Ok(VariableDeclaration::Declarant(var_name, initial_value, stg_class)); }
+        Token::Semicolon => { return Ok(VariableDeclaration::Declarant(var_name, initial_value, typ, stg_class)); }
         _ => { return Err(format!("Missing ';' at end of declaration (got '{:?}')", t)); }
     }
 }
 
 
+//Storage class specifiers and types can be freely mixed
+fn check_type_and_storage_class_specifier(tokens: &Vec<lexer::Token>) -> Result<(ast::Type, Option<StorageClass>), String>
+{
+    let mut types = vec![];
+    let mut stg_classes = vec![];
+    for t in tokens {
+        if is_type(t) {
+            types.push(t.clone());
+        }
+        else if is_storage_class(t) {
+            stg_classes.push(t.clone());
+        }
+        else {
+            return Err(format!("Invalid declarator specifier: '{:?}'", t));
+        }
+    }
 
-//type and storage class
-fn parse_specifiers(l: &mut lexer::Lexer) -> Result<(ast::Type, Option<StorageClass>), String>
+    let typ = check_type(&types)?;
+
+    let stg_class = match stg_classes.len() {
+        0 => None,
+        1 => Some(check_storage_class(&stg_classes[0])?),
+        _ => { return Err(format!("Too many storage class specifiers: '{:?}'", stg_classes)); }
+    };
+
+    Ok((typ, stg_class))
+
+}
+
+
+
+fn parse_type_and_storage_class_specifier(l: &mut lexer::Lexer) -> Result<(ast::Type, Option<StorageClass>), String>
 {
     let mut spec_tokens = vec![];
 
     loop {
         let t = l.get_token()?;
         match t {
-            Token::Identifier(_) => {
-                l.putback_token(t)?;
-                break;
-            },
-
             Token::EOS => {
                 return Err(format!("Unexpected End of file while reading declaration specifier"));
             },
-
-            _ => {
+            _ if is_type(&t) || is_storage_class(&t) => {
                 spec_tokens.push(t);
+            },
+            _ => {
+                l.putback_token(t)?;
+                break;
             }
         };
     }
 
-    let mut types = vec![];
-    let mut storage_classes = vec![];
-
-    while let Some(t) = spec_tokens.pop() {
-        if is_type(&t) {
-            types.push(t);
-        }
-        else {
-            storage_classes.push(t);
-        }
-    }
-
-    if types.is_empty() {
-        return Err(format!("Missing type specifiers {:?}", spec_tokens));
-    }
-
-    if types.len() > 1 {
-        return Err(format!("Too many type specifiers {:?}", types));
-    }
-
-    if storage_classes.len() > 1 {
-        return Err(format!("Too many storage classes {:?}", storage_classes));
-    }
-
-    let typ = parse_type(&types[0])?;
-    let mut storage_class = None;
-    if !storage_classes.is_empty() {
-        let stg_class = parse_storage_class(&storage_classes[0])?;
-        storage_class.replace(stg_class);
-    }
-
-    Ok((typ, storage_class))
-
+    check_type_and_storage_class_specifier(&spec_tokens)
 }
 
 
@@ -226,7 +260,7 @@ fn parse_specifiers(l: &mut lexer::Lexer) -> Result<(ast::Type, Option<StorageCl
 
 fn parse_declaration(l: &mut lexer::Lexer) -> Result<Declaration, String>
 {
-    let (typ, stg_class) = parse_specifiers(l)?;
+    let (typ, stg_class) = parse_type_and_storage_class_specifier(l)?;
 
     let mut t = l.get_token()?;
     let dname = match t {
@@ -420,11 +454,11 @@ fn parse_for_init(l: &mut lexer::Lexer) -> Result<ForInit, String>
                 match decl {
                     Declaration::VarDecl(var_decl) => {
                         match var_decl {
-                            VariableDeclaration::Declarant(_,_,None) => {
+                            VariableDeclaration::Declarant(_,_,_,None) => {
                                 ForInit::InitDecl(var_decl)
                             },
 
-                            VariableDeclaration::Declarant(_,_,Some(stg_class)) => {
+                            VariableDeclaration::Declarant(_,_,_,Some(stg_class)) => {
                                 return Err(format!("Invalid storage class: '{:?}' in for initializer", stg_class));
                             }
                         }
@@ -561,13 +595,14 @@ fn parse_unlabeled_statement(l: &mut lexer::Lexer) -> Result<UnlabeledStatement,
 }
 
 
-fn parse_int_constant(l: &mut lexer::Lexer) -> Result<i32, String>
+fn parse_constant(l: &mut lexer::Lexer) -> Result<Const, String>
 {
     let t = l.get_token()?;
     match t {
         Token::EOS => Err(format!("Expected int constant, got end of file")),
-        Token::IntConstant(c) => Ok(c),
-        _ => Err(format!("Expected int constant, got {:?}", t))
+        Token::IntConstant(c) => Ok(Const::ConstInt(c)),
+        Token::LongConstant(c) => Ok(Const::ConstLong(c)),
+        _ => Err(format!("Expected integer constant, got {:?}", t))
     }
 }
 
@@ -729,9 +764,10 @@ fn parse_factor(l: &mut lexer::Lexer) -> Result<Expression, String>
 
     let mut expr = match t {
         Token::EOS => { return Err(format!("Expected factor, got end of file")); },
-        Token::IntConstant(_) => {
-            let c = parse_int_constant(l)?;
-            Expression::IntConstant(c)
+        Token::IntConstant(_) |
+        Token::LongConstant(_) => {
+            let c = parse_constant(l)?;
+            Expression::Constant(c)
         },
         Token::Identifier(_) => {
             let name = parse_identifier(l)?;
@@ -766,21 +802,21 @@ fn parse_factor(l: &mut lexer::Lexer) -> Result<Expression, String>
             Expression::PreDecrement(Box::new(inner_expression))
         },
         Token::OpenParenthesis => {
-            let mut t = l.get_token()?;
-            match t {
-                Token::OpenParenthesis => (),
-                _ => { return Err(format!("Expected '(' got '{:?}'", t)); }
-            };
+            check_open_paren(l)?;
 
-            let inner_expression = parse_expression(l, 0)?;
-
-            t = l.get_token()?;
-            match t {
-                Token::CloseParenthesis => (),
-                _ => { return Err(format!("Expected ')' got '{:?}'", t)); }
-            };
-
-            inner_expression
+            //Can be either a paranthesized expression or a type cast
+            let t = l.peek_token()?;
+            if is_type(&t) {
+                let cast_target_type = parse_type(l)?;
+                check_close_paren(l)?;
+                let inner_expression = parse_factor(l)?;
+                Expression::Cast(cast_target_type, Box::new(inner_expression))
+            }
+            else {
+                let inner_expression = parse_expression(l, 0)?;
+                check_close_paren(l)?;
+                inner_expression
+            }
         },
         _ => { return Err(format!("Malformed factor, got '{:?}'", t)); }
     };

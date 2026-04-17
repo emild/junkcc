@@ -6,8 +6,9 @@ pub trait Precedence {
 
 #[derive(Debug, Clone)]
 pub enum Expression {
-    IntConstant(i32),
+    Constant(Const),
     Var(String),
+    Cast(Type /* target_type */, Box<Expression>),
     Unary(UnaryOperator, Box<Expression>),
     PreIncrement(Box<Expression>),
     PreDecrement(Box<Expression>),
@@ -19,6 +20,14 @@ pub enum Expression {
     Conditional(Box<Expression> /* condition */, Box<Expression> /* true */, Box<Expression> /* false */),
     FunctionCall(String /* func_name */, Vec<Expression> /* args */)
 }
+
+
+#[derive(Debug, Clone)]
+pub enum Const {
+    ConstInt(i32),
+    ConstLong(i64)
+}
+
 
 #[derive(Debug, Clone)]
 pub enum UnaryOperator {
@@ -167,7 +176,9 @@ pub enum UnlabeledStatement {
 
 #[derive(Debug, Clone)]
 pub enum Type {
-    Int
+    Int,
+    Long,
+    FuncType(Vec<Type> /* param_types */, Box<Type> /* ret_type */ )
 }
 
 
@@ -180,13 +191,24 @@ pub enum StorageClass {
 
 #[derive(Debug)]
 pub enum VariableDeclaration {
-    Declarant(String /* id */, Option<Expression> /* initializer */, Option<StorageClass>)
+    Declarant(
+        String /* var_name */,
+        Option<Expression> /* initializer */,
+        Type /* var_type */,
+        Option<StorageClass>
+    )
 }
 
 
 #[derive(Debug)]
 pub enum FunctionDeclaration {
-    Declarant(String /* name */, Vec<String> /* args */,  Option<Block> /* body */, Option<StorageClass>)
+    Declarant(
+        String /* func_name */,
+        Vec<String> /* args */,
+        Option<Block> /* body */,
+        Type /* return_type */,
+        Option<StorageClass>
+    )
 }
 
 
@@ -222,8 +244,11 @@ pub enum Program {
 <declaration>           ::= <variable-declaration> | <function-declaration>
 <variable-declaration>  ::= <specifier>+ <identifier> [ "=" <exp> ] ";"
 <function-declaration>  ::= <specifier>+ <identifier> "(" [<param-list>] )" ( <block> | ";" )
-<specifier>             ::= "int" | "static" | "extern"
-<param-list>            ::= "void" | "int" <identifier> ["," "int" <identifier>"]*
+<specifier>             ::= <type-specifier> | "static" | "extern"
+<type-specifier>        ::= "int" | "long"
+<param-list>            ::= "" |
+                            "void" |
+                            <type-specifier> <identifier> ["," <type-specifier> <identifier>"]*
 <block>                 ::= "{" [<block_item> *] "}"
 <block_item>            ::= <statement>|<declaration>
 <label>                 ::= <id> ":" | "case" <exp> ":" | "default" ":"
@@ -242,7 +267,9 @@ pub enum Program {
                             <block>
 <for_init>              ::= <variable-declaration> | [<exp>]
 <exp>                   ::= <factor> | <exp> <binop> <exp> | <exp> "?" <exp> ":" <exp>
-<factor>                ::= <int> | <identifier> | <unop> <factor> | "(" <exp> ")" |
+<factor>                ::= <const> | <identifier> |
+                            "(" <type-specifier>+ ")" <factor>
+                            <unop> <factor> | "(" <exp> ")" |
                             <inc_dec> <factor> | <factor> <inc_dec> |
                             <identifier> "(" [ <argument-list > ] ")"
 <argument-list>         ::= <exp> ["," <exp>]*
@@ -255,8 +282,9 @@ pub enum Program {
                             "="  | "+=" | "-=" | "*=" | "/=" | "%=" |
                             "|=" | "&=" |
                             "<<="| ">>="
-
+<const>                 ::= <int> | <long>
 <identifier>            ::= ? Token::Identifier ?
 <int>                   ::= ? Token::IntConstant ?
+<long>                  ::= ? Token::LongConstant ?
 
 */
