@@ -10,7 +10,7 @@ use super::constant_expression_evaluator::evaluate_constant_expression;
 
 
 
-fn label_unlabeled_statement_switch_statements(unlabeled_stmnt: &mut UnlabeledStatement, switch_label: &Option<String>, case_labels_map: &mut HashMap<i32, String>, default_label: &mut Option<String>) -> Result<(), String>
+fn label_unlabeled_statement_switch_statements(unlabeled_stmnt: &mut UnlabeledStatement, switch_label: &Option<String>, case_labels_map: &mut HashMap<Const, String>, default_label: &mut Option<String>) -> Result<(), String>
 {
     match unlabeled_stmnt {
         UnlabeledStatement::Break(break_type, break_label) => {
@@ -56,7 +56,7 @@ fn label_unlabeled_statement_switch_statements(unlabeled_stmnt: &mut UnlabeledSt
 }
 
 
-fn label_statement_switch_statements(stmnt: &mut Statement, switch_label: &Option<String>, case_labels_map: &mut HashMap<i32, String>, default_label: &mut Option<String>) -> Result<(), String>
+fn label_statement_switch_statements(stmnt: &mut Statement, switch_label: &Option<String>, case_labels_map: &mut HashMap<Const, String>, default_label: &mut Option<String>) -> Result<(), String>
 {
     match stmnt {
         Statement::Stmnt(None, unlabeled_stmnt) => {
@@ -75,7 +75,7 @@ fn label_statement_switch_statements(stmnt: &mut Statement, switch_label: &Optio
                             return Err(format!("Error: Duplicate case value"));
                         }
 
-                        let global_case_label = make_unique_case_label(&switch_label.clone().unwrap(), case_value);
+                        let global_case_label = make_unique_case_label(&switch_label.clone().unwrap(), case_value.to_i64());
                         case_labels_map.insert(case_value, global_case_label.clone());
                         *label = Label::ResolvedCase(global_case_label.clone());
 
@@ -107,7 +107,7 @@ fn label_statement_switch_statements(stmnt: &mut Statement, switch_label: &Optio
 }
 
 
-fn label_block_item_switch_statements(block_item: &mut BlockItem, switch_label: &Option<String>, case_labels_map: &mut HashMap<i32, String>, default_label: &mut Option<String>) -> Result<(), String>
+fn label_block_item_switch_statements(block_item: &mut BlockItem, switch_label: &Option<String>, case_labels_map: &mut HashMap<Const, String>, default_label: &mut Option<String>) -> Result<(), String>
 {
     match block_item {
         BlockItem::D(decl) => {
@@ -121,7 +121,7 @@ fn label_block_item_switch_statements(block_item: &mut BlockItem, switch_label: 
 }
 
 
-pub fn label_block_switch_statements(block: &mut Block, switch_label: &Option<String>, case_labels_map: &mut HashMap<i32, String>, default_label: &mut Option<String>) -> Result<(), String>
+pub fn label_block_switch_statements(block: &mut Block, switch_label: &Option<String>, case_labels_map: &mut HashMap<Const, String>, default_label: &mut Option<String>) -> Result<(), String>
 {
      match block {
         Block::Blk(block_items) => {

@@ -429,7 +429,7 @@ fn parse_statement(l: &mut lexer::Lexer) -> Result<Statement, String>
 }
 
 
-fn parse_condition(l: &mut lexer::Lexer) -> Result<Expression, String>
+fn parse_condition(l: &mut lexer::Lexer) -> Result<TypedExpression, String>
 {
     check_open_paren(l)?;
     let cond = parse_expression(l, 0)?;
@@ -723,7 +723,7 @@ fn parse_binary_operator(l: &mut lexer::Lexer) -> Result<BinaryOperator, String>
 
 
 
-fn parse_function_argument_list(l: &mut lexer::Lexer) -> Result<Vec<Expression>, String>
+fn parse_function_argument_list(l: &mut lexer::Lexer) -> Result<Vec<TypedExpression>, String>
 {
     let mut func_args = vec![];
 
@@ -758,7 +758,7 @@ fn parse_function_argument_list(l: &mut lexer::Lexer) -> Result<Vec<Expression>,
 
 
 
-fn parse_factor(l: &mut lexer::Lexer) -> Result<Expression, String>
+fn parse_factor(l: &mut lexer::Lexer) -> Result<TypedExpression, String>
 {
     let t = l.peek_token()?;
 
@@ -813,8 +813,10 @@ fn parse_factor(l: &mut lexer::Lexer) -> Result<Expression, String>
                 Expression::Cast(cast_target_type, Box::new(inner_expression))
             }
             else {
-                let inner_expression = parse_expression(l, 0)?;
+                let inner_typed_expression = parse_expression(l, 0)?;
                 check_close_paren(l)?;
+                let TypedExpression::TypedExp(_typ, inner_expression) = inner_typed_expression;
+                assert!(_typ.is_none());
                 inner_expression
             }
         },
@@ -826,11 +828,11 @@ fn parse_factor(l: &mut lexer::Lexer) -> Result<Expression, String>
         match next_t {
             Token::Increment => {
                 parse_increment(l, false)?;
-                expr = Expression::PostIncrement(Box::new(expr));
+                expr = Expression::PostIncrement(Box::new(typex_init(expr)));
             },
             Token::Decrement => {
                 parse_decrement(l, false)?;
-                expr = Expression::PostDecrement(Box::new(expr));
+                expr = Expression::PostDecrement(Box::new(typex_init(expr)));
             }
 
             _ => { break expr; }
@@ -838,12 +840,12 @@ fn parse_factor(l: &mut lexer::Lexer) -> Result<Expression, String>
     };
 
 
-    Ok(postfix_expr)
+    Ok(typex_init(postfix_expr))
 
 }
 
 
-fn parse_conditional_middle(l: &mut lexer::Lexer) -> Result<Expression, String>
+fn parse_conditional_middle(l: &mut lexer::Lexer) -> Result<TypedExpression, String>
 {
     let mut t = l.get_token()?; //consume '?'
     if t != Token::QuestionMark {
@@ -860,7 +862,7 @@ fn parse_conditional_middle(l: &mut lexer::Lexer) -> Result<Expression, String>
 }
 
 
-fn parse_expression(l: &mut lexer::Lexer, min_precedence: u32) -> Result<Expression, String>
+fn parse_expression(l: &mut lexer::Lexer, min_precedence: u32) -> Result<TypedExpression, String>
 {
     let mut left = parse_factor(l)?;
     let mut t = l.peek_token()?;
@@ -873,7 +875,7 @@ fn parse_expression(l: &mut lexer::Lexer, min_precedence: u32) -> Result<Express
                     BinaryOperator::Assign => {
                         parse_binary_operator(l)?;
                         let right = parse_expression(l, curr_precedence)?;
-                        left = Expression::Assignment(Box::new(left), Box::new(right))
+                        left = typex_init(Expression::Assignment(Box::new(left), Box::new(right)));
                     },
                     BinaryOperator::AddAssign |
                     BinaryOperator::SubtractAssign |
@@ -888,17 +890,17 @@ fn parse_expression(l: &mut lexer::Lexer, min_precedence: u32) -> Result<Express
                     => {
                         parse_binary_operator(l)?;
                         let right = parse_expression(l, curr_precedence)?;
-                        left = Expression::CompoundAssignment(binary_operator, Box::new(left), Box::new(right))
+                        left = typex_init(Expression::CompoundAssignment(binary_operator, Box::new(left), Box::new(right)));
                     },
                     BinaryOperator::ConditionalMiddle => {
                         let true_exp = parse_conditional_middle(l)?;
                         let false_exp = parse_expression(l, curr_precedence)?;
-                        left = Expression::Conditional(Box::new(left), Box::new(true_exp), Box::new(false_exp));
+                        left = typex_init(Expression::Conditional(Box::new(left), Box::new(true_exp), Box::new(false_exp)));
                     },
                     _ => {
                         let binary_operator = parse_binary_operator(l)?;
                         let right = parse_expression(l, curr_precedence + 1)?;
-                        left = Expression::Binary(binary_operator, Box::new(left), Box::new(right));
+                        left = typex_init(Expression::Binary(binary_operator, Box::new(left), Box::new(right)));
                     }
                 }
                 t = l.peek_token()?;
@@ -909,6 +911,7 @@ fn parse_expression(l: &mut lexer::Lexer, min_precedence: u32) -> Result<Express
 
         break;
     }
+
     Ok(left)
 }
 

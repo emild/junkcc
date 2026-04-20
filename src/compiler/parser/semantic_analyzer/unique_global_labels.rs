@@ -43,9 +43,9 @@ pub fn make_unique_global_switch_label() -> String
 }
 
 
-pub fn make_unique_case_label(switch_label: &String, case_value: i32) -> String
+pub fn make_unique_case_label(switch_label: &String, case_value: i64) -> String
 {
-    let global_label = format!("{}_{:08X}", switch_label, case_value);
+    let global_label = format!("{}_{:016X}", switch_label, case_value);
 
     global_label
 }

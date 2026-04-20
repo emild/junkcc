@@ -31,7 +31,7 @@ pub struct SymbolInfo {
 }
 
 
-fn typecheck_expr_function_call(func_name: &String, args: &Vec<Expression>, symbol_table: &mut HashMap<String, SymbolInfo>) -> Result<(), String>
+fn typecheck_expr_function_call(func_name: &String, args: &Vec<TypedExpression>, symbol_table: &mut HashMap<String, SymbolInfo>) -> Result<(), String>
 {
     let func_type = symbol_table.get(func_name);
     match func_type {
@@ -84,8 +84,9 @@ fn typecheck_expr_var(var_name: &String, symbol_table: &mut HashMap<String, Symb
 }
 
 
-fn typecheck_expr_assignment(left: &Expression, right: &Expression, symbol_table: &mut HashMap<String, SymbolInfo>) -> Result<(), String>
+fn typecheck_expr_assignment(typed_left: &TypedExpression, typed_right: &TypedExpression, symbol_table: &mut HashMap<String, SymbolInfo>) -> Result<(), String>
 {
+    let TypedExpression::TypedExp(_, left) = typed_left;
     match left {
         Expression::Var(var_name) => {
             typecheck_expr_var(var_name, symbol_table)?;
@@ -93,16 +94,16 @@ fn typecheck_expr_assignment(left: &Expression, right: &Expression, symbol_table
         _ => { return Err(format!("Assignment to non-lvalue")); }
     }
 
-    typecheck_expression(right, symbol_table)?;
+    typecheck_expression(typed_right, symbol_table)?;
 
     Ok(())
 }
 
 
-fn typecheck_expr_binary(left: &Expression, right: &Expression, symbol_table: &mut HashMap<String, SymbolInfo>) -> Result<(), String>
+fn typecheck_expr_binary(typed_left: &TypedExpression, typed_right: &TypedExpression, symbol_table: &mut HashMap<String, SymbolInfo>) -> Result<(), String>
 {
-    typecheck_expression(left, symbol_table)?;
-    typecheck_expression(right, symbol_table)?;
+    typecheck_expression(typed_left, symbol_table)?;
+    typecheck_expression(typed_right, symbol_table)?;
 
     //TODO: Check that both left and right have the same type
 
@@ -110,7 +111,7 @@ fn typecheck_expr_binary(left: &Expression, right: &Expression, symbol_table: &m
 }
 
 
-fn typecheck_expr_conditional(cond: &Expression, true_expr: &Expression, false_expr: &Expression, symbol_table: &mut HashMap<String, SymbolInfo>) -> Result<(), String>
+fn typecheck_expr_conditional(cond: &TypedExpression, true_expr: &TypedExpression, false_expr: &TypedExpression, symbol_table: &mut HashMap<String, SymbolInfo>) -> Result<(), String>
 {
     typecheck_expression(cond, symbol_table)?;
     typecheck_expression(true_expr, symbol_table)?;
@@ -122,8 +123,9 @@ fn typecheck_expr_conditional(cond: &Expression, true_expr: &Expression, false_e
 }
 
 
-fn typecheck_expr_inc_dec(expr: &Expression, symbol_table: &mut HashMap<String, SymbolInfo>) -> Result<(), String>
+fn typecheck_expr_inc_dec(typed_expr: &TypedExpression, symbol_table: &mut HashMap<String, SymbolInfo>) -> Result<(), String>
 {
+    let TypedExpression::TypedExp(_, expr) = typed_expr;
     match expr {
         Expression::Var(var_name) => {
             typecheck_expr_var(var_name, symbol_table)?;
@@ -137,16 +139,17 @@ fn typecheck_expr_inc_dec(expr: &Expression, symbol_table: &mut HashMap<String, 
 }
 
 
-fn typecheck_expr_unary(expr: &Expression, symbol_table: &mut HashMap<String, SymbolInfo>) -> Result<(), String>
+fn typecheck_expr_unary(typed_expr: &TypedExpression, symbol_table: &mut HashMap<String, SymbolInfo>) -> Result<(), String>
 {
-    typecheck_expression(expr, symbol_table)?;
+    typecheck_expression(typed_expr, symbol_table)?;
 
     Ok(())
 }
 
 
-fn typecheck_expression(expr: &Expression, symbol_table: &mut HashMap<String, SymbolInfo>) -> Result<(), String>
+fn typecheck_expression(typed_expr: &TypedExpression, symbol_table: &mut HashMap<String, SymbolInfo>) -> Result<(), String>
 {
+    let TypedExpression::TypedExp(_, expr) = typed_expr;
     match expr {
         Expression::FunctionCall(func_name, args) => {
             typecheck_expr_function_call(func_name, args, symbol_table)?;
@@ -211,7 +214,8 @@ fn typecheck_local_variable_declaration(var_decl: &VariableDeclaration, symbol_t
 
         Some(StorageClass::Static) => {
             let initial_value = match initializer {
-                Some(Expression::Constant(Const::ConstInt(init_val))) => {
+                //TODO: Handle Long constants
+                Some(TypedExpression::TypedExp(_, Expression::Constant(Const::ConstInt(init_val)))) => {
                     InitialValue::Initial(*init_val)
                 },
                 None => {
@@ -249,7 +253,8 @@ fn typecheck_file_scope_variable_declaration(var_decl: &VariableDeclaration, sym
 {
     let VariableDeclaration::Declarant(var_name, initializer, typ, stg_class) = var_decl;
     let mut initial_value = match initializer {
-        Some(Expression::Constant(Const::ConstInt(init_val))) => {
+        //TODO: Handle long constants
+        Some(TypedExpression::TypedExp(_, Expression::Constant(Const::ConstInt(init_val)))) => {
             InitialValue::Initial(*init_val)
         },
         None => {

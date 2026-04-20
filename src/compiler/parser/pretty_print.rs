@@ -1,7 +1,8 @@
 use super::ast::*;
 
-fn pretty_print_expression(expr: &Expression, indent: usize)
+fn pretty_print_typed_expression(typed_expr: &TypedExpression, indent: usize)
 {
+    let TypedExpression::TypedExp(typ, expr ) = typed_expr;
     match expr {
         Expression::Constant(Const::ConstInt(c)) => {
             println!("{}Constant(INT = {})", " ".repeat(indent), c);
@@ -10,7 +11,7 @@ fn pretty_print_expression(expr: &Expression, indent: usize)
             println!("{}Constant(LONG = {})", " ".repeat(indent), c);
         },
         Expression::Var(var_name) => {
-            println!("{}Var({})", " ".repeat(indent), var_name);
+            println!("{}Var(TYPE='{}' NAME='{}')", " ".repeat(indent), opt_type_str(typ), var_name);
         },
         Expression::FunctionCall(func_name, args) => {
             pretty_print_function_call(func_name, args, indent);
@@ -49,7 +50,7 @@ fn pretty_print_expression(expr: &Expression, indent: usize)
 }
 
 
-fn pretty_print_function_call(func_name: &String, args: &Vec<Expression>, indent: usize)
+fn pretty_print_function_call(func_name: &String, args: &Vec<TypedExpression>, indent: usize)
 {
     print!("{}CALL {}(", " ".repeat(indent), func_name);
     if args.is_empty() {
@@ -57,17 +58,17 @@ fn pretty_print_function_call(func_name: &String, args: &Vec<Expression>, indent
     }
     else {
         println!("");
-        pretty_print_expression(&args[0], indent + 4);
+        pretty_print_typed_expression(&args[0], indent + 4);
         for i in 1..args.iter().len() {
             println!("{},", " ".repeat(indent + 4));
-            pretty_print_expression(&args[i], indent + 4);
+            pretty_print_typed_expression(&args[i], indent + 4);
         }
         println!("{})", " ".repeat(indent));
     }
 }
 
 
-fn pretty_print_unary_operator(unary_op: &UnaryOperator, inner_expression: &Expression, indent: usize)
+fn pretty_print_unary_operator(unary_op: &UnaryOperator, inner_expression: &TypedExpression, indent: usize)
 {
     match unary_op {
         UnaryOperator::Plus => {
@@ -96,15 +97,15 @@ fn pretty_print_unary_operator(unary_op: &UnaryOperator, inner_expression: &Expr
         }
     }
 
-    pretty_print_expression(inner_expression, indent + 4);
+    pretty_print_typed_expression(inner_expression, indent + 4);
     println!("{})", " ".repeat(indent));
 }
 
 
 fn pretty_print_binary_operator(
     binary_op: &BinaryOperator,
-    left: &Expression,
-    right: &Expression,
+    left: &TypedExpression,
+    right: &TypedExpression,
     indent: usize)
 {
     match binary_op {
@@ -200,42 +201,42 @@ fn pretty_print_binary_operator(
         }
     };
 
-    pretty_print_expression(left, indent + 4);
+    pretty_print_typed_expression(left, indent + 4);
     println!("{},", " ".repeat(indent + 4));
-    pretty_print_expression(right, indent + 4);
+    pretty_print_typed_expression(right, indent + 4);
     println!("{})", " ".repeat(indent));
 
 }
 
-fn pretty_print_assignment(left: &Expression, right: &Expression, indent: usize)
+fn pretty_print_assignment(left: &TypedExpression, right: &TypedExpression, indent: usize)
 {
     pretty_print_binary_operator(&BinaryOperator::Assign, left, right, indent);
 }
 
-fn pretty_print_compound_assignment(binary_op: &BinaryOperator, left: &Expression, right: &Expression, indent: usize)
+fn pretty_print_compound_assignment(binary_op: &BinaryOperator, left: &TypedExpression, right: &TypedExpression, indent: usize)
 {
     pretty_print_binary_operator(binary_op, left, right, indent);
 }
 
-fn pretty_print_conditional(cond: &Expression, true_exp: &Expression, false_exp: &Expression, indent: usize)
+fn pretty_print_conditional(cond: &TypedExpression, true_exp: &TypedExpression, false_exp: &TypedExpression, indent: usize)
 {
     println!("{}Conditional(", " ".repeat(indent));
     println!("{}Cond=(", " ".repeat(indent + 4));
-    pretty_print_expression(cond, indent + 8);
+    pretty_print_typed_expression(cond, indent + 8);
     println!("{})", " ".repeat(indent + 4));
     println!("{}True_exp=(", " ".repeat(indent + 4));
-    pretty_print_expression(true_exp, indent + 8);
+    pretty_print_typed_expression(true_exp, indent + 8);
     println!("{})", " ".repeat(indent + 4));
     println!("{}False_exp=(", " ".repeat(indent + 4));
-    pretty_print_expression(false_exp, indent + 8);
+    pretty_print_typed_expression(false_exp, indent + 8);
     println!("{})", " ".repeat(indent + 4));
     println!("{})", " ".repeat(indent));
 }
 
 
-fn pretty_print_cast(typ: &Type, expr: &Expression, indent: usize) {
+fn pretty_print_cast(typ: &Type, expr: &TypedExpression, indent: usize) {
     println!("{}CastTo({},", " ".repeat(indent), type_str(typ));
-    pretty_print_expression(expr, indent + 4);
+    pretty_print_typed_expression(expr, indent + 4);
     println!("{})", " ".repeat(indent));
 }
 
@@ -249,7 +250,7 @@ fn pretty_print_labels(labels: &Vec<Label>, indent: usize)
             },
             Label::Case(case_expr) => {
                 println!("{}CASE (", " ".repeat(indent));
-                pretty_print_expression(case_expr, indent + 4);
+                pretty_print_typed_expression(case_expr, indent + 4);
                 println!("{}): ", " ".repeat(indent));
             },
             Label::ResolvedCase(res_case_label) => {
@@ -267,7 +268,7 @@ fn pretty_print_for_init(for_init: &ForInit, indent: usize)
     match for_init {
         ForInit::InitExp(None) => (),
         ForInit::InitExp(Some(expr)) => {
-            pretty_print_expression(expr, indent);
+            pretty_print_typed_expression(expr, indent);
         },
         ForInit::InitDecl(var_decl) => {
             pretty_print_variable_declaration(var_decl, indent);
@@ -297,7 +298,7 @@ fn pretty_print_unlabeled_statement(s: &UnlabeledStatement, indent: usize)
     match s {
         UnlabeledStatement::Return(expr) => {
             println!("{}Return(", " ".repeat(indent));
-            pretty_print_expression(&expr, indent + 4);
+            pretty_print_typed_expression(&expr, indent + 4);
             println!("{})", " ".repeat(indent));
         },
         UnlabeledStatement::Goto(label) => {
@@ -306,7 +307,7 @@ fn pretty_print_unlabeled_statement(s: &UnlabeledStatement, indent: usize)
         UnlabeledStatement::If(cond,then_stmnt , else_stmnt) => {
             println!("{}If(", " ".repeat(indent));
             println!("{}Cond=(", " ".repeat(indent + 4));
-            pretty_print_expression(cond, indent + 8);
+            pretty_print_typed_expression(cond, indent + 8);
             println!("{})", " ".repeat(indent + 4));
             println!("{}Then(", " ".repeat(indent + 4));
             pretty_print_statement(then_stmnt, indent + 8);
@@ -331,7 +332,7 @@ fn pretty_print_unlabeled_statement(s: &UnlabeledStatement, indent: usize)
             println!("{}While(", " ".repeat(indent));
             println!("{}Label='{}'", " ".repeat(indent + 4), loop_label.clone().unwrap_or_default());
             println!("{}Cond=(", " ".repeat(indent + 4));
-            pretty_print_expression(cond, indent + 8);
+            pretty_print_typed_expression(cond, indent + 8);
             println!("{})", " ".repeat(indent + 4));
             println!("{}Body=(", " ".repeat(indent + 4));
             pretty_print_statement(body, indent + 8);
@@ -346,7 +347,7 @@ fn pretty_print_unlabeled_statement(s: &UnlabeledStatement, indent: usize)
             println!("{})", " ".repeat(indent + 4));
             println!("{}While(", " ".repeat(indent + 4));
             println!("{}Cond=(", " ".repeat(indent + 8));
-            pretty_print_expression(cond, indent + 12);
+            pretty_print_typed_expression(cond, indent + 12);
             println!("{})", " ".repeat(indent + 8));
             println!("{})", " ".repeat(indent + 4));
             println!("{})", " ".repeat(indent));
@@ -359,12 +360,12 @@ fn pretty_print_unlabeled_statement(s: &UnlabeledStatement, indent: usize)
             println!("{})", " ".repeat(indent + 4));
             println!("{}Cond=(", " ".repeat(indent + 4));
             if let Some(expr)  = cond {
-                pretty_print_expression(expr, indent + 8);
+                pretty_print_typed_expression(expr, indent + 8);
             }
             println!("{})", " ".repeat(indent + 4));
             println!("{}Post=(", " ".repeat(indent + 4));
             if let Some(expr) = post {
-                pretty_print_expression(expr, indent + 8);
+                pretty_print_typed_expression(expr, indent + 8);
             }
             println!("{})", " ".repeat(indent + 4));
             println!("{}Body=(", " ".repeat(indent + 4));
@@ -375,13 +376,13 @@ fn pretty_print_unlabeled_statement(s: &UnlabeledStatement, indent: usize)
         UnlabeledStatement::Switch(cond, body, switch_label, case_label_map, default_label) => {
             println!("{}Switch(", " ".repeat(indent));
             println!("{}Cond=(", " ".repeat(indent + 4));
-            pretty_print_expression(cond, indent + 8);
+            pretty_print_typed_expression(cond, indent + 8);
             println!("{})", " ".repeat(indent + 4));
             println!("{}Label='{}'", " ".repeat(indent + 4), switch_label.clone().unwrap_or_default());
             if !case_label_map.is_empty() || default_label.is_some() {
                 println!("{}Case Labels=(", " ".repeat(indent + 4));
                 for (case_const, case_label) in case_label_map {
-                    println!("{}CASE {} --> {}", " ".repeat(indent + 8), case_const, case_label);
+                    println!("{}CASE {} --> {}", " ".repeat(indent + 8), case_const.to_i64(), case_label);
                 }
 
                 if default_label.is_some() {
@@ -400,7 +401,7 @@ fn pretty_print_unlabeled_statement(s: &UnlabeledStatement, indent: usize)
         },
         UnlabeledStatement::Expr(expr) => {
             println!("{}Expr(", " ".repeat(indent));
-            pretty_print_expression(expr, indent + 4);
+            pretty_print_typed_expression(expr, indent + 4);
             println!("{})", " ".repeat(indent));
         },
         UnlabeledStatement::Null => {
@@ -419,6 +420,13 @@ fn type_str(typ: &Type) -> &str
     }
 }
 
+fn opt_type_str(opt_typ: &Option<Type>) -> &str
+{
+    match opt_typ {
+        None => "NONE",
+        Some(typ) => type_str(typ)
+    }
+}
 
 fn storage_class_str(stg_class: &Option<StorageClass>) -> &str
 {
@@ -434,7 +442,7 @@ fn pretty_print_variable_declaration(decl: &VariableDeclaration, indent: usize)
     match decl {
         VariableDeclaration::Declarant(var_name, Some(expr_init), typ, stg_class) => {
             println!("{}{}{} Var {} = (", " ".repeat(indent), storage_class_str(stg_class), type_str(typ), var_name);
-            pretty_print_expression(expr_init, indent + 4);
+            pretty_print_typed_expression(expr_init, indent + 4);
             println!("{})", " ".repeat(indent));
         },
         VariableDeclaration::Declarant(var_name,None, typ, stg_class ) => {

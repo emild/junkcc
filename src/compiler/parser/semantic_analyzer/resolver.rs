@@ -11,16 +11,17 @@ use super::unique_global_labels::make_unique_global_name_for_local_variable;
 use super::unique_global_labels::make_unique_global_name_for_parameter;
 
 
-fn resolve_expression(expr: &Expression, identifier_map: &mut HashMap<String, IdentifierInfo>) -> Result<Expression, String>
+fn resolve_typed_expression(typed_expr: &TypedExpression, identifier_map: &mut HashMap<String, IdentifierInfo>) -> Result<TypedExpression, String>
 {
-    match expr {
+    let TypedExpression::TypedExp(typ, expr) = typed_expr;
+    let resolved_expr = match expr {
         Expression::Assignment(left, right ) => {
             match **left {
-                Expression::Var(_) => {
-                    let resolved_left = resolve_expression(&left, identifier_map)?;
-                    let resolved_right = resolve_expression(right, identifier_map)?;
+                TypedExpression::TypedExp(_, Expression::Var(_)) => {
+                    let resolved_left = resolve_typed_expression(&left, identifier_map)?;
+                    let resolved_right = resolve_typed_expression(right, identifier_map)?;
 
-                    Ok(Expression::Assignment(Box::new(resolved_left), Box::new(resolved_right)))
+                    Expression::Assignment(Box::new(resolved_left), Box::new(resolved_right))
                 },
                 _ => {
                     return Err(format!("Non lval on the left side of '='"));
@@ -30,11 +31,11 @@ fn resolve_expression(expr: &Expression, identifier_map: &mut HashMap<String, Id
 
         Expression::CompoundAssignment(binop,left, right) => {
             match **left {
-                Expression::Var(_) => {
-                    let resolved_left = resolve_expression(&left, identifier_map)?;
-                    let resolved_right = resolve_expression(right, identifier_map)?;
+                TypedExpression::TypedExp(_, Expression::Var(_)) => {
+                    let resolved_left = resolve_typed_expression(&left, identifier_map)?;
+                    let resolved_right = resolve_typed_expression(right, identifier_map)?;
 
-                    Ok(Expression::CompoundAssignment(binop.clone(), Box::new(resolved_left), Box::new(resolved_right)))
+                    Expression::CompoundAssignment(binop.clone(), Box::new(resolved_left), Box::new(resolved_right))
                 },
                 _ => {
                     return Err(format!("Non lval on the left side of compound assignment"));
@@ -43,9 +44,9 @@ fn resolve_expression(expr: &Expression, identifier_map: &mut HashMap<String, Id
         },
         Expression::PreIncrement(expr)  => {
             match **expr {
-                Expression::Var(_) => {
-                    let resolved_expr = resolve_expression(expr, identifier_map)?;
-                    Ok(Expression::PreIncrement(Box::new(resolved_expr)))
+                TypedExpression::TypedExp(_, Expression::Var(_)) => {
+                    let resolved_expr = resolve_typed_expression(expr, identifier_map)?;
+                    Expression::PreIncrement(Box::new(resolved_expr))
                 },
                 _ => {
                     return Err(format!("Non lval in pre-increment"));
@@ -55,9 +56,9 @@ fn resolve_expression(expr: &Expression, identifier_map: &mut HashMap<String, Id
 
         Expression::PreDecrement(expr) => {
             match **expr {
-                Expression::Var(_) => {
-                    let resolved_expr = resolve_expression(expr, identifier_map)?;
-                    Ok(Expression::PreDecrement(Box::new(resolved_expr)))
+                TypedExpression::TypedExp(_, Expression::Var(_)) => {
+                    let resolved_expr = resolve_typed_expression(expr, identifier_map)?;
+                    Expression::PreDecrement(Box::new(resolved_expr))
                 },
                 _ => {
                     return Err(format!("Non lval in pre-decrement"));
@@ -67,9 +68,9 @@ fn resolve_expression(expr: &Expression, identifier_map: &mut HashMap<String, Id
 
         Expression::PostIncrement(expr) => {
             match **expr {
-                Expression::Var(_) => {
-                    let resolved_expr = resolve_expression(expr, identifier_map)?;
-                    Ok(Expression::PostIncrement(Box::new(resolved_expr)))
+                TypedExpression::TypedExp(_, Expression::Var(_)) => {
+                    let resolved_expr = resolve_typed_expression(expr, identifier_map)?;
+                    Expression::PostIncrement(Box::new(resolved_expr))
                 },
                 _ => {
                     return Err(format!("Non lval in post-increment"));
@@ -79,9 +80,9 @@ fn resolve_expression(expr: &Expression, identifier_map: &mut HashMap<String, Id
 
         Expression::PostDecrement(expr) => {
             match **expr {
-                Expression::Var(_) => {
-                    let resolved_expr = resolve_expression(expr, identifier_map)?;
-                    Ok(Expression::PostDecrement(Box::new(resolved_expr)))
+                TypedExpression::TypedExp(_, Expression::Var(_)) => {
+                    let resolved_expr = resolve_typed_expression(expr, identifier_map)?;
+                    Expression::PostDecrement(Box::new(resolved_expr))
                 },
                 _ => {
                     return Err(format!("Non lval in post-decrement"));
@@ -96,7 +97,7 @@ fn resolve_expression(expr: &Expression, identifier_map: &mut HashMap<String, Id
                 return Err(format!("Use of undeclared variable '{}'", var_name));
             }
 
-            Ok(Expression::Var(var_info.unwrap().global_name.clone()))
+            Expression::Var(var_info.unwrap().global_name.clone())
         },
 
         Expression::FunctionCall(func_name, args) => {
@@ -110,36 +111,36 @@ fn resolve_expression(expr: &Expression, identifier_map: &mut HashMap<String, Id
             let mut new_args = vec![];
 
             for arg in args {
-                let new_arg = resolve_expression(arg, identifier_map)?;
+                let new_arg = resolve_typed_expression(arg, identifier_map)?;
                 new_args.push(new_arg);
             }
 
-            Ok(Expression::FunctionCall(new_func_name, new_args))
+            Expression::FunctionCall(new_func_name, new_args)
         },
 
         Expression::Conditional(cond, true_exp, false_exp) => {
-            let resolved_cond = resolve_expression(cond, identifier_map)?;
-            let resolved_true_exp = resolve_expression(true_exp, identifier_map)?;
-            let resolved_false_exp = resolve_expression(false_exp, identifier_map)?;
+            let resolved_cond = resolve_typed_expression(cond, identifier_map)?;
+            let resolved_true_exp = resolve_typed_expression(true_exp, identifier_map)?;
+            let resolved_false_exp = resolve_typed_expression(false_exp, identifier_map)?;
 
-            Ok(Expression::Conditional(Box::new(resolved_cond), Box::new(resolved_true_exp), Box::new(resolved_false_exp)))
+            Expression::Conditional(Box::new(resolved_cond), Box::new(resolved_true_exp), Box::new(resolved_false_exp))
         },
 
         Expression::Binary(binary_op,left, right , ) => {
-            let resolved_left = resolve_expression(left, identifier_map)?;
-            let resolved_right = resolve_expression(right, identifier_map)?;
+            let resolved_left = resolve_typed_expression(left, identifier_map)?;
+            let resolved_right = resolve_typed_expression(right, identifier_map)?;
 
-            Ok(Expression::Binary(binary_op.clone(), Box::new(resolved_left), Box::new(resolved_right)))
+            Expression::Binary(binary_op.clone(), Box::new(resolved_left), Box::new(resolved_right))
         },
 
         Expression::Unary(unary_op, expr) => {
-            let resolved_expr = resolve_expression(expr, identifier_map)?;
+            let resolved_expr = resolve_typed_expression(expr, identifier_map)?;
 
-            Ok(Expression::Unary(unary_op.clone(), Box::new(resolved_expr)))
+            Expression::Unary(unary_op.clone(), Box::new(resolved_expr))
         },
 
         Expression::Constant(Const::ConstInt(c)) => {
-            Ok(Expression::Constant(Const::ConstInt(*c)))
+            Expression::Constant(Const::ConstInt(*c))
         },
 
         Expression::Constant(Const::ConstLong(c)) => {
@@ -151,7 +152,8 @@ fn resolve_expression(expr: &Expression, identifier_map: &mut HashMap<String, Id
             panic!("EMIL: Cast expression not implemented [YET]");
         }
 
-    }
+    };
+    Ok(TypedExpression::TypedExp(typ.clone(), resolved_expr))
 }
 
 
@@ -173,7 +175,7 @@ fn resolve_statement(stmnt: &Statement, identifier_map: &mut HashMap<String, Ide
                     },
                     Label::Case(expr) => {
                         let case_val = evaluate_constant_expression(expr)?;
-                        resolved_stmnt_labels.push(Label::Case(Expression::Constant(Const::ConstInt(case_val))));
+                        resolved_stmnt_labels.push(Label::Case(case_val.to_typex()));
                     },
                     Label::Default => {
                         resolved_stmnt_labels.push(Label::Default);
@@ -213,7 +215,7 @@ fn resolve_for_init(for_init: &ForInit, identifier_map: &mut HashMap<String, Ide
     let resolved_for_init = match for_init {
         ForInit::InitExp(None) => ForInit::InitExp(None),
         ForInit::InitExp(Some(expr)) => {
-            let resolved_expr = resolve_expression(expr, identifier_map)?;
+            let resolved_expr = resolve_typed_expression(expr, identifier_map)?;
             ForInit::InitExp(Some(resolved_expr))
         },
         ForInit::InitDecl(decl) => {
@@ -230,7 +232,7 @@ fn resolve_unlabeled_statement(stmnt: &UnlabeledStatement, identifier_map: &mut 
 {
     match stmnt {
         UnlabeledStatement::Return(expr) => {
-            let resolved_expression = resolve_expression(expr, identifier_map)?;
+            let resolved_expression = resolve_typed_expression(expr, identifier_map)?;
             Ok(UnlabeledStatement::Return(resolved_expression))
         },
         UnlabeledStatement::Goto(label) => {
@@ -240,7 +242,7 @@ fn resolve_unlabeled_statement(stmnt: &UnlabeledStatement, identifier_map: &mut 
             Ok(UnlabeledStatement::Goto(goto_labels.get(label).unwrap().clone()))
         },
         UnlabeledStatement::If(cond, then_stmnt , else_stmnt) => {
-            let resolved_cond = resolve_expression(cond, identifier_map)?;
+            let resolved_cond = resolve_typed_expression(cond, identifier_map)?;
             let resolved_then_stmnt = resolve_statement(then_stmnt, identifier_map, goto_labels)?;
             let resolved_else_stmnt = if let Some(else_stmnt) = else_stmnt {
                 let resolved_else_stmnt = resolve_statement(else_stmnt, identifier_map, goto_labels)?;
@@ -258,12 +260,12 @@ fn resolve_unlabeled_statement(stmnt: &UnlabeledStatement, identifier_map: &mut 
             Ok(UnlabeledStatement::Continue(loop_label.clone()))
         },
         UnlabeledStatement::While(cond, body, loop_label) => {
-            let resolved_cond = resolve_expression(cond, identifier_map)?;
+            let resolved_cond = resolve_typed_expression(cond, identifier_map)?;
             let resolved_body = resolve_statement(body, identifier_map, goto_labels)?;
             Ok(UnlabeledStatement::While(resolved_cond, Box::new(resolved_body), loop_label.clone()))
         },
         UnlabeledStatement::DoWhile(body, cond, loop_label) => {
-            let resolved_cond = resolve_expression(cond, identifier_map)?;
+            let resolved_cond = resolve_typed_expression(cond, identifier_map)?;
             let resolved_body = resolve_statement(body, identifier_map, goto_labels)?;
             Ok(UnlabeledStatement::DoWhile(Box::new(resolved_body), resolved_cond, loop_label.clone()))
         },
@@ -272,19 +274,19 @@ fn resolve_unlabeled_statement(stmnt: &UnlabeledStatement, identifier_map: &mut 
             let resolved_for_init = resolve_for_init(for_init, &mut new_identifier_map)?;
             let mut resolved_cond = None;
             if let Some(expr) = cond {
-                let resolved_expr = resolve_expression(expr, &mut new_identifier_map)?;
+                let resolved_expr = resolve_typed_expression(expr, &mut new_identifier_map)?;
                 resolved_cond = Some(resolved_expr);
             }
             let mut resolved_post = None;
             if let Some(expr) = post {
-                let resolved_expr = resolve_expression(expr, &mut new_identifier_map)?;
+                let resolved_expr = resolve_typed_expression(expr, &mut new_identifier_map)?;
                 resolved_post = Some(resolved_expr);
             }
             let resolved_body = resolve_statement(body, &mut new_identifier_map, goto_labels)?;
             Ok(UnlabeledStatement::For(resolved_for_init, resolved_cond, resolved_post, Box::new(resolved_body), loop_label.clone()))
         },
         UnlabeledStatement::Switch(cond, body, switch_label, case_label_map, default_label) => {
-            let resolved_cond = resolve_expression(cond, identifier_map)?;
+            let resolved_cond = resolve_typed_expression(cond, identifier_map)?;
             let resolved_body = resolve_statement(body, identifier_map, goto_labels)?;
             Ok(UnlabeledStatement::Switch(resolved_cond, Box::new(resolved_body), switch_label.clone(), case_label_map.clone(), default_label.clone()))
         }
@@ -294,7 +296,7 @@ fn resolve_unlabeled_statement(stmnt: &UnlabeledStatement, identifier_map: &mut 
             Ok(UnlabeledStatement::Compound(resolved_block))
         },
         UnlabeledStatement::Expr(expr) => {
-            let resolved_expression = resolve_expression(expr, identifier_map)?;
+            let resolved_expression = resolve_typed_expression(expr, identifier_map)?;
             Ok(UnlabeledStatement::Expr(resolved_expression))
         },
         UnlabeledStatement::Null => Ok(UnlabeledStatement::Null),
@@ -325,8 +327,9 @@ fn resolve_local_variable_declaration(decl: &VariableDeclaration, identifier_map
                     None
                 }
                 else {
+                    //TODO Handle long constants
                     let resolved_init_val = evaluate_constant_expression(initializer.as_ref().unwrap())?;
-                    Some(Expression::Constant(Const::ConstInt(resolved_init_val)))
+                    Some(resolved_init_val.to_typex())
                 };
 
                 return Ok(VariableDeclaration::Declarant(var_name.clone(), resolved_init, typ.clone(), stg_class.clone()));
@@ -342,11 +345,12 @@ fn resolve_local_variable_declaration(decl: &VariableDeclaration, identifier_map
             let resolved_initializer = match initializer {
                 Some(init_expression) => {
                     let resolved_init_expression = if *stg_class == Some(StorageClass::Static) {
+                        //TODO handle long constants
                         let init_val = evaluate_constant_expression(init_expression)?;
-                        Expression::Constant(Const::ConstInt(init_val))
+                        init_val.to_typex()
                     }
                     else {
-                        resolve_expression(init_expression, identifier_map)?
+                        resolve_typed_expression(init_expression, identifier_map)?
                     };
 
                     Some(resolved_init_expression)
@@ -483,7 +487,7 @@ fn resolve_file_scoped_variable_declaration(var_decl: &VariableDeclaration, iden
             }
             else {
                 let resolved_init = evaluate_constant_expression(initializer.as_ref().unwrap())?;
-                Some(Expression::Constant(Const::ConstInt(resolved_init)))
+                Some(resolved_init.to_typex())
             };
 
             VariableDeclaration::Declarant(var_name.clone(), resolved_init, typ.clone(), stg_class.clone())
