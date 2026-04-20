@@ -30,7 +30,7 @@ fn make_temp_label(prefix: &str) -> String
     label
 }
 
-
+/*
 fn emit_tacky_unary_operator(unop: &parser::ast::UnaryOperator) -> Result<UnaryOperator, String>
 {
     match unop {
@@ -570,11 +570,12 @@ fn emit_tacky_static_duration_variables(symbol_table: &HashMap<String, SymbolInf
 
     Ok(tacky_vars)
 }
-
+*/
 
 
 pub fn emit_tacky_program(program: &parser::ast::Program, symbol_table: &HashMap<String, SymbolInfo>) -> Result<Program, String>
 {
+    /*
     let parser::ast::Program::ProgramDefinition(decls) = program;
 
     //Emit only the functions
@@ -594,7 +595,9 @@ pub fn emit_tacky_program(program: &parser::ast::Program, symbol_table: &HashMap
     tacky_top_level_items.append(&mut tacky_static_vars);
 
 
-    Ok(Program::ProgramDefinition(tacky_top_level_items))
+    Ok(Program::ProgramDefinition(tacky_top_level_items)) */
+
+    panic!("TACKY is no longer implemented");
 }
 
 
