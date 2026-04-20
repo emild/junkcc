@@ -15,7 +15,7 @@ struct PseudoOperandState<'a> {
 }
 
 impl<'a> PseudoOperandState<'a> {
-    pub fn new(symbol_table: &'a HashMap<String, SymbolInfo>) -> PseudoOperandState {
+    pub fn new(symbol_table: &'a HashMap<String, SymbolInfo>) -> PseudoOperandState<'a> {
         PseudoOperandState {
             pseudo_op_table: HashMap::new(),
             current_stack_index: 0,
