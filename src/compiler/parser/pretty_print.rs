@@ -414,9 +414,9 @@ fn pretty_print_unlabeled_statement(s: &UnlabeledStatement, indent: usize)
 fn type_str(typ: &Type) -> &str
 {
     match typ {
-        Type::Int           => "INT",
-        Type::Long          => "LONG",
-        Type::FuncType(_,_) => "FUNCTION"
+        Type::Int               => "INT",
+        Type::Long              => "LONG",
+        Type::FuncType(_,_,_)   => "FUNCTION"
     }
 }
 

@@ -97,7 +97,7 @@ impl Const {
 
             (Type::Int, Const::ConstLong(c)) => Const::ConstInt((*c & 0xFFFFFFFF) as i32),
             (Type::Long, Const::ConstInt(c)) => Const::ConstLong(i64::from(*c)),
-            (Type::FuncType(_, _), _) => { panic!("Cannot convert anything to a function"); }
+            (Type::FuncType(_, _, _), _) => { panic!("Conversion to function type is not allowed"); }
         }
     }
 
@@ -460,7 +460,18 @@ pub enum UnlabeledStatement {
 pub enum Type {
     Int,
     Long,
-    FuncType(Vec<Type> /* param_types */, Box<Type> /* ret_type */ )
+    FuncType(Vec<Type> /* param_types */, Box<Type> /* ret_type */, bool /* has_body, i.e. defined */)
+}
+
+impl Type
+{
+    pub fn is_func(&self) -> bool
+    {
+        match self {
+            Type::FuncType(_,_,_) => true,
+            _ => false
+        }
+    }
 }
 
 
@@ -488,7 +499,7 @@ pub enum FunctionDeclaration {
         String /* func_name */,
         Vec<String> /* args */,
         Option<Block> /* body */,
-        Type /* return_type */,
+        Type /* must Type::FuncType */,
         Option<StorageClass>
     )
 }

@@ -2,7 +2,7 @@ use crate::compiler::parser::ast::*;
 
 fn evaluate_constant_unary_operator(unop: &UnaryOperator, sub_expr: &TypedExpression) -> Result<Const, String>
 {
-    let sub_expr_val = evaluate_constant_expression(sub_expr)?;
+    let sub_expr_val = evaluate_constant_expression_with_default_type(sub_expr)?;
     let unary_result = match unop {
         UnaryOperator::Complement => {
             sub_expr_val.complement()
@@ -32,8 +32,8 @@ fn evaluate_constant_unary_operator(unop: &UnaryOperator, sub_expr: &TypedExpres
 
 fn evaluate_constant_binary_operator(binop: &BinaryOperator, sub_expr_1: &TypedExpression, sub_expr_2: &TypedExpression) -> Result<Const, String>
 {
-    let arg1 = evaluate_constant_expression(sub_expr_1)?;
-    let arg2 = evaluate_constant_expression(sub_expr_2)?;
+    let arg1 = evaluate_constant_expression_with_default_type(sub_expr_1)?;
+    let arg2 = evaluate_constant_expression_with_default_type(sub_expr_2)?;
 
     let binop_val = match binop {
         BinaryOperator::Add             =>  arg1.add(&arg2),
@@ -76,7 +76,7 @@ fn evaluate_constant_binary_operator(binop: &BinaryOperator, sub_expr_1: &TypedE
 
 
 
-pub fn evaluate_constant_expression(typed_expr: &TypedExpression) -> Result<Const, String>
+fn evaluate_constant_expression_with_default_type(typed_expr: &TypedExpression) -> Result<Const, String>
 {
     let TypedExpression::TypedExp(typ, expr) = typed_expr;
     let val = match expr {
@@ -99,21 +99,33 @@ pub fn evaluate_constant_expression(typed_expr: &TypedExpression) -> Result<Cons
         Expression::Constant(Const::ConstInt(c)) => Const::ConstInt(*c),
         Expression::Constant(Const::ConstLong(c)) => Const::ConstLong(*c),
         Expression::Conditional(cond_exp, true_exp, false_exp) => {
-            let cond_val = evaluate_constant_expression(cond_exp)?;
+            let cond_val = evaluate_constant_expression_with_default_type(cond_exp)?;
             let val = if cond_val.is_true() {
-                evaluate_constant_expression(true_exp)?
+                evaluate_constant_expression_with_default_type(true_exp)?
             }
             else {
-                evaluate_constant_expression(false_exp)?
+                evaluate_constant_expression_with_default_type(false_exp)?
             };
 
             val
         },
         Expression::Cast(typ, inner_exp) => {
-            let inner_val = evaluate_constant_expression(inner_exp)?;
+            let inner_val = evaluate_constant_expression_with_default_type(inner_exp)?;
             inner_val.convert_to(typ)
         }
     };
 
     Ok(val)
+}
+
+
+pub fn evaluate_constant_expression(typed_expr: &TypedExpression, typ: &Option<Type>) -> Result<Const, String>
+{
+    let inner_result = evaluate_constant_expression_with_default_type(typed_expr)?;
+    let result = match typ {
+        None => inner_result,
+        Some(typ) => inner_result.convert_to(typ)
+    };
+
+    Ok(result)
 }

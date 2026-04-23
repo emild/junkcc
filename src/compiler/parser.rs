@@ -159,17 +159,17 @@ fn parse_function_declaration(l: &mut lexer::Lexer, ret_type: ast::Type, stg_cla
 
     check_close_paren(l)?;
 
-    let func_type = ast::Type::FuncType(param_types, Box::new(ret_type));
-
     let t = l.peek_token()?;
 
     match t {
         Token::Semicolon => {
             l.get_token()?;
+            let func_type = ast::Type::FuncType(param_types, Box::new(ret_type), false);
             Ok(FunctionDeclaration::Declarant(func_name, param_names, None, func_type, stg_class))
         },
         Token::OpenBrace => {
             let block = parse_block(l)?;
+            let func_type = ast::Type::FuncType(param_types, Box::new(ret_type), true);
             Ok(FunctionDeclaration::Declarant(func_name, param_names, Some(block), func_type, stg_class))
         },
         Token::EOS => { return Err(format!("Unexpected end of file at the end of function declaration")); },
@@ -936,7 +936,6 @@ pub fn parse_program(l: &mut lexer::Lexer) -> Result<Program, String>
 
 pub use pretty_print::pretty_print_ast;
 pub use semantic_analyzer::semantic_analysis;
-pub use semantic_analyzer::Type;
 pub use semantic_analyzer::IdentifierAttrs;
 pub use semantic_analyzer::SymbolInfo;
 pub use semantic_analyzer::InitialValue;

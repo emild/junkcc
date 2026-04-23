@@ -7,7 +7,7 @@ use ast::*;
 
 
 use super::parser;
-use super::parser::{IdentifierAttrs, SymbolInfo, InitialValue, Type};
+use super::parser::{IdentifierAttrs, SymbolInfo, InitialValue};
 
 
 static TMP_NAME_INDEX: AtomicUsize = AtomicUsize::new(0);

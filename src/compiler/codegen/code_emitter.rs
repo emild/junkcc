@@ -4,7 +4,7 @@ use std::fs::write;
 use std::io::Write;
 use std::io::BufWriter;
 use super::ast::*;
-use super::super::parser::Type;
+use super::super::parser::ast::Type;
 use super::super::parser::IdentifierAttrs;
 use super::super::parser::SymbolInfo;
 
@@ -221,7 +221,7 @@ fn emit_call_instruction(label: &String, symbol_table: &HashMap<String, SymbolIn
     let mut target_label = String::new();
     let func_type = symbol_table.get(label);
     match func_type {
-        Some(SymbolInfo {typ: Type::FuncType(_, true), attrs:_}) => {
+        Some(SymbolInfo {typ: Type::FuncType(_, _, true), attrs:_}) => {
             //Locally defined function
             target_label = label.clone();
         },

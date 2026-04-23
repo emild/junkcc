@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use crate::compiler::parser::IdentifierAttrs;
 
 use super::super::parser::SymbolInfo;
-use super::super::parser::Type;
+use super::super::parser::ast::Type;
 
 use super::ast::*;
 use super::fixup_function_instructions;
@@ -32,7 +32,7 @@ impl<'a> PseudoOperandState<'a> {
                         Some(SymbolInfo{ typ: Type::Int, attrs: IdentifierAttrs::StaticAttr(_,_) }) =>  {
                             return Operand::Data(var_name.clone());
                         },
-                        Some(SymbolInfo{typ: Type::FuncType(_,_ ), attrs:_}) => {
+                        Some(SymbolInfo{typ: Type::FuncType(_,_,_), attrs:_}) => {
                             //TODO: Remove once function pointers are implemented??
                             panic!("Symbol '{var_name}' found in symbol table, but it is not a variable");
                         },

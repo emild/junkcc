@@ -144,12 +144,13 @@ fn resolve_typed_expression(typed_expr: &TypedExpression, identifier_map: &mut H
         },
 
         Expression::Constant(Const::ConstLong(c)) => {
-            panic!("EMIL: Expression: Long constants not implented [YET]");
+            Expression::Constant(Const::ConstLong(*c))
         },
 
 
-        Expression::Cast(_,_) => {
-            panic!("EMIL: Cast expression not implemented [YET]");
+        Expression::Cast(target_type, expr) => {
+            let resolved_expr = resolve_typed_expression(expr, identifier_map)?;
+            Expression::Cast(target_type.clone(), Box::new(resolved_expr))
         }
 
     };
@@ -174,7 +175,7 @@ fn resolve_statement(stmnt: &Statement, identifier_map: &mut HashMap<String, Ide
                         resolved_stmnt_labels.push(Label::Goto(resolved_stmnt_goto_label.clone()));
                     },
                     Label::Case(expr) => {
-                        let case_val = evaluate_constant_expression(expr)?;
+                        let case_val = evaluate_constant_expression(expr, &None)?;
                         resolved_stmnt_labels.push(Label::Case(case_val.to_typex()));
                     },
                     Label::Default => {
@@ -328,7 +329,7 @@ fn resolve_local_variable_declaration(decl: &VariableDeclaration, identifier_map
                 }
                 else {
                     //TODO Handle long constants
-                    let resolved_init_val = evaluate_constant_expression(initializer.as_ref().unwrap())?;
+                    let resolved_init_val = evaluate_constant_expression(initializer.as_ref().unwrap(), &None)?;
                     Some(resolved_init_val.to_typex())
                 };
 
@@ -346,7 +347,7 @@ fn resolve_local_variable_declaration(decl: &VariableDeclaration, identifier_map
                 Some(init_expression) => {
                     let resolved_init_expression = if *stg_class == Some(StorageClass::Static) {
                         //TODO handle long constants
-                        let init_val = evaluate_constant_expression(init_expression)?;
+                        let init_val = evaluate_constant_expression(init_expression, &None)?;
                         init_val.to_typex()
                     }
                     else {
@@ -409,7 +410,6 @@ fn resolve_function_declaration(func_decl: &FunctionDeclaration, identifier_map:
                 let mut resolved_body = resolve_block(body, &mut inner_map, &mut goto_labels)?;
                 check_and_classify_block_break_statements(&mut resolved_body, &None)?;
                 label_block_loops(&mut resolved_body, &None)?;
-                label_block_switch_statements(&mut resolved_body, &None, &mut HashMap::new(), &mut None)?;
                 new_body.replace(resolved_body);
             }
 
@@ -486,7 +486,7 @@ fn resolve_file_scoped_variable_declaration(var_decl: &VariableDeclaration, iden
                 None
             }
             else {
-                let resolved_init = evaluate_constant_expression(initializer.as_ref().unwrap())?;
+                let resolved_init = evaluate_constant_expression(initializer.as_ref().unwrap(), &None)?;
                 Some(resolved_init.to_typex())
             };
 

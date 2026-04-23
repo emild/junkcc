@@ -33,7 +33,6 @@ enum LoopType {
 }
 
 
-pub use type_checker::Type;
 pub use type_checker::IdentifierAttrs;
 pub use type_checker::SymbolInfo;
 pub use type_checker::InitialValue;
@@ -41,9 +40,9 @@ pub use type_checker::InitialValue;
 
 pub fn semantic_analysis(prog: &Program) -> Result<(Program, HashMap<String, type_checker::SymbolInfo>), String>
 {
-    let resolved_program = resolver::resolve_program(prog)?;
+    let mut resolved_program = resolver::resolve_program(prog)?;
     let mut symbol_table = HashMap::new();
-    type_checker::typecheck_program(&resolved_program, &mut symbol_table)?;
+    type_checker::typecheck_program(&mut resolved_program, &mut symbol_table)?;
 
     Ok((resolved_program, symbol_table))
 }
