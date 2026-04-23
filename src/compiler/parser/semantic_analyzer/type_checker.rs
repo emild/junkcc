@@ -2,8 +2,6 @@ use std::collections::HashMap;
 
 use env_logger::init;
 
-use crate::compiler::parser::semantic_analyzer::switch_labeling::label_block_switch_statements;
-
 use super::super::ast::*;
 
 
@@ -590,7 +588,6 @@ fn typecheck_function_declaration(func_decl: &mut FunctionDeclaration, symbol_ta
         }
         let body = body.as_mut().unwrap();
         typecheck_block(body, &new_ret_type, symbol_table)?;
-        label_block_switch_statements(body, &None, &mut HashMap::new(), &mut None)?;
     }
 
     Ok(())

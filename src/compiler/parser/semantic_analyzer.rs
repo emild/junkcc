@@ -1,10 +1,5 @@
 use std::collections::HashMap;
 
-use constant_expression_evaluator::evaluate_constant_expression;
-use goto_labels::check_block_goto_labels;
-use break_classifier::check_and_classify_block_break_statements;
-use loop_labeling::label_block_loops;
-
 use super::ast::*;
 
 mod constant_expression_evaluator;
@@ -15,6 +10,7 @@ mod break_classifier;
 mod switch_labeling;
 mod resolver;
 mod type_checker;
+mod labels;
 
 
 pub struct IdentifierInfo {
@@ -43,6 +39,8 @@ pub fn semantic_analysis(prog: &Program) -> Result<(Program, HashMap<String, typ
     let mut resolved_program = resolver::resolve_program(prog)?;
     let mut symbol_table = HashMap::new();
     type_checker::typecheck_program(&mut resolved_program, &mut symbol_table)?;
+
+    labels::label_program(&mut resolved_program)?;
 
     Ok((resolved_program, symbol_table))
 }

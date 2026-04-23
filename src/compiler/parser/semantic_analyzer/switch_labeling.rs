@@ -134,7 +134,7 @@ fn label_block_item_switch_statements(block_item: &mut BlockItem, switch_stmnt_i
 }
 
 
-pub fn label_block_switch_statements(block: &mut Block, switch_stmnt_info: &Option<SwitchStatementInfo>, case_labels_map: &mut HashMap<Const, String>, default_label: &mut Option<String>) -> Result<(), String>
+fn label_block_switch_statements(block: &mut Block, switch_stmnt_info: &Option<SwitchStatementInfo>, case_labels_map: &mut HashMap<Const, String>, default_label: &mut Option<String>) -> Result<(), String>
 {
      match block {
         Block::Blk(block_items) => {
@@ -143,6 +143,19 @@ pub fn label_block_switch_statements(block: &mut Block, switch_stmnt_info: &Opti
             }
         }
     };
+
+    Ok(())
+}
+
+pub fn label_program_switch_statements(prog: &mut Program) -> Result<(), String>
+{
+    let Program::ProgramDefinition(decls) = prog;
+
+    for decl in decls {
+        if let Declaration::FunDecl(FunctionDeclaration::Declarant(_,_, Some(body) ,_,_)) = decl {
+            label_block_switch_statements(body, &None, &mut HashMap::new(), &mut None)?;
+        }
+    }
 
     Ok(())
 }

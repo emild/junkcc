@@ -84,7 +84,7 @@ fn label_block_item_loops(block_item: &mut BlockItem, loop_label: &Option<String
 
 
 
-pub fn label_block_loops(block: &mut Block, loop_label: &Option<String>) -> Result<(), String>
+fn label_block_loops(block: &mut Block, loop_label: &Option<String>) -> Result<(), String>
 {
      match block {
         Block::Blk(block_items) => {
@@ -93,6 +93,20 @@ pub fn label_block_loops(block: &mut Block, loop_label: &Option<String>) -> Resu
             }
         }
     };
+
+    Ok(())
+}
+
+
+pub fn label_program_loops(prog: &mut Program) -> Result<(), String>
+{
+    let Program::ProgramDefinition(decls) = prog;
+
+    for decl in decls {
+        if let Declaration::FunDecl(FunctionDeclaration::Declarant(_,_, Some(body) ,_,_)) = decl {
+            label_block_loops(body, &None)?;
+        }
+    }
 
     Ok(())
 }

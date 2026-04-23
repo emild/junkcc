@@ -65,7 +65,7 @@ fn check_and_classify_block_item_break_statements(
 
 
 
-pub fn check_and_classify_block_break_statements(
+fn check_and_classify_block_break_statements(
     block: &mut Block,
     break_type: &Option<BreakType>) -> Result<(), String>
 {
@@ -74,6 +74,21 @@ pub fn check_and_classify_block_break_statements(
             for block_item in block_items {
                 check_and_classify_block_item_break_statements(block_item, break_type)?;
             }
+        }
+    }
+
+    Ok(())
+}
+
+
+
+pub fn check_and_classify_program_break_statements(prog: &mut Program) -> Result<(), String>
+{
+    let Program::ProgramDefinition(decls) = prog;
+
+    for decl in decls {
+        if let Declaration::FunDecl(FunctionDeclaration::Declarant(_,_, Some(body) ,_,_)) = decl {
+            check_and_classify_block_break_statements(body, &None)?;
         }
     }
 
