@@ -1,4 +1,7 @@
+
 use super::ast::*;
+use super::super::parser::ast::Type;
+use super::super::parser::StaticInit;
 
 fn pretty_print_tacky_unary_operator(unary_op: &UnaryOperator)
 {
@@ -74,8 +77,8 @@ fn pretty_print_tacky_binary_operator(binary_op: &BinaryOperator)
 fn pretty_print_tacky_val(val: &Val)
 {
     match val {
-        Val::IntConstant(c) => {
-            print!("IntConstant({})", c);
+        Val::Constant(c) => {
+            print!("Constant({}={})", c.get_type().to_string(), c.to_i64());
         },
         Val::Var(var_name) => {
             print!("Var({})", var_name);
@@ -179,13 +182,13 @@ fn pretty_print_tacky_function(func_name: &String, global: bool, params: &Vec<St
 }
 
 
-fn pretty_print_tacky_static_variable(var_name: &String, global: bool, init_value: i32, indent: usize)
+fn pretty_print_tacky_static_variable(var_name: &String, global: bool, typ: &Type, init_value: &StaticInit, indent: usize)
 {
     print!("{}", " ".repeat(indent));
     if global {
         print!("GLOBAL ");
     }
-    println!("STATIC VAR {var_name} = {init_value}");
+    println!("STATIC VAR TYPE={} {} = {}", typ.to_string(), var_name, init_value.to_string());
 }
 
 
@@ -195,8 +198,8 @@ fn pretty_print_tacky_top_level_item(top_level_item: &TopLevel, indent: usize)
         TopLevel::Function(func_name, global, params, instructions) => {
             pretty_print_tacky_function(func_name, *global, params, instructions, indent);
         },
-        TopLevel::StaticVariable(var_name, global, init_value) => {
-            pretty_print_tacky_static_variable(var_name, *global, *init_value, indent);
+        TopLevel::StaticVariable(var_name, global, typ, init_value) => {
+            pretty_print_tacky_static_variable(var_name, *global, typ, init_value, indent);
         }
     };
 }

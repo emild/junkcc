@@ -1,3 +1,6 @@
+use super::parser::ast::Type;
+use super::parser::ast::Const;
+use super::parser::StaticInit;
 
 #[derive(Debug)]
 pub enum Program {
@@ -7,7 +10,7 @@ pub enum Program {
 #[derive(Debug)]
 pub enum TopLevel {
     Function(String /* name */, bool /* global */, Vec<String> /* parameters */, Vec<Instruction> /* body */),
-    StaticVariable(String /* name */, bool /* global */, i32 /* init */)
+    StaticVariable(String /* name */, bool /* global */, Type, StaticInit /* init */)
 }
 
 
@@ -15,6 +18,8 @@ pub enum TopLevel {
 #[derive(Debug)]
 pub enum Instruction {
     Return(Val),
+    SignExtend(Val /* src */, Val /* dst */),
+    Truncate(Val /* src */, Val /* dst */),
     Unary(UnaryOperator, Val /* src */, Val /* dst */),
     Binary(BinaryOperator, Val /* src 1 */, Val /* src 2 */, Val /* dst */),
     Copy(Val /* src */, Val /* dst */),
@@ -27,7 +32,7 @@ pub enum Instruction {
 
 #[derive(Debug, Clone)]
 pub enum Val {
-    IntConstant(i32),
+    Constant(Const),
     Var(String)
 }
 

@@ -2,7 +2,7 @@ use std::cmp::min;
 
 use super::super::tacky;
 use super::ast::*;
-
+/*
 fn convert_tacky_value_to_operand(val: &tacky::ast::Val) -> Result<Operand, String>
 {
     match val {
@@ -378,9 +378,12 @@ pub fn generate_code_for_top_level_item(tacky_top_level_item: &tacky::ast::TopLe
     Ok(top_level_item)
 }
 
+*/
 
 pub fn generate_code(program: &tacky::ast::Program) -> Result<Program, String>
 {
+
+    /*
 
     let tacky::ast::Program::ProgramDefinition(tacky_top_level_items) = program;
     let mut top_level_items = vec![];
@@ -393,4 +396,7 @@ pub fn generate_code(program: &tacky::ast::Program) -> Result<Program, String>
     }
 
     Ok(Program::ProgramDefinition(top_level_items))
+    */
+
+    panic!("Codegen not [YET] implemented");
 }

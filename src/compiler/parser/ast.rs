@@ -66,6 +66,14 @@ impl Const {
         typex_set_type(Expression::Constant(self.clone()), typ)
     }
 
+    pub fn get_type(&self) -> Type
+    {
+        match self {
+            Const::ConstInt(_)  => Type::Int,
+            Const::ConstLong(_) => Type::Long
+        }
+    }
+
     pub fn to_i64(&self) -> i64
     {
         match self {
@@ -470,6 +478,19 @@ impl Type
         match self {
             Type::FuncType(_,_,_) => true,
             _ => false
+        }
+    }
+
+    pub fn to_string(&self) -> String
+    {
+        match self {
+            Type::Int               => String::from("int"),
+            Type::Long              => String::from("long"),
+            Type::FuncType(param_types, ret_type,_) => {
+                    assert!(!ret_type.is_func());
+                    let param_types_str : Vec<String> = param_types.iter().map(|typ| typ.to_string()).collect();
+                    format!("{}({})", ret_type.to_string(), param_types_str.join(", "))
+            }
         }
     }
 }

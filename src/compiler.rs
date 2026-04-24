@@ -54,7 +54,7 @@ pub fn run(config: &Config, input_file_path: &str, output_file_path: &str) -> Re
                 return Ok(());
             }
 
-            let (prog_ast, symbol_table) = parser::semantic_analysis(&prog_ast)?;
+            let (prog_ast, mut symbol_table) = parser::semantic_analysis(&prog_ast)?;
             println!("\nAFTER STAGE: SEMANTIC ANALYSIS");
             parser::pretty_print_ast(&prog_ast);
             if config.stop_after_semantic_analysis {
@@ -62,7 +62,7 @@ pub fn run(config: &Config, input_file_path: &str, output_file_path: &str) -> Re
                 return Ok(());
             }
 
-            let prog_tacky_ast = tacky::generate_tacky_ast(&prog_ast, &symbol_table)?;
+            let prog_tacky_ast = tacky::generate_tacky_ast(&prog_ast, &mut symbol_table)?;
             println!("\nAFTER STAGE: TACKY GENERATION");
             tacky::pretty_print_tacky_ast(&prog_tacky_ast);
             if config.stop_after_tacky_generation {
