@@ -31,6 +31,14 @@ impl StaticInit
             _ => { panic!("Invalid StaticInit Conversion"); }
         }
     }
+
+    pub fn to_string(&self) -> String
+    {
+        match self {
+            StaticInit::IntInit(c) => format!("int({})", c),
+            StaticInit::LongInit(c)  => format!("long({})", c),
+        }
+    }
 }
 
 #[derive(Debug, PartialEq, Eq)]
@@ -332,7 +340,7 @@ fn typecheck_expression(typed_expr: &TypedExpression, symbol_table: &mut HashMap
 }
 
 
-fn typecheck_local_variable_declaration(var_decl: &VariableDeclaration, symbol_table: &mut HashMap<String, SymbolInfo>) -> Result<(), String>
+fn typecheck_local_variable_declaration(var_decl: &mut VariableDeclaration, symbol_table: &mut HashMap<String, SymbolInfo>) -> Result<(), String>
 {
     let VariableDeclaration::Declarant(var_name, initializer, typ, stg_class) = var_decl;
 
@@ -389,7 +397,7 @@ fn typecheck_local_variable_declaration(var_decl: &VariableDeclaration, symbol_t
             );
 
             if let Some(initializer) = initializer {
-                typecheck_expression(initializer, symbol_table)?;
+                *initializer = typecheck_expression(initializer, symbol_table)?;
             }
         }
     };
@@ -603,7 +611,7 @@ fn typecheck_local_declaration(decl: &mut Declaration, symbol_table: &mut HashMa
             typecheck_function_declaration(func_decl, symbol_table)?;
         },
         Declaration::VarDecl(var_decl) => {
-            typecheck_local_variable_declaration(&var_decl, symbol_table)?;
+            typecheck_local_variable_declaration(var_decl, symbol_table)?;
         }
     };
 
