@@ -5,30 +5,13 @@ use super::ast::*;
 fn fixup_instruction_operands(instruction: &Instruction) -> Option<Vec<Instruction>>
 {
     match instruction {
-        Instruction::Mov(Operand::Stack(src_idx), Operand::Stack(dst_idx))=> {
+        //Mov with two memory operands does not work
+        Instruction::Mov(src, dst) if src.is_mem() && dst.is_mem() => {
             Some(vec![
-                Instruction::Mov(Operand::Stack(*src_idx), Operand::Reg(Register::R10)),
-                Instruction::Mov(Operand::Reg(Register::R10), Operand::Stack(*dst_idx))
+                Instruction::Mov(src.clone(), Operand::Reg(Register::R10)),
+                Instruction::Mov(Operand::Reg(Register::R10), dst.clone())
             ])
-        },
-        Instruction::Mov(Operand::Stack(src_idx), Operand::Data(dst_var_name)) => {
-            Some(vec![
-                Instruction::Mov(Operand::Stack(*src_idx), Operand::Reg(Register::R10)),
-                Instruction::Mov(Operand::Reg(Register::R10), Operand::Data(dst_var_name.clone()))
-            ])
-        },
-        Instruction::Mov(Operand::Data(src_var_name), Operand::Stack(dst_idx))=> {
-            Some(vec![
-                Instruction::Mov(Operand::Data(src_var_name.clone()), Operand::Reg(Register::R10)),
-                Instruction::Mov(Operand::Reg(Register::R10), Operand::Stack(*dst_idx))
-            ])
-        },
-        Instruction::Mov(Operand::Data(src_var_name), Operand::Data(dst_var_name)) => {
-            Some(vec![
-                Instruction::Mov(Operand::Data(src_var_name.clone()),  Operand::Reg(Register::R10)),
-                Instruction::Mov(Operand::Reg(Register::R10), Operand::Data(dst_var_name.clone()))
-            ])
-        },
+        }
 
         Instruction::Binary(BinaryOperator::Shl, src, dst) => {
             let result = match src {
@@ -53,75 +36,41 @@ fn fixup_instruction_operands(instruction: &Instruction) -> Option<Vec<Instructi
 
             result
         },
-        Instruction::Binary(BinaryOperator::Mul, src, Operand::Stack(stack_idx)) => {
+
+        //Mul: Destination cannot be a memory operand
+        Instruction::Binary(BinaryOperator::Mul, src, dst) if dst.is_mem() => {
             Some(vec![
-                Instruction::Mov(Operand::Stack(*stack_idx), Operand::Reg(Register::R11)),
+                Instruction::Mov(dst.clone(), Operand::Reg(Register::R11)),
                 Instruction::Binary(BinaryOperator::Mul, src.clone(), Operand::Reg(Register::R11)),
-                Instruction::Mov(Operand::Reg(Register::R11), Operand::Stack(*stack_idx))
-            ])
-        },
-        Instruction::Binary(BinaryOperator::Mul, src, Operand::Data(glob_var_name)) => {
-            Some(vec![
-                Instruction::Mov(Operand::Data(glob_var_name.clone()), Operand::Reg(Register::R11)),
-                Instruction::Binary(BinaryOperator::Mul, src.clone(), Operand::Reg(Register::R11)),
-                Instruction::Mov(Operand::Reg(Register::R11), Operand::Data(glob_var_name.clone()))
-            ])
-        },
-        Instruction::Binary(binop, Operand::Stack(src_idx), Operand::Stack(dst_idx)) => {
-            Some(vec![
-                Instruction::Mov(Operand::Stack(*src_idx), Operand::Reg(Register::R10)),
-                Instruction::Binary(binop.clone(), Operand::Reg(Register::R10), Operand::Stack(*dst_idx))
-            ])
-        },
-        Instruction::Binary(binop, Operand::Stack(src_idx), Operand::Data(dst_var_name)) => {
-            Some(vec![
-                Instruction::Mov(Operand::Stack(*src_idx), Operand::Reg(Register::R10)),
-                Instruction::Binary(binop.clone(), Operand::Reg(Register::R10), Operand::Data(dst_var_name.clone()))
-            ])
-        },
-        Instruction::Binary(binop, Operand::Data(src_var_name), Operand::Stack(dst_idx)) => {
-            Some(vec![
-                Instruction::Mov(Operand::Data(src_var_name.clone()), Operand::Reg(Register::R10)),
-                Instruction::Binary(binop.clone(), Operand::Reg(Register::R10), Operand::Stack(*dst_idx))
+                Instruction::Mov(Operand::Reg(Register::R11), dst.clone())
             ])
         },
 
-        Instruction::Binary(binop, Operand::Data(src_var_name),  Operand::Data(dst_var_name)) => {
+        //Generic binary operators: Can't use two memory operands
+        Instruction::Binary(binop, src, dst) if src.is_mem() && dst.is_mem()=> {
             Some(vec![
-                Instruction::Mov(Operand::Data(src_var_name.clone()), Operand::Reg(Register::R10)),
-                Instruction::Binary(binop.clone(), Operand::Reg(Register::R10), Operand::Data(dst_var_name.clone()))
+                Instruction::Mov(src.clone(), Operand::Reg(Register::R10)),
+                Instruction::Binary(binop.clone(), Operand::Reg(Register::R10), dst.clone())
             ])
         },
+
+        //Idiv: Divisor cannot be immediate
         Instruction::Idiv(Operand::Imm(c)) => {
             Some(vec![
                 Instruction::Mov(Operand::Imm(*c), Operand::Reg(Register::R10)),
                 Instruction::Idiv(Operand::Reg(Register::R10))
             ])
         },
-        Instruction::Cmp(Operand::Stack(src1_idx), Operand::Stack(src2_idx)) => {
+
+        //Cmp: Two mem operands are not allowed
+        Instruction::Cmp(src1, src2) if src1.is_mem() && src2.is_mem() => {
             Some(vec![
-                Instruction::Mov(Operand::Stack(*src1_idx), Operand::Reg(Register::R10)),
-                Instruction::Cmp(Operand::Reg(Register::R10), Operand::Stack(*src2_idx))
+                Instruction::Mov(src1.clone(), Operand::Reg(Register::R10)),
+                Instruction::Cmp(Operand::Reg(Register::R10), src2.clone())
             ])
         },
-        Instruction::Cmp(Operand::Stack(src1_idx), Operand::Data(dst_var_name)) => {
-            Some(vec![
-                Instruction::Mov(Operand::Stack(*src1_idx), Operand::Reg(Register::R10)),
-                Instruction::Cmp(Operand::Reg(Register::R10), Operand::Data(dst_var_name.clone()))
-            ])
-        },
-        Instruction::Cmp(Operand::Data(src_var_name), Operand::Stack(src2_idx)) => {
-            Some(vec![
-                Instruction::Mov(Operand::Data(src_var_name.clone()), Operand::Reg(Register::R10)),
-                Instruction::Cmp(Operand::Reg(Register::R10), Operand::Stack(*src2_idx))
-            ])
-        },
-        Instruction::Cmp(Operand::Data(src_var_name), Operand::Data(dst_var_name)) => {
-            Some(vec![
-                Instruction::Mov(Operand::Data(src_var_name.clone()), Operand::Reg(Register::R10)),
-                Instruction::Cmp(Operand::Reg(Register::R10), Operand::Data(dst_var_name.clone()))
-            ])
-        },
+
+        //Cmp second operand cannot be immediate
         Instruction::Cmp(src1, Operand::Imm(src2_c)) => {
             Some(vec![
                 Instruction::Mov(Operand::Imm(*src2_c), Operand::Reg(Register::R11)),

@@ -31,6 +31,21 @@ pub enum Operand {
     Data(String)
 }
 
+impl Operand
+{
+    pub fn is_mem(&self) -> bool
+    {
+        use Operand::*;
+        match self {
+            Stack(_) |
+            Data(_) => true,
+            Pseudo(_) => { panic!("Unresolved pseudo operand: '{:?}'", self); }
+            Reg(_) |
+            Imm(_) => false
+        }
+    }
+}
+
 
 #[derive(Debug, Clone)]
 pub enum UnaryOperator {
