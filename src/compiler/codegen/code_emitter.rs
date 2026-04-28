@@ -7,13 +7,24 @@ use super::ast::*;
 use super::super::parser::ast::Type;
 use super::super::parser::IdentifierAttrs;
 use super::super::parser::SymbolInfo;
-
+/*
 
 enum OperandSize {
     Byte,
     Word,
     Dword,
     Qword
+}
+
+
+fn emit_instruction_suffix(ass_type: &AssemblyType) -> String
+{
+    let suffix = match ass_type {
+        AssemblyType::LongWord => "l",
+        AssemblyType::QuadWord => "q"
+    };
+
+    String::from(suffix)
 }
 
 
@@ -24,6 +35,7 @@ fn emit_byte_register(reg: &Register) -> std::io::Result<String>
         Register::BX  => "bl",
         Register::CX  => "cl",
         Register::DX  => "dl",
+        Register::SP |
         Register::SI |
         Register::DI  => { return Err(std::io::Error::other(format!("Register '{:?}' cannot be used as byte operand", reg))); }
         Register::R8  => "r8b",
@@ -42,6 +54,7 @@ fn emit_word_register(reg: &Register) -> std::io::Result<String>
         Register::BX  => "bx",
         Register::CX  => "cx",
         Register::DX  => "dx",
+        Register::SP  => "sp",
         Register::SI  => "si",
         Register::DI  => "di",
         Register::R8  => "r8w",
@@ -61,6 +74,7 @@ fn emit_dword_register(reg: &Register) -> std::io::Result<String>
         Register::BX  => "ebx",
         Register::CX  => "ecx",
         Register::DX  => "edx",
+        Register::SP  => "esp",
         Register::SI  => "esi",
         Register::DI  => "edi",
         Register::R8  => "r8d",
@@ -80,6 +94,7 @@ fn emit_qword_register(reg: &Register) -> std::io::Result<String>
         Register::BX  => "rbx",
         Register::CX  => "rcx",
         Register::DX  => "rdx",
+        Register::SP  => "rsp",
         Register::SI  => "rsi",
         Register::DI  => "rdi",
         Register::R8  => "r8",
@@ -216,17 +231,23 @@ fn emit_jmpcc_instruction(cc: &CC, label: &String, buf_writer: &mut BufWriter<fs
     Ok(())
 }
 
-fn emit_call_instruction(label: &String, symbol_table: &HashMap<String, SymbolInfo>, buf_writer: &mut BufWriter<fs::File>) -> std::io::Result<()>
+fn emit_call_instruction(label: &String, assembly_symbol_table: &HashMap<String, AssemblySymbolInfo>, buf_writer: &mut BufWriter<fs::File>) -> std::io::Result<()>
 {
     let mut target_label = String::new();
-    let func_type = symbol_table.get(label);
+    let func_type = assembly_symbol_table.get(label);
     match func_type {
-        Some(SymbolInfo {typ: Type::FuncType(_, _, true), attrs:_}) => {
+        Some(AssemblySymbolInfo::FuncEntry(true)) => {
             //Locally defined function
             target_label = label.clone();
         },
-        _ => {
+        Some(AssemblySymbolInfo::FuncEntry(false)) => {
             target_label = format!("{}@PLT", label);
+        },
+        Some(AssemblySymbolInfo::ObjEntry(_,_)) => {
+            panic!("code_emitter: Attempt to call function '{}()', but symbol table says it's not a function", label);
+        }
+        None => {
+            panic!("code_emitter: Function '{}()' not found in assembly symbol table", label);
         }
     };
 
@@ -236,16 +257,10 @@ fn emit_call_instruction(label: &String, symbol_table: &HashMap<String, SymbolIn
 }
 
 
-fn emit_body(instructions: &Vec<Instruction>, symbol_table: &HashMap<String, SymbolInfo>, buf_writer: &mut BufWriter<fs::File>) -> std::io::Result<()>
+fn emit_body(instructions: &Vec<Instruction>, assembly_symbol_table: &HashMap<String, AssemblySymbolInfo>, buf_writer: &mut BufWriter<fs::File>) -> std::io::Result<()>
 {
     for ins in instructions {
         match ins {
-            Instruction::AllocateStack(stack_allocation_size) => {
-                writeln!(buf_writer, "{}subq ${}, %rsp", " ".repeat(16), stack_allocation_size)?;
-            },
-            Instruction::DeallocateStack(stack_allocation_size) => {
-                writeln!(buf_writer, "{}addq ${}, %rsp", " ".repeat(16), stack_allocation_size)?;
-            },
             Instruction::Mov(src, dest ) => {
                 write!(buf_writer, "{}movl ", " ".repeat(16))?;
                 emit_operand(&src, &OperandSize::Dword, buf_writer)?;
@@ -300,7 +315,7 @@ fn emit_body(instructions: &Vec<Instruction>, symbol_table: &HashMap<String, Sym
             },
             Instruction::Call(label) => {
                 write!(buf_writer, "{}", " ".repeat(16))?;
-                emit_call_instruction(label, symbol_table, buf_writer)?;
+                emit_call_instruction(label, assembly_symbol_table, buf_writer)?;
             }
             Instruction::Label(label) => {
                 writeln!(buf_writer, "L.{}:", label)?;
@@ -315,7 +330,7 @@ fn emit_body(instructions: &Vec<Instruction>, symbol_table: &HashMap<String, Sym
 
 
 
-fn emit_function(top_level_item: &TopLevel, symbol_table: &HashMap<String, SymbolInfo>, buf_writer: &mut BufWriter<fs::File>) -> std::io::Result<()>
+fn emit_function(top_level_item: &TopLevel, assembly_symbol_table: &HashMap<String, AssemblySymbolInfo>, buf_writer: &mut BufWriter<fs::File>) -> std::io::Result<()>
 {
     match top_level_item {
         TopLevel::Function(func_name, global, instructions) => {
@@ -332,7 +347,7 @@ fn emit_function(top_level_item: &TopLevel, symbol_table: &HashMap<String, Symbo
             writeln!(buf_writer, "{}pushq %rbp", " ".repeat(16))?;
             writeln!(buf_writer, "{}movq %rsp, %rbp", " ".repeat(16))?;
 
-            emit_body(instructions, symbol_table, buf_writer)?;
+            emit_body(instructions, assembly_symbol_table, buf_writer)?;
 
             writeln!(buf_writer, "")?;
             Ok(())
@@ -368,29 +383,32 @@ fn emit_function(top_level_item: &TopLevel, symbol_table: &HashMap<String, Symbo
 
 
 
-fn emit_program(program: &Program, symbol_table: &HashMap<String, SymbolInfo>, buf_writer: &mut BufWriter<fs::File>) -> std::io::Result<()>
+fn emit_program(program: &Program, assembly_symbol_table: &HashMap<String, AssemblySymbolInfo>, buf_writer: &mut BufWriter<fs::File>) -> std::io::Result<()>
 {
     match program {
         Program::ProgramDefinition(func_defs) => {
             for func_def in func_defs {
-                emit_function(&func_def, symbol_table, buf_writer)?;
+                emit_function(&func_def, assembly_symbol_table, buf_writer)?;
             }
             Ok(())
         },
         //_ => Err(std::io::Error::other(format!("Unsupported Program Definiton: '{:?}'", program)))
     }
 }
+*/
 
-
-pub fn emit_code(program: &Program, symbol_table: &HashMap<String, SymbolInfo>, output_file_path: &str) -> std::io::Result<()>
+pub fn emit_code(program: &Program, assembly_symbol_table: &HashMap<String, AssemblySymbolInfo>, output_file_path: &str) -> std::io::Result<()>
 {
-    let file = fs::File::create(output_file_path)?;
+/*    let file = fs::File::create(output_file_path)?;
     let mut buf_writer = BufWriter::new(file);
 
-    emit_program(&program, symbol_table, &mut buf_writer)?;
+    emit_program(&program, assembly_symbol_table, &mut buf_writer)?;
 
     let stack_protection = ".section .note.GNU-stack,\"\",@progbits";
     writeln!(&mut buf_writer, "{}", stack_protection)?;
 
     Ok(())
+    */
+
+    panic!("Code emission not [YET] implemented");
 }
