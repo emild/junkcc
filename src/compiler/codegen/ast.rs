@@ -1,3 +1,35 @@
+use super::super::parser::StaticInit;
+
+#[derive(Debug, Clone)]
+pub enum AssemblyType {
+    LongWord,
+    QuadWord
+}
+
+impl AssemblyType {
+    pub fn size(&self) -> usize {
+        match self {
+            AssemblyType::LongWord => 4,
+            AssemblyType::QuadWord => 8
+        }
+    }
+
+    pub fn alignment(&self) -> usize {
+        match self {
+            AssemblyType::LongWord => 4,
+            AssemblyType::QuadWord => 8
+        }
+    }
+
+}
+
+#[derive(Debug)]
+pub enum AssemblySymbolInfo {
+    ObjEntry(AssemblyType /* assembly_type */,  bool /* is_static */),
+    FuncEntry(bool /* is_defined */)
+}
+
+
 #[derive(Debug, Clone)]
 pub enum Register {
     AX,
@@ -9,7 +41,8 @@ pub enum Register {
     R8,
     R9,
     R10,
-    R11
+    R11,
+    SP
 }
 
 #[derive(Debug, Clone)]
@@ -24,7 +57,7 @@ pub enum CC { //Condition Code
 
 #[derive(Debug, Clone)]
 pub enum Operand {
-    Imm(i32),
+    Imm(i64),
     Reg(Register),
     Pseudo(String),
     Stack(i64),
@@ -53,7 +86,7 @@ pub enum UnaryOperator {
     Not
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum BinaryOperator {
     Add,
     Sub,
@@ -68,18 +101,17 @@ pub enum BinaryOperator {
 
 #[derive(Debug)]
 pub enum Instruction {
-    Mov(Operand, Operand),
-    Unary(UnaryOperator, Operand),
-    Binary(BinaryOperator, Operand, Operand),
-    Cmp(Operand, Operand),
-    Idiv(Operand),
-    Cdq,
+    Mov(AssemblyType, Operand /* src */, Operand /* dst */),
+    Movsx(Operand /* src */, Operand /* dst */),
+    Unary(UnaryOperator, AssemblyType, Operand),
+    Binary(BinaryOperator, AssemblyType, Operand, Operand),
+    Cmp(AssemblyType, Operand, Operand),
+    Idiv(AssemblyType, Operand),
+    Cdq(AssemblyType),
     Jmp(String),
     JmpCC(CC, String),
     SetCC(CC, Operand),
     Label(String),
-    AllocateStack(usize),
-    DeallocateStack(usize),
     Push(Operand),
     Call(String),
     Ret
@@ -88,7 +120,7 @@ pub enum Instruction {
 #[derive(Debug)]
 pub enum TopLevel {
     Function(String /* name */, bool /* global */, Vec<Instruction> /* body */),
-    StaticVariable(String /* name */, bool /* global */, i32 /* initial_value */)
+    StaticVariable(String /* name */, bool /* global */, usize /* alignment */, StaticInit /* init */)
 }
 
 #[derive(Debug)]

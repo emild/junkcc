@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicUsize, Ordering};
 
-use crate::compiler::parser::semantic_analyzer::LoopType;
+use super::LoopType;
 
 static GOTO_LABEL_NAME_INDEX: AtomicUsize = AtomicUsize::new(0);
 static LOOP_LABEL_NAME_INDEX: AtomicUsize = AtomicUsize::new(0);

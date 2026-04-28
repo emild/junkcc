@@ -70,12 +70,12 @@ pub fn run(config: &Config, input_file_path: &str, output_file_path: &str) -> Re
                 return Ok(());
             }
 
-            let mut prog_code_ast = codegen::generate_code_ast(&prog_tacky_ast)?;
+            let (mut prog_code_ast, assembly_symbol_table) = codegen::generate_code_ast(&prog_tacky_ast, &symbol_table)?;
 
             println!("\nAFTER STAGE: CODE GENERATION");
             codegen::pretty_print_code_ast(&prog_code_ast);
 
-            codegen::replace_pseudo_operands(&mut prog_code_ast, &symbol_table)?;
+            codegen::replace_pseudo_operands(&mut prog_code_ast, &assembly_symbol_table)?;
 
             println!("\nAFTER STAGE: PSEUDO REGISTERS REPLACEMENT");
             codegen::pretty_print_code_ast(&prog_code_ast);
@@ -85,7 +85,7 @@ pub fn run(config: &Config, input_file_path: &str, output_file_path: &str) -> Re
                 return Ok(());
             }
 
-            match codegen::emit_code(&prog_code_ast, &symbol_table, output_file_path) {
+            match codegen::emit_code(&prog_code_ast, &assembly_symbol_table, output_file_path) {
                 Ok(()) => Ok(()),
                 Err(e) => Err(format!("Code emission error: {}", e))
             }

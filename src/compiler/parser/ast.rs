@@ -493,6 +493,15 @@ impl Type
             }
         }
     }
+
+    pub fn alignment(&self) -> usize
+    {
+        match self {
+            Type::Int => 4,
+            Type::Long => 8,
+            _ => { panic!("Attempt to call alignment() for function type"); }
+        }
+    }
 }
 
 

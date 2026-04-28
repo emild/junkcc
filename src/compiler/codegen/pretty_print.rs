@@ -1,5 +1,15 @@
 use super::ast::*;
 
+
+fn assembly_type_suffix(ass_type: &AssemblyType) -> &str
+{
+    match ass_type {
+        AssemblyType::LongWord => "l",
+        AssemblyType::QuadWord => "q"
+    }
+}
+
+
 fn pretty_print_operand(op: &Operand)
 {
     match op {
@@ -77,8 +87,8 @@ fn pretty_print_instructions(instructions: &Vec<Instruction>, indent: usize)
 {
     for ins in instructions {
         match ins {
-            Instruction::Mov(src, dest) => {
-                print!("{}mov src=", " ".repeat(indent));
+            Instruction::Mov(ass_type, src, dest) => {
+                print!("{}mov typ={}, src=", " ".repeat(indent), assembly_type_suffix(ass_type));
                 pretty_print_operand(&src);
                 print!(", dest=");
                 pretty_print_operand(&dest);
@@ -92,40 +102,36 @@ fn pretty_print_instructions(instructions: &Vec<Instruction>, indent: usize)
             Instruction::Ret => {
                 println!("{}ret", " ".repeat(indent))
             },
-            Instruction::AllocateStack(size) => {
-                println!("{}AllocateStack({})", " ".repeat(indent), size);
-            },
-            Instruction::DeallocateStack(size) => {
-                println!("{}DeallocateStack({})", " ".repeat(indent), size);
-            },
-            Instruction::Unary(unary_op, dest) => {
+            Instruction::Unary(unary_op, ass_type, dest) => {
                 print!("{}", " ".repeat(indent));
                 pretty_print_unary_operator(&unary_op);
+                print!(" typ={}", assembly_type_suffix(&ass_type));
                 print!(" dest=");
                 pretty_print_operand(&dest);
                 println!("");
             },
-            Instruction::Binary(binary_op, src, dest) => {
+            Instruction::Binary(binary_op, ass_type, src, dest) => {
                 print!("{}", " ".repeat(indent));
                 pretty_print_binary_operator(&binary_op);
+                print!(" typ={}", assembly_type_suffix(&ass_type));
                 print!(" src=");
                 pretty_print_operand(&src);
                 print!(" dest=");
                 pretty_print_operand(&dest);
                 println!("");
             },
-            Instruction::Cmp(src1, src2 ) => {
-                print!("{}cmp src1=", " ".repeat(indent));
+            Instruction::Cmp(ass_type, src1, src2 ) => {
+                print!("{}cmp typ={}, src1=", " ".repeat(indent), assembly_type_suffix(ass_type));
                 pretty_print_operand(&src1);
                 print!(", ");
                 pretty_print_operand(&src2);
                 println!("");
             },
-            Instruction::Cdq => {
-                println!("{}cdq", " ".repeat(indent));
+            Instruction::Cdq(ass_type) => {
+                println!("{}cdq typ={}", " ".repeat(indent), assembly_type_suffix(ass_type));
             },
-            Instruction::Idiv(divisor) => {
-                print!("{}idiv divisor=", " ".repeat(indent));
+            Instruction::Idiv(ass_type, divisor) => {
+                print!("{}idiv typ={}, divisor=", " ".repeat(indent), assembly_type_suffix(ass_type));
                 pretty_print_operand(divisor);
                 println!("");
             },
@@ -150,7 +156,13 @@ fn pretty_print_instructions(instructions: &Vec<Instruction>, indent: usize)
             Instruction::Call(label) => {
                 println!("{}call {}", " ".repeat(indent), label);
             },
-
+            Instruction::Movsx(src, dest) => {
+                print!("{}movsx src=", " ".repeat(indent));
+                pretty_print_operand(&src);
+                print!(", dest=");
+                pretty_print_operand(&dest);
+                println!("");
+            }
 
           //  _ => { panic!("Unknown instruction: '{:?}'", ins); }
         };
@@ -169,12 +181,12 @@ fn pretty_print_top_level_item(top_level_item: &TopLevel, indent: usize)
             println!("{})", " ".repeat(indent + 4));
             println!("{})", " ".repeat(indent));
         },
-        TopLevel::StaticVariable(var_name, global, init_value) => {
+        TopLevel::StaticVariable(var_name, global, align, init_value) => {
             print!("{}", " ".repeat(indent));
             if *global {
                 print!("GLOBAL ");
             }
-            println!("Static var {var_name} = {init_value}");
+            println!("Static var {var_name} = {}", init_value.to_string());
         }
         //_ => { panic!("Invalid top level item: '{:?}'", f); }
     }
