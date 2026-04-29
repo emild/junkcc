@@ -411,19 +411,15 @@ fn pretty_print_unlabeled_statement(s: &UnlabeledStatement, indent: usize)
 }
 
 
-fn type_str(typ: &Type) -> &str
+fn type_str(typ: &Type) -> String
 {
-    match typ {
-        Type::Int               => "INT",
-        Type::Long              => "LONG",
-        Type::FuncType(_,_,_)   => "FUNCTION"
-    }
+    return typ.to_string();
 }
 
-fn opt_type_str(opt_typ: &Option<Type>) -> &str
+fn opt_type_str(opt_typ: &Option<Type>) -> String
 {
     match opt_typ {
-        None => "NONE",
+        None => String::from("NONE"),
         Some(typ) => type_str(typ)
     }
 }
