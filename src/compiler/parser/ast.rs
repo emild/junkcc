@@ -421,6 +421,25 @@ impl Precedence for BinaryOperator {
 }
 
 
+pub fn get_noncompound_operator(compond_binary_operator: &BinaryOperator) -> Result<BinaryOperator, String>
+{
+    let noncompund_binop = match compond_binary_operator {
+        BinaryOperator::AddAssign           => BinaryOperator::Add,
+        BinaryOperator::SubtractAssign      => BinaryOperator::Subtract,
+        BinaryOperator::MultiplyAssign      => BinaryOperator::Multiply,
+        BinaryOperator::DivideAssign        => BinaryOperator::Divide,
+        BinaryOperator::RemainderAssign     => BinaryOperator::Remainder,
+        BinaryOperator::BitwiseAndAssign    => BinaryOperator::BitwiseAnd,
+        BinaryOperator::BitwiseOrAssign     => BinaryOperator::BitwiseOr,
+        BinaryOperator::BitwiseXorAssign    => BinaryOperator::BitwiseXor,
+        BinaryOperator::ShiftLeftAssign     => BinaryOperator::ShiftLeft,
+        BinaryOperator::ShiftRightAssign    => BinaryOperator::ShiftRight,
+        _ => { return Err(format!("Expected compound assignment operator. got: '{:?}'", compond_binary_operator)); }
+    };
+
+    Ok(noncompund_binop)
+}
+
 #[derive(Debug, Clone)]
 pub enum Label {
     Goto(String),

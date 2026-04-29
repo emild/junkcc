@@ -7,7 +7,7 @@ use ast::*;
 
 use super::parser;
 use super::parser::{IdentifierAttrs, SymbolInfo, InitialValue};
-use super::parser::ast::{TypedExpression, Type, typex_get_type};
+use super::parser::ast::{TypedExpression, Type, typex_get_type, get_noncompound_operator};
 
 
 static TMP_NAME_INDEX: AtomicUsize = AtomicUsize::new(0);
@@ -72,24 +72,7 @@ fn emit_tacky_binary_operator(binop: &parser::ast::BinaryOperator) -> Result<Bin
     }
 }
 
-fn get_noncompound_operator(compond_binary_operator: &parser::ast::BinaryOperator) -> Result<parser::ast::BinaryOperator, String>
-{
-    let noncompund_binop = match compond_binary_operator {
-        parser::ast::BinaryOperator::AddAssign => parser::ast::BinaryOperator::Add,
-        parser::ast::BinaryOperator::SubtractAssign => parser::ast::BinaryOperator::Subtract,
-        parser::ast::BinaryOperator::MultiplyAssign => parser::ast::BinaryOperator::Multiply,
-        parser::ast::BinaryOperator::DivideAssign => parser::ast::BinaryOperator::Divide,
-        parser::ast::BinaryOperator::RemainderAssign => parser::ast::BinaryOperator::Remainder,
-        parser::ast::BinaryOperator::BitwiseAndAssign => parser::ast::BinaryOperator::BitwiseAnd,
-        parser::ast::BinaryOperator::BitwiseOrAssign => parser::ast::BinaryOperator::BitwiseOr,
-        parser::ast::BinaryOperator::BitwiseXorAssign => parser::ast::BinaryOperator::BitwiseXor,
-        parser::ast::BinaryOperator::ShiftLeftAssign => parser::ast::BinaryOperator::ShiftLeft,
-        parser::ast::BinaryOperator::ShiftRightAssign => parser::ast::BinaryOperator::ShiftRight,
-        _ => { return Err(format!("Expected compound assignment operator. got: '{:?}'", compond_binary_operator)); }
-    };
 
-    Ok(noncompund_binop)
-}
 
 
 fn get_inc_dec_operator(expr: &parser::ast::Expression) -> Result<BinaryOperator, String>
