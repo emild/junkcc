@@ -39,6 +39,15 @@ impl StaticInit
             StaticInit::LongInit(c)  => format!("long({})", c),
         }
     }
+
+    pub fn is_zero(&self) -> bool
+    {
+        match self {
+            StaticInit::IntInit(0) |
+            StaticInit::LongInit(0) => true,
+            _ => false
+        }
+    }
 }
 
 #[derive(Debug, PartialEq, Eq)]
@@ -106,7 +115,7 @@ fn typecheck_expr_function_call(func_name: &String, args: &Vec<TypedExpression>,
             }
 
             let call_expr = Expression::FunctionCall(func_name.clone(), converted_args);
-            typex_set_type(call_expr, Type::Int)
+            typex_set_type(call_expr, ret_type)
         },
         Some(SymbolInfo{ typ: _, attrs: _}) => {
             return Err(format!("'{}' is not a function or a callable object", func_name));
@@ -146,16 +155,29 @@ fn typecheck_expr_assignment(binop: &Option<BinaryOperator>, left: &TypedExpress
     let typed_left = typecheck_expression(left, symbol_table)?;
     let typed_right = typecheck_expression(right, symbol_table)?;
     let typ_left = typex_get_type(&typed_left);
-    let converted_right = convert_to(typed_right, &typ_left);
+    let typ_right = typex_get_type(&typed_right);
+
 
     match typed_left {
         TypedExpression::TypedExp(_, Expression::Var(_)) => { },
         _ => { return Err(format!("Assignment to non-lvalue")); }
     };
 
+    //TODO / BUGBUG! TAKE CARE TO MAKE SURE THAT THE LEFT EXPRESSION IS *ALWAYS* EVALUATED ONCE!!!
     let result_expr = match binop {
-        Some(binop) => Expression::CompoundAssignment(binop.clone(), Box::new(typed_left), Box::new(converted_right)),
-        None => Expression::Assignment(Box::new(typed_left), Box::new(converted_right))
+        Some(binop) => {
+            let common_type = get_common_type(&typ_left, &typ_right);
+            let converted_right = convert_to(typed_right, &common_type);
+            let converted_left = convert_to(typed_left.clone(), &common_type);
+            let noncompound_binop = get_noncompound_operator(binop)?;
+            let result = typex_set_type(Expression::Binary(noncompound_binop, Box::new(converted_left), Box::new(converted_right)), common_type.clone());
+            let converted_result = convert_to(result, &typ_left);
+            Expression::Assignment(Box::new(typed_left), Box::new(converted_result))
+        },
+        None => {
+            let converted_right = convert_to(typed_right, &typ_left);
+            Expression::Assignment(Box::new(typed_left), Box::new(converted_right))
+        }
     };
 
     Ok(typex_set_type(result_expr, typ_left))
@@ -222,8 +244,11 @@ fn typecheck_expr_binary(binop: &BinaryOperator, typed_left: &TypedExpression, t
         BinaryOperator::ShiftRightAssign |
         BinaryOperator::SubtractAssign => {
             let typ_left = typex_get_type(&typed_left);
-            let converted_right = convert_to(typed_right, &typ_left);
-            (Expression::Binary(binop.clone(), Box::new(typed_left), Box::new(converted_right)), typ_left)
+            let typ_right = typex_get_type(&typed_right);
+            let common_typ = get_common_type(&typ_left, &typ_right);
+            let converted_right = convert_to(typed_right, &common_typ);
+            let ex = typex_set_type(Expression::Binary(binop.clone(), Box::new(typed_left), Box::new(converted_right)), common_typ);
+            (Expression::Cast(typ_left.clone(), Box::new(ex)), typ_left)
         },
 
         BinaryOperator::ConditionalMiddle => {
@@ -276,9 +301,45 @@ fn typecheck_expr_inc_dec(typed_expr: &TypedExpression, symbol_table: &mut HashM
         }
     };
 
-
     Ok(ret_val)
 }
+
+
+fn typecheck_expr_post_dec(expr: &TypedExpression, symbol_table: &mut HashMap<String, SymbolInfo>) -> Result<TypedExpression, String>
+{
+    let typed_expr = typecheck_expr_inc_dec(expr, symbol_table)?;
+    let ret_type = typex_get_type(&typed_expr);
+
+    Ok(typex_set_type(Expression::PostDecrement(Box::new(typed_expr)), ret_type))
+}
+
+
+fn typecheck_expr_post_inc(expr: &TypedExpression, symbol_table: &mut HashMap<String, SymbolInfo>) -> Result<TypedExpression, String>
+{
+    let typed_expr = typecheck_expr_inc_dec(expr, symbol_table)?;
+    let ret_type = typex_get_type(&typed_expr);
+
+    Ok(typex_set_type(Expression::PostIncrement(Box::new(typed_expr)), ret_type))
+}
+
+
+fn typecheck_expr_pre_dec(expr: &TypedExpression, symbol_table: &mut HashMap<String, SymbolInfo>) -> Result<TypedExpression, String>
+{
+    let typed_expr = typecheck_expr_inc_dec(expr, symbol_table)?;
+    let ret_type = typex_get_type(&typed_expr);
+
+    Ok(typex_set_type(Expression::PreDecrement(Box::new(typed_expr)), ret_type))
+}
+
+
+fn typecheck_expr_pre_inc(expr: &TypedExpression, symbol_table: &mut HashMap<String, SymbolInfo>) -> Result<TypedExpression, String>
+{
+    let typed_expr = typecheck_expr_inc_dec(expr, symbol_table)?;
+    let ret_type = typex_get_type(&typed_expr);
+
+    Ok(typex_set_type(Expression::PreIncrement(Box::new(typed_expr)), ret_type))
+}
+
 
 
 fn typecheck_expr_unary(unop: &UnaryOperator, typed_expr: &TypedExpression, symbol_table: &mut HashMap<String, SymbolInfo>) -> Result<TypedExpression, String>
@@ -318,11 +379,20 @@ fn typecheck_expression(typed_expr: &TypedExpression, symbol_table: &mut HashMap
         Expression::Constant(c) => {
             c.to_typex()
         },
-        Expression::PostDecrement(expr) |
-        Expression::PostIncrement(expr) |
-        Expression::PreDecrement(expr) |
+        Expression::PostDecrement(expr) => {
+            typecheck_expr_post_dec(expr, symbol_table)?
+        },
+
+        Expression::PostIncrement(expr) => {
+            typecheck_expr_post_inc(expr, symbol_table)?
+        },
+
+        Expression::PreDecrement(expr) => {
+            typecheck_expr_pre_dec(expr, symbol_table)?
+        },
+
         Expression::PreIncrement(expr) => {
-            typecheck_expr_inc_dec(expr, symbol_table)?
+            typecheck_expr_pre_inc(expr, symbol_table)?
         },
 
         Expression::Unary(unop, expr ) => {
@@ -355,7 +425,7 @@ fn typecheck_local_variable_declaration(var_decl: &mut VariableDeclaration, symb
                     return Err(format!("Function '{}()' is redeclared as variable", var_name));
                 }
                 if old_decl.typ != *typ {
-                    return Err(format!("Conflicting redeclaration of variabale '{}' Initial type: '{:?}', redeclared as '{:?}'", var_name, old_decl.typ, typ));
+                    return Err(format!("Conflicting redeclaration of variable '{}' Initial type: '{:?}', redeclared as '{:?}'", var_name, old_decl.typ, typ));
                 }
             }
             else {
@@ -397,7 +467,9 @@ fn typecheck_local_variable_declaration(var_decl: &mut VariableDeclaration, symb
             );
 
             if let Some(initializer) = initializer {
-                *initializer = typecheck_expression(initializer, symbol_table)?;
+                let typechecked_initializer = typecheck_expression(initializer, symbol_table)?;
+                let converted_initializer = convert_to(typechecked_initializer, typ);
+                *initializer = converted_initializer;
             }
         }
     };

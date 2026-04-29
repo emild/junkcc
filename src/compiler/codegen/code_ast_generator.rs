@@ -4,7 +4,7 @@ use std::collections::HashMap;
 
 
 use super::super::tacky;
-use super::super::parser::ast::Type;
+use super::super::parser::ast::{Const, Type};
 use super::super::parser::SymbolInfo;
 use super::super::parser::IdentifierAttrs;
 use super::ast::*;
@@ -30,6 +30,17 @@ fn get_symbol_assembly_type(sym: &String, symbol_table: &HashMap<String, SymbolI
     }
 }
 
+fn get_tacky_value_assembly_type(val: &tacky::ast::Val, symbol_table: &HashMap<String, SymbolInfo>) -> AssemblyType
+{
+    match val {
+        tacky::ast::Val::Var(var_name) => get_symbol_assembly_type(var_name, symbol_table),
+        tacky::ast::Val::Constant(Const::ConstInt(_)) => AssemblyType::LongWord,
+        tacky::ast::Val::Constant(Const::ConstLong(_)) => AssemblyType::QuadWord
+    }
+}
+
+
+/*
 fn get_operand_assembly_type(oprnd: &Operand, symbol_table: &HashMap<String, SymbolInfo>) -> AssemblyType
 {
     match oprnd {
@@ -38,6 +49,7 @@ fn get_operand_assembly_type(oprnd: &Operand, symbol_table: &HashMap<String, Sym
         _ => { panic!("code_ast_generator: Attempt to get assembly type for non tacky derived operand '{:?}'", oprnd); }
     }
 }
+    */
 
 
 
@@ -80,7 +92,7 @@ fn generate_code_for_tacky_ret_instruction(
     instructions: &mut Vec<Instruction>) -> Result<(), String>
 {
     let ret_val_src = convert_tacky_value_to_operand(&ret_val)?;
-    let ass_type = get_operand_assembly_type(&ret_val_src, symbol_table);
+    let ass_type = get_tacky_value_assembly_type(ret_val, symbol_table);
     instructions.push(Instruction::Mov(ass_type.clone(), ret_val_src, Operand::Reg(Register::AX)));
     instructions.push(Instruction::Ret);
 
@@ -97,8 +109,8 @@ fn generate_code_for_tacky_unary_instruction(
 {
     let unary_op_src = convert_tacky_value_to_operand(src)?;
     let unary_op_dst = convert_tacky_value_to_operand(dst)?;
-    let src_ass_type = get_operand_assembly_type(&unary_op_src, symbol_table);
-    let dst_ass_type = get_operand_assembly_type(&unary_op_dst, symbol_table);
+    let src_ass_type = get_tacky_value_assembly_type(src, symbol_table);
+    let dst_ass_type = get_tacky_value_assembly_type(dst, symbol_table);
 
     let mut unary_op_instructions = match tacky_unary_op {
         tacky::ast::UnaryOperator::Complement =>
@@ -132,13 +144,17 @@ fn generate_code_for_tacky_unary_instruction(
 
 
 fn generate_code_for_remainder_instruction(
-    src1: &Operand,
-    src2: &Operand,
-    dst: &Operand,
+    src1: &tacky::ast::Val,
+    src2: &tacky::ast::Val,
+    dst: &tacky::ast::Val,
     symbol_table: &HashMap<String, SymbolInfo>,
     instructions: &mut Vec<Instruction>) -> Result<(), String>
 {
-    let src1_ass_type = get_operand_assembly_type(src1, symbol_table);
+    let src1_ass_type = get_tacky_value_assembly_type(src1, symbol_table);
+
+    let src1 = convert_tacky_value_to_operand(src1)?;
+    let src2 = convert_tacky_value_to_operand(src2)?;
+    let dst  = convert_tacky_value_to_operand(dst)?;
 
     let mut div_instructions = vec![
         Instruction::Mov(src1_ass_type.clone(), src1.clone(), Operand::Reg(Register::AX)),
@@ -154,13 +170,18 @@ fn generate_code_for_remainder_instruction(
 
 
 fn generate_code_for_divide_instruction(
-    src1: &Operand,
-    src2: &Operand,
-    dst: &Operand,
+    src1: &tacky::ast::Val,
+    src2: &tacky::ast::Val,
+    dst: &tacky::ast::Val,
     symbol_table: &HashMap<String, SymbolInfo>,
     instructions: &mut Vec<Instruction>) -> Result<(), String>
 {
-    let src1_ass_type = get_operand_assembly_type(src1, symbol_table);
+    let src1_ass_type = get_tacky_value_assembly_type(src1, symbol_table);
+
+    let src1 = convert_tacky_value_to_operand(src1)?;
+    let src2 = convert_tacky_value_to_operand(src2)?;
+    let dst  = convert_tacky_value_to_operand(dst)?;
+
     let mut div_instructions = vec![
         Instruction::Mov(src1_ass_type.clone(), src1.clone(), Operand::Reg(Register::AX)),
         Instruction::Cdq(src1_ass_type.clone()),
@@ -178,13 +199,18 @@ fn generate_code_for_divide_instruction(
 //add, sub, and mul
 fn generate_code_for_binary_instruction(
     bin_op: &BinaryOperator,
-    src1: &Operand,
-    src2: &Operand,
-    dst: &Operand,
+    src1: &tacky::ast::Val,
+    src2: &tacky::ast::Val,
+    dst: &tacky::ast::Val,
     symbol_table: &HashMap<String, SymbolInfo>,
     instructions: &mut Vec<Instruction>) -> Result<(), String>
 {
-    let src1_ass_type = get_operand_assembly_type(src1, symbol_table);
+    let src1_ass_type = get_tacky_value_assembly_type(src1, symbol_table);
+
+    let src1 = convert_tacky_value_to_operand(src1)?;
+    let src2 = convert_tacky_value_to_operand(src2)?;
+    let dst  = convert_tacky_value_to_operand(dst)?;
+
     instructions.push(Instruction::Mov(src1_ass_type.clone(), src1.clone(), dst.clone()));
     instructions.push(Instruction::Binary(bin_op.clone(), src1_ass_type.clone(), src2.clone(), dst.clone()));
 
@@ -193,14 +219,19 @@ fn generate_code_for_binary_instruction(
 
 fn generate_code_for_condition(
     cc: &CC,
-    src1: &Operand,
-    src2: &Operand,
-    dst: &Operand,
+    src1: &tacky::ast::Val,
+    src2: &tacky::ast::Val,
+    dst: &tacky::ast::Val,
     symbol_table: &HashMap<String, SymbolInfo>,
     instructions: &mut Vec<Instruction>) -> Result<(), String>
 {
-    let src1_ass_type = get_operand_assembly_type(src1, symbol_table);
-    let dst_ass_type = get_operand_assembly_type(dst, symbol_table);
+    let src1_ass_type = get_tacky_value_assembly_type(src1, symbol_table);
+    let dst_ass_type = get_tacky_value_assembly_type(dst, symbol_table);
+
+    let src1 = convert_tacky_value_to_operand(src1)?;
+    let src2 = convert_tacky_value_to_operand(src2)?;
+    let dst  = convert_tacky_value_to_operand(dst)?;
+
     instructions.push(Instruction::Mov(dst_ass_type.clone(), Operand::Imm(0), dst.clone()));
     instructions.push(Instruction::Cmp(src1_ass_type.clone(), src2.clone(), src1.clone()));
     instructions.push(Instruction::SetCC(cc.clone(), dst.clone()));
@@ -217,9 +248,9 @@ fn generate_code_for_tacky_binary_instruction(
     symbol_table: &HashMap<String, SymbolInfo>,
     instructions: &mut Vec<Instruction>) -> Result<(), String>
 {
-    let src1 = convert_tacky_value_to_operand(src1)?;
-    let src2 = convert_tacky_value_to_operand(src2)?;
-    let dst  = convert_tacky_value_to_operand(dst)?;
+    //let src1 = convert_tacky_value_to_operand(src1)?;
+    //let src2 = convert_tacky_value_to_operand(src2)?;
+    //let dst  = convert_tacky_value_to_operand(dst)?;
 
     let result = match bin_op {
         tacky::ast::BinaryOperator::Add => generate_code_for_binary_instruction(&BinaryOperator::Add, &src1, &src2, &dst, symbol_table, instructions)?,
@@ -251,11 +282,11 @@ fn generate_code_for_tacky_copy_instruction(
     symbol_table: &HashMap<String, SymbolInfo>,
     instructions: &mut Vec<Instruction>) -> Result<(), String>
 {
-    let src = convert_tacky_value_to_operand(src)?;
-    let dst  = convert_tacky_value_to_operand(dst)?;
-    let src_ass_type = get_operand_assembly_type(&src, symbol_table);
+    let src_oprnd = convert_tacky_value_to_operand(src)?;
+    let dst_oprnd = convert_tacky_value_to_operand(dst)?;
+    let src_ass_type = get_tacky_value_assembly_type(src, symbol_table);
 
-    instructions.push(Instruction::Mov(src_ass_type, src, dst));
+    instructions.push(Instruction::Mov(src_ass_type, src_oprnd, dst_oprnd));
 
     Ok(())
 }
@@ -279,7 +310,7 @@ fn generate_code_for_tacky_conditional_jump_instruction(
     instructions: &mut Vec<Instruction>) -> Result<(), String>
 {
     let cmp_arg = convert_tacky_value_to_operand(val)?;
-    let cmp_arg_ass_type = get_operand_assembly_type(&cmp_arg, symbol_table);
+    let cmp_arg_ass_type = get_tacky_value_assembly_type(val, symbol_table);
     instructions.push(Instruction::Cmp(cmp_arg_ass_type, Operand::Imm(0), cmp_arg));
     instructions.push(Instruction::JmpCC(cc.clone(), label.clone()));
 
@@ -346,7 +377,7 @@ fn generate_code_for_tacky_function_call(
     let mut reg_index = 0;
     for tacky_arg in register_args {
         let assembly_arg = convert_tacky_value_to_operand(&tacky_arg)?;
-        let assembly_arg_ass_type = get_operand_assembly_type(&assembly_arg, symbol_table);
+        let assembly_arg_ass_type = get_tacky_value_assembly_type(&tacky_arg, symbol_table);
         instructions.push(Instruction::Mov(assembly_arg_ass_type, assembly_arg, Operand::Reg(args_registers[reg_index].clone())));
         reg_index += 1;
     }
@@ -359,7 +390,7 @@ fn generate_code_for_tacky_function_call(
                 instructions.push(Instruction::Push(assembly_arg.clone()));
             },
             _ => {
-                match get_operand_assembly_type(&assembly_arg, symbol_table) {
+                match get_tacky_value_assembly_type(tacky_arg, symbol_table) {
                     AssemblyType::QuadWord => {
                         instructions.push(Instruction::Push(assembly_arg.clone()));
                     },
@@ -389,7 +420,7 @@ fn generate_code_for_tacky_function_call(
     }
 
     let assembly_dst = convert_tacky_value_to_operand(ret_val)?;
-    let assembly_dst_ass_type = get_operand_assembly_type(&assembly_dst, symbol_table);
+    let assembly_dst_ass_type = get_tacky_value_assembly_type(ret_val, symbol_table);
     instructions.push(Instruction::Mov(assembly_dst_ass_type, Operand::Reg(Register::AX), assembly_dst));
 
 

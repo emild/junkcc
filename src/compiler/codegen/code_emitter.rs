@@ -1,19 +1,25 @@
 use std::collections::HashMap;
 use std::fs;
-use std::fs::write;
 use std::io::Write;
 use std::io::BufWriter;
 use super::ast::*;
-use super::super::parser::ast::Type;
-use super::super::parser::IdentifierAttrs;
-use super::super::parser::SymbolInfo;
-/*
+use super::super::parser::StaticInit;
+
 
 enum OperandSize {
     Byte,
     Word,
     Dword,
     Qword
+}
+
+
+fn get_operand_size(ass_type: &AssemblyType) -> OperandSize
+{
+    match ass_type {
+        AssemblyType::LongWord => OperandSize::Dword,
+        AssemblyType::QuadWord => OperandSize::Qword
+    }
 }
 
 
@@ -144,36 +150,38 @@ fn emit_operand(op: &Operand, op_size: &OperandSize, buf_writer: &mut BufWriter<
     }
 }
 
-fn emit_unary_operator(unary_operator: &UnaryOperator, dst: &Operand, buf_writer: &mut BufWriter<fs::File>) -> std::io::Result<()>
+fn emit_unary_operator(unary_operator: &UnaryOperator, ass_type: &AssemblyType, dst: &Operand, buf_writer: &mut BufWriter<fs::File>) -> std::io::Result<()>
 {
     let operator_str = match unary_operator {
-        UnaryOperator::Neg => "negl",
-        UnaryOperator::Not => "notl",
+        UnaryOperator::Neg => "neg",
+        UnaryOperator::Not => "not",
         _ => { return Err(std::io::Error::other(format!("Emit Code: Unsupported unary operand, got '{:?}'", unary_operator))); }
     };
 
-    write!(buf_writer, "{}{} ", " ".repeat(16), operator_str)?;
-    emit_operand(dst, &OperandSize::Dword, buf_writer)?;
+    let op_size = get_operand_size(ass_type);
+    write!(buf_writer, "{}{}{} ", " ".repeat(16), operator_str, instruction_suffix(ass_type))?;
+    emit_operand(dst, &op_size, buf_writer)?;
     writeln!(buf_writer, "")?;
 
     Ok(())
 }
 
-fn emit_binary_operator(binary_operator: &BinaryOperator, src: &Operand, dst: &Operand, buf_writer: &mut BufWriter<fs::File>) -> std::io::Result<()>
+fn emit_binary_operator(binary_operator: &BinaryOperator, ass_type: &AssemblyType, src: &Operand, dst: &Operand, buf_writer: &mut BufWriter<fs::File>) -> std::io::Result<()>
 {
+    let op_size = get_operand_size(ass_type);
     let (operator_str, src_size, dst_size) = match binary_operator {
-        BinaryOperator::Add => ("addl", OperandSize::Dword, OperandSize::Dword),
-        BinaryOperator::Sub => ("subl", OperandSize::Dword, OperandSize::Dword),
-        BinaryOperator::Mul => ("imull", OperandSize::Dword, OperandSize::Dword),
-        BinaryOperator::And => ("andl", OperandSize::Dword, OperandSize::Dword),
-        BinaryOperator::Or  => ("orl", OperandSize::Dword, OperandSize::Dword),
-        BinaryOperator::Xor => ("xorl", OperandSize::Dword, OperandSize::Dword),
-        BinaryOperator::Shl => ("sall", OperandSize::Byte, OperandSize::Dword),
-        BinaryOperator::Shr => ("sarl", OperandSize::Byte, OperandSize::Dword),
+        BinaryOperator::Add => ("add",  &op_size, &op_size),
+        BinaryOperator::Sub => ("sub",  &op_size, &op_size),
+        BinaryOperator::Mul => ("imul", &op_size, &op_size),
+        BinaryOperator::And => ("and",  &op_size, &op_size),
+        BinaryOperator::Or  => ("or",   &op_size, &op_size),
+        BinaryOperator::Xor => ("xor",  &op_size, &op_size),
+        BinaryOperator::Shl => ("sal",  &OperandSize::Byte, &op_size),
+        BinaryOperator::Shr => ("sar",  &OperandSize::Byte, &op_size),
         _ => { return Err(std::io::Error::other(format!("Emit Code: Unsupported binary operand, got '{:?}'", binary_operator))); }
     };
 
-    write!(buf_writer, "{}{} ", " ".repeat(16), operator_str)?;
+    write!(buf_writer, "{}{}{} ", " ".repeat(16), operator_str, instruction_suffix(ass_type))?;
     emit_operand(src, &src_size, buf_writer)?;
     write!(buf_writer, ", ")?;
     emit_operand(dst, &dst_size, buf_writer)?;
@@ -257,15 +265,42 @@ fn emit_call_instruction(label: &String, assembly_symbol_table: &HashMap<String,
 }
 
 
+fn instruction_suffix(ass_type: &AssemblyType) -> &str
+{
+    match ass_type {
+        AssemblyType::LongWord => "l",
+        AssemblyType::QuadWord => "q"
+    }
+}
+
+
 fn emit_body(instructions: &Vec<Instruction>, assembly_symbol_table: &HashMap<String, AssemblySymbolInfo>, buf_writer: &mut BufWriter<fs::File>) -> std::io::Result<()>
 {
     for ins in instructions {
         match ins {
-            Instruction::Mov(src, dest ) => {
-                write!(buf_writer, "{}movl ", " ".repeat(16))?;
-                emit_operand(&src, &OperandSize::Dword, buf_writer)?;
+            Instruction::Mov(ass_type, src, dest ) => {
+                let op_size = get_operand_size(ass_type);
+                write!(buf_writer, "{}mov{} ", " ".repeat(16), instruction_suffix(ass_type))?;
+                emit_operand(&src, &op_size, buf_writer)?;
                 write!(buf_writer, ", ")?;
-                emit_operand(&dest, &OperandSize::Dword, buf_writer)?;
+                emit_operand(&dest, &op_size, buf_writer)?;
+                writeln!(buf_writer, "")?;
+            },
+            Instruction::Movsx(src, dst ) => {
+                let src_ass_type = AssemblyType::LongWord;
+                let dst_ass_type = AssemblyType::QuadWord;
+                let src_op_size = get_operand_size(&src_ass_type);
+                let dst_op_size = get_operand_size(&dst_ass_type);
+
+                write!(
+                    buf_writer,
+                    "{}movs{}{} ",
+                    " ".repeat(16),
+                    instruction_suffix(&src_ass_type),
+                    instruction_suffix(&dst_ass_type))?;
+                emit_operand(src, &src_op_size, buf_writer)?;
+                write!(buf_writer, ", ")?;
+                emit_operand(dst, &dst_op_size, buf_writer)?;
                 writeln!(buf_writer, "")?;
             },
             Instruction::Push(src) => {
@@ -279,25 +314,30 @@ fn emit_body(instructions: &Vec<Instruction>, assembly_symbol_table: &HashMap<St
                 writeln!(buf_writer, "{}popq %rbp", " ".repeat(16))?;
                 writeln!(buf_writer, "{}ret", " ".repeat(16))?;
             },
-            Instruction::Cdq => {
-                writeln!(buf_writer, "{}cdq", " ".repeat(16))?;
+            Instruction::Cdq(ass_type) => {
+                match ass_type {
+                    AssemblyType::LongWord => writeln!(buf_writer, "{}cdq", " ".repeat(16))?,
+                    AssemblyType::QuadWord => writeln!(buf_writer, "{}cqo", " ".repeat(16))?
+                };
             },
-            Instruction::Unary(unary_operator, dst) => {
-                emit_unary_operator(unary_operator, dst, buf_writer)?;
+            Instruction::Unary(unary_operator, ass_type, dst) => {
+                emit_unary_operator(unary_operator, ass_type, dst, buf_writer)?;
             },
-            Instruction::Binary(binary_operator, src, dst) => {
-                emit_binary_operator(binary_operator, src, dst, buf_writer)?;
+            Instruction::Binary(binary_operator, ass_type, src, dst) => {
+                emit_binary_operator(binary_operator, ass_type, src, dst, buf_writer)?;
             },
-            Instruction::Idiv(divisor) => {
-                write!(buf_writer, "{}idivl ", " ".repeat(16))?;
-                emit_operand(divisor, &OperandSize::Dword, buf_writer)?;
+            Instruction::Idiv(ass_type, divisor) => {
+                write!(buf_writer, "{}idiv{} ", " ".repeat(16), instruction_suffix(ass_type))?;
+                let op_size = get_operand_size(ass_type);
+                emit_operand(divisor, &op_size, buf_writer)?;
                 writeln!(buf_writer, "")?;
             },
-            Instruction::Cmp(src1, src2) => {
-                write!(buf_writer, "{}cmpl ", " ".repeat(16))?;
-                emit_operand(src1, &OperandSize::Dword, buf_writer)?;
+            Instruction::Cmp(ass_type, src1, src2) => {
+                let op_size = get_operand_size(ass_type);
+                write!(buf_writer, "{}cmp{} ", " ".repeat(16), instruction_suffix(ass_type))?;
+                emit_operand(src1, &op_size, buf_writer)?;
                 write!(buf_writer, ", ")?;
-                emit_operand(src2, &OperandSize::Dword, buf_writer)?;
+                emit_operand(src2, &op_size, buf_writer)?;
                 writeln!(buf_writer, "")?;
             },
             Instruction::SetCC(cc, dest ) => {
@@ -328,9 +368,30 @@ fn emit_body(instructions: &Vec<Instruction>, assembly_symbol_table: &HashMap<St
     Ok(())
 }
 
+fn emit_zero_static_init(init_value: &StaticInit, buf_writer: &mut BufWriter<fs::File>) -> std::io::Result<()>
+{
+    let op_size = match init_value {
+        StaticInit::IntInit(0) => 4,
+        StaticInit::LongInit(0) => 8,
+        _ => { panic!("Attempt to place non-zero value '{:?}' in .bss", init_value); }
+    };
+
+    writeln!(buf_writer, "{}.zero {}", " ".repeat(16), op_size)
+}
 
 
-fn emit_function(top_level_item: &TopLevel, assembly_symbol_table: &HashMap<String, AssemblySymbolInfo>, buf_writer: &mut BufWriter<fs::File>) -> std::io::Result<()>
+fn emit_nonzero_static_init(init_value: &StaticInit, buf_writer: &mut BufWriter<fs::File>) -> std::io::Result<()>
+{
+    match init_value {
+        StaticInit::IntInit(c) =>
+            writeln!(buf_writer, "{}.long {}", " ".repeat(16), c),
+        StaticInit::LongInit(c) =>
+            writeln!(buf_writer, "{}.quad {}", " ".repeat(16), c)
+    }
+}
+
+
+fn emit_top_level_item(top_level_item: &TopLevel, assembly_symbol_table: &HashMap<String, AssemblySymbolInfo>, buf_writer: &mut BufWriter<fs::File>) -> std::io::Result<()>
 {
     match top_level_item {
         TopLevel::Function(func_name, global, instructions) => {
@@ -352,7 +413,7 @@ fn emit_function(top_level_item: &TopLevel, assembly_symbol_table: &HashMap<Stri
             writeln!(buf_writer, "")?;
             Ok(())
         },
-        TopLevel::StaticVariable(var_name, global, init_value) => {
+        TopLevel::StaticVariable(var_name, global, alignment, init_value) => {
             writeln!(buf_writer, "{}", "#".repeat(40))?;
             writeln!(buf_writer, "# VARIABLE: {}", var_name)?;
             writeln!(buf_writer, "{}\n", "#".repeat(40))?;
@@ -360,17 +421,17 @@ fn emit_function(top_level_item: &TopLevel, assembly_symbol_table: &HashMap<Stri
                 writeln!(buf_writer, "{}.globl {}", " ".repeat(16), var_name)?;
                 writeln!(buf_writer, "")?;
             }
-            if *init_value == 0 {
+            if init_value.is_zero() {
                 writeln!(buf_writer, "{}.bss", " ".repeat(16))?;
-                writeln!(buf_writer, "{}.align 4", " ".repeat(16))?;
+                writeln!(buf_writer, "{}.align {}", " ".repeat(16), alignment)?;
                 writeln!(buf_writer, "{}:", var_name)?;
-                writeln!(buf_writer, "{}.zero 4", " ".repeat(16))?;
+                emit_zero_static_init(init_value, buf_writer)?;
             }
             else {
                 writeln!(buf_writer, "{}.data", " ".repeat(16))?;
-                writeln!(buf_writer, "{}.align 4", " ".repeat(16))?;
+                writeln!(buf_writer, "{}.align {}", " ".repeat(16), alignment)?;
                 writeln!(buf_writer, "{}:", var_name)?;
-                writeln!(buf_writer, "{}.long {}", " ".repeat(16), init_value)?;
+                emit_nonzero_static_init(init_value, buf_writer)?;
             }
 
             Ok(())
@@ -388,18 +449,18 @@ fn emit_program(program: &Program, assembly_symbol_table: &HashMap<String, Assem
     match program {
         Program::ProgramDefinition(func_defs) => {
             for func_def in func_defs {
-                emit_function(&func_def, assembly_symbol_table, buf_writer)?;
+                emit_top_level_item(&func_def, assembly_symbol_table, buf_writer)?;
             }
             Ok(())
         },
         //_ => Err(std::io::Error::other(format!("Unsupported Program Definiton: '{:?}'", program)))
     }
 }
-*/
+
 
 pub fn emit_code(program: &Program, assembly_symbol_table: &HashMap<String, AssemblySymbolInfo>, output_file_path: &str) -> std::io::Result<()>
 {
-/*    let file = fs::File::create(output_file_path)?;
+    let file = fs::File::create(output_file_path)?;
     let mut buf_writer = BufWriter::new(file);
 
     emit_program(&program, assembly_symbol_table, &mut buf_writer)?;
@@ -408,7 +469,5 @@ pub fn emit_code(program: &Program, assembly_symbol_table: &HashMap<String, Asse
     writeln!(&mut buf_writer, "{}", stack_protection)?;
 
     Ok(())
-    */
 
-    panic!("Code emission not [YET] implemented");
 }

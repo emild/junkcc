@@ -77,7 +77,23 @@ impl Operand
             Imm(_) => false
         }
     }
+
+    pub fn is_imm(&self) -> bool
+    {
+        use Operand::*;
+        match self {
+            Stack(_)    |
+            Data(_)     |
+            Reg(_)  => false,
+            Pseudo(_) => { panic!("Unresolved pseudo operand: '{:?}'", self); },
+            Imm(_) => true
+        }
+    }
+
 }
+
+
+
 
 
 #[derive(Debug, Clone)]

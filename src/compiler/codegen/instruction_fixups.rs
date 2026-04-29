@@ -2,6 +2,11 @@ use std::ops::Not;
 
 use super::ast::*;
 
+fn is_representable_on_32_bits(c: i64) -> bool
+{
+    c >=  i64::from(i32::MIN) && c <= i64::from(i32::MAX)
+}
+
 fn fixup_instruction_operands(instruction: &Instruction) -> Option<Vec<Instruction>>
 {
     match instruction {
@@ -9,7 +14,7 @@ fn fixup_instruction_operands(instruction: &Instruction) -> Option<Vec<Instructi
         //Movq from immediate to memory only uses the lower 32 bits from the immediate and sign-extends the result
         //If we need to store an actual 64 bit constant, store it to a register first
         Instruction::Mov(AssemblyType::QuadWord, Operand::Imm(c), dst) if dst.is_mem() => {
-            if *c >=  i64::from(i32::MIN) && *c < i64::from(i32::MAX) {
+            if is_representable_on_32_bits(*c) {
                 None
             }
             else {
@@ -22,7 +27,7 @@ fn fixup_instruction_operands(instruction: &Instruction) -> Option<Vec<Instructi
 
         //Mov with immediate source if the immediate value value exceeds the range of a 32 bit integer
         Instruction::Mov(AssemblyType::LongWord, Operand::Imm(c), dst) => {
-            if *c >=  i64::from(i32::MIN) && *c < i64::from(i32::MAX) {
+            if is_representable_on_32_bits(*c)  {
                 None
             }
             else {
@@ -78,21 +83,51 @@ fn fixup_instruction_operands(instruction: &Instruction) -> Option<Vec<Instructi
             result
         },
 
-        //Mul: Destination cannot be a memory operand
+        //For quadword (64 bit) versions of Mul, if the source operand is immediate
+        //only its lower 32 bits are considered. The operand is sign-extended to 64 bits
+        //If we need an operand beyond the 32 bit range, we must store it into a register first
+        //Also, destination cannot be memory
+        Instruction::Binary(BinaryOperator::Mul, AssemblyType::QuadWord, Operand::Imm(src_c), dst) => {
+            if !is_representable_on_32_bits(*src_c) && dst.is_mem() {
+                Some(vec![
+                    Instruction::Mov(AssemblyType::QuadWord, Operand::Imm(*src_c), Operand::Reg(Register::R10)),
+                    Instruction::Mov(AssemblyType::QuadWord, dst.clone(), Operand::Reg(Register::R11)),
+                    Instruction::Binary(BinaryOperator::Mul, AssemblyType::QuadWord, Operand::Reg(Register::R10), Operand::Reg(Register::R11)),
+                    Instruction::Mov(AssemblyType::QuadWord, Operand::Reg(Register::R11), dst.clone()),
+                ])
+            }
+            else if !is_representable_on_32_bits(*src_c) {
+                Some(vec![
+                    Instruction::Mov(AssemblyType::QuadWord, Operand::Imm(*src_c), Operand::Reg(Register::R10)),
+                    Instruction::Binary(BinaryOperator::Mul, AssemblyType::QuadWord, Operand::Reg(Register::R10), dst.clone())
+                ])
+            }
+            else if dst.is_mem() {
+                Some(vec![
+                    Instruction::Mov(AssemblyType::QuadWord, dst.clone(), Operand::Reg(Register::R11)),
+                    Instruction::Binary(BinaryOperator::Mul, AssemblyType::QuadWord, Operand::Imm(*src_c), Operand::Reg(Register::R11)),
+                    Instruction::Mov(AssemblyType::QuadWord, Operand::Reg(Register::R11), dst.clone())
+                ])
+            }
+            else {
+                None
+            }
+        },
+
+        //Mul: destination cannot be memory
         Instruction::Binary(BinaryOperator::Mul, ass_type, src, dst) if dst.is_mem() => {
             Some(vec![
                 Instruction::Mov(ass_type.clone(), dst.clone(), Operand::Reg(Register::R11)),
                 Instruction::Binary(BinaryOperator::Mul, ass_type.clone(), src.clone(), Operand::Reg(Register::R11)),
                 Instruction::Mov(ass_type.clone(), Operand::Reg(Register::R11), dst.clone())
             ])
-        },
+        }
 
-
-        //For quadword (64 bit) versions of Add, Sub, Mul, And, Or, Xor, if the source operand is immediate
+        //For quadword (64 bit) versions of Add, Sub, And, Or, Xor, if the source operand is immediate
         //only its lower 32 bits are considered. The operand is sign-extended to 64 bits
         //If we need an operand beyond the 32 bit range, we must store it into a register first
         Instruction::Binary(binop, AssemblyType::QuadWord, Operand::Imm(src_c), dst) if  *binop != BinaryOperator::Shl && *binop != BinaryOperator::Shr => {
-            if *src_c >=  i64::from(i32::MIN) && *src_c < i64::from(i32::MAX) {
+            if is_representable_on_32_bits(*src_c) {
                 None
             }
             else {
@@ -124,16 +159,29 @@ fn fixup_instruction_operands(instruction: &Instruction) -> Option<Vec<Instructi
         //Cmp: Quad versions: If the first operand is immediate, only its lower 32 bits are considered, and
         //the operand is sign-extended to 64 bits. If the actual value of the immediate cannot be represented on
         //32 bits, we must copy the immendiate to a register first
-        //Cmp: Two mem operands are not allowed
+        //Also, the second operand cannot be immediate; if it is, it must be copied to a register
         Instruction::Cmp(AssemblyType::QuadWord, Operand::Imm(src_c1), src2) => {
-            if *src_c1 >=  i64::from(i32::MIN) && *src_c1 < i64::from(i32::MAX) {
-                None
+            if !is_representable_on_32_bits(*src_c1) && src2.is_imm() {
+                Some(vec![
+                    Instruction::Mov(AssemblyType::QuadWord, Operand::Imm(*src_c1), Operand::Reg(Register::R10)),
+                    Instruction::Mov(AssemblyType::QuadWord, src2.clone(), Operand::Reg(Register::R11)),
+                    Instruction::Cmp(AssemblyType::QuadWord, Operand::Reg(Register::R10), Operand::Reg(Register::R11))
+                ])
             }
-            else {
+            else if !is_representable_on_32_bits(*src_c1) {
                 Some(vec![
                     Instruction::Mov(AssemblyType::QuadWord, Operand::Imm(*src_c1), Operand::Reg(Register::R10)),
                     Instruction::Cmp(AssemblyType::QuadWord, Operand::Reg(Register::R10), src2.clone())
                 ])
+            }
+            else if src2.is_imm() {
+                Some(vec![
+                    Instruction::Mov(AssemblyType::QuadWord, src2.clone(), Operand::Reg(Register::R11)),
+                    Instruction::Cmp(AssemblyType::QuadWord, Operand::Imm(*src_c1), Operand::Reg(Register::R11))
+                ])
+            }
+            else {
+                None
             }
         },
 
@@ -156,7 +204,7 @@ fn fixup_instruction_operands(instruction: &Instruction) -> Option<Vec<Instructi
         //Push: For Immediate operands, only the lower 32 bits are considered and the operand is sign-extended to 64 bits
         //If the immediate is not representable on 32 bits we must copy it to a register first
         Instruction::Push(Operand::Imm(c)) => {
-            if *c >=  i64::from(i32::MIN) && *c < i64::from(i32::MAX) {
+            if is_representable_on_32_bits(*c) {
                 None
             }
             else {
