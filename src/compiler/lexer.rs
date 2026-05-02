@@ -11,9 +11,13 @@ pub enum Token {
     Identifier(String),
     IntConstant(i32),
     LongConstant(i64),
+    UIntConstant(u32),
+    ULongConstant(u64),
 
     KwInt,
     KwLong,
+    KwSigned,
+    KwUnsigned,
     KwVoid,
     KwReturn,
     KwIf,
@@ -107,8 +111,12 @@ impl RegexTable {
     fn new() -> RegexTable {
         let regexes = vec![
             RegexTableEntry { r: Regex::new(r"^[a-zA-Z_]\w*\b").unwrap(),   f: Self::parse_id },
-            RegexTableEntry { r: Regex::new(r"^[0-9]+[lL]\b").unwrap(),     f: Self::parse_long_constant },
-            RegexTableEntry { r: Regex::new(r"^[0-9]+\b").unwrap(),         f: Self::parse_int_constant },
+
+            RegexTableEntry { r: Regex::new(r"^[0-9]+([lL][uU]|[uU][lL])\b").unwrap(),  f: Self::parse_ulong_constant },
+            RegexTableEntry { r: Regex::new(r"^[0-9]+[uU]\b").unwrap(),                 f: Self::parse_uint_constant },
+            RegexTableEntry { r: Regex::new(r"^[0-9]+[lL]\b").unwrap(),                 f: Self::parse_long_constant },
+            RegexTableEntry { r: Regex::new(r"^[0-9]+\b").unwrap(),                     f: Self::parse_int_constant },
+
             RegexTableEntry { r: Regex::new(r"^\?").unwrap(),               f: |_, _| Ok(Token::QuestionMark) },
             RegexTableEntry { r: Regex::new(r"^\(").unwrap(),               f: |_, _| Ok(Token::OpenParenthesis) },
             RegexTableEntry { r: Regex::new(r"^\)").unwrap(),               f: |_, _| Ok(Token::CloseParenthesis) },
@@ -171,6 +179,8 @@ impl RegexTable {
                 ("if",          Token::KwIf),
                 ("int",         Token::KwInt),
                 ("long",        Token::KwLong),
+                ("signed",      Token::KwSigned),
+                ("unsigned",    Token::KwUnsigned),
                 ("return",      Token::KwReturn),
                 ("void",        Token::KwVoid),
                 ("goto",        Token::KwGoto),
@@ -218,6 +228,42 @@ impl RegexTable {
         }
         else {
             Err(format!("Failed to parse long constant: '{}' Overflow??", s))
+        }
+    }
+
+
+    fn parse_ulong_constant(&self, s: &str) -> Result<Token, String> {
+        let ulong_str = String::from(s);
+        let len = ulong_str.len();
+        assert!(len >= 3);
+        let (ulong_str, suffix) = ulong_str.split_at(len - 2);
+        let suffix = suffix.to_lowercase();
+
+        assert!(suffix == "lu" || suffix == "ul");
+
+        if let Ok(ulong_constant) = ulong_str.parse::<u64>() {
+            Ok(Token::ULongConstant(ulong_constant))
+        }
+        else {
+            Err(format!("Failed to parse unsigned long constant: '{}' Overflow??", s))
+        }
+    }
+
+
+    fn parse_uint_constant(&self, s: &str) -> Result<Token, String> {
+        let mut uint_str = String::from(s);
+        let suffix = uint_str.pop().unwrap();
+
+        assert_eq!(suffix.to_ascii_lowercase(), 'u');
+
+        if let Ok(uint_constant) = uint_str.parse::<u32>() {
+            Ok(Token::UIntConstant(uint_constant))
+        }
+        else if let Ok(ulong_constant) = uint_str.parse::<u64>() {
+            Ok(Token::ULongConstant(ulong_constant))
+        }
+        else {
+            Err(format!("Failed to parse unsigned int constant: '{}' Overflow??", s))
         }
     }
 
