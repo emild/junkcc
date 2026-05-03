@@ -1,5 +1,6 @@
 use lazy_static::lazy_static;
 use std::collections::HashMap;
+use std::collections::HashSet;
 
 use log::{info, trace, warn, error};
 
@@ -14,9 +15,11 @@ use ast::*;
 
 
 lazy_static! {
-    static ref TOKENS_TO_TYPES: HashMap<Token, ast::Type> = HashMap:: from([
-        (Token::KwInt, ast::Type::Int),
-        (Token::KwLong, ast::Type::Long)
+    static ref TYPE_TOKENS: HashSet<Token> = HashSet::from([
+        Token::KwSigned,
+        Token::KwUnsigned,
+        Token::KwInt,
+        Token::KwLong
     ]);
 
     static ref TOKENS_TO_STORAGE_CLASSES: HashMap<Token, ast::StorageClass> = HashMap:: from([
@@ -29,7 +32,7 @@ lazy_static! {
 
 fn is_type(t: &Token) -> bool
 {
-    return (*TOKENS_TO_TYPES).contains_key(t);
+    return (*TYPE_TOKENS).contains(t);
 }
 
 
@@ -37,16 +40,54 @@ fn check_type(tokens: &Vec<Token>) -> Result<ast::Type, String>
 {
     let typ = match tokens.len() {
         1 => match &tokens[0] {
+            Token::KwSigned |
             Token::KwInt  => ast::Type::Int,
+            Token::KwUnsigned => ast::Type::UInt,
             Token::KwLong => ast::Type::Long,
+
             _ => { return Err(format!("Invalid type specifier: '{:?}'", tokens)); }
         },
         2 => match (&tokens[0], &tokens[1]) {
+            (Token::KwSigned, Token::KwInt) |
+            (Token::KwInt, Token::KwSigned) => ast::Type::Int,
+
+            (Token::KwUnsigned, Token::KwInt) |
+            (Token::KwInt, Token::KwUnsigned) => ast::Type::UInt,
+
+
+            (Token::KwSigned, Token::KwLong) |
+            (Token::KwLong, Token::KwSigned) |
             (Token::KwLong, Token::KwInt) |
             (Token::KwInt, Token::KwLong) => ast::Type::Long,
+
+
+            (Token::KwUnsigned, Token::KwLong) |
+            (Token::KwLong, Token::KwUnsigned) => ast::Type::ULong,
+
+            _ => { return Err(format!("Invalid type specifier: '{:?}'", tokens)); }
+
+        },
+
+        3 => match (&tokens[0], &tokens[1], &tokens[2]) {
+            (Token::KwSigned, Token::KwInt, Token::KwLong) |
+            (Token::KwInt, Token::KwSigned, Token::KwLong) |
+            (Token::KwSigned, Token::KwLong, Token::KwInt) |
+            (Token::KwLong, Token::KwSigned, Token::KwInt) |
+            (Token::KwInt, Token::KwLong, Token::KwSigned) |
+            (Token::KwLong, Token::KwInt, Token::KwSigned) => ast::Type::Long,
+
+            (Token::KwUnsigned, Token::KwInt, Token::KwLong) |
+            (Token::KwInt, Token::KwUnsigned, Token::KwLong) |
+            (Token::KwUnsigned, Token::KwLong, Token::KwInt) |
+            (Token::KwLong, Token::KwUnsigned, Token::KwInt) |
+            (Token::KwInt, Token::KwLong, Token::KwUnsigned) |
+            (Token::KwLong, Token::KwInt, Token::KwUnsigned) => ast::Type::ULong,
+
             _ => { return Err(format!("Invalid type specifier: '{:?}'", tokens)); }
         },
+
         _ => { return Err(format!("Invalid type specifier: '{:?}'", tokens)); }
+
     };
 
     Ok(typ)
@@ -601,7 +642,9 @@ fn parse_constant(l: &mut lexer::Lexer) -> Result<Const, String>
     match t {
         Token::EOS => Err(format!("Expected int constant, got end of file")),
         Token::IntConstant(c) => Ok(Const::ConstInt(c)),
+        Token::UIntConstant(c) => Ok(Const::ConstUInt(c)),
         Token::LongConstant(c) => Ok(Const::ConstLong(c)),
+        Token::ULongConstant(c) => Ok(Const::ConstULong(c)),
         _ => Err(format!("Expected integer constant, got {:?}", t))
     }
 }
@@ -764,8 +807,10 @@ fn parse_factor(l: &mut lexer::Lexer) -> Result<TypedExpression, String>
 
     let mut expr = match t {
         Token::EOS => { return Err(format!("Expected factor, got end of file")); },
-        Token::IntConstant(_) |
-        Token::LongConstant(_) => {
+        Token::IntConstant(_)   |
+        Token::UIntConstant(_)  |
+        Token::LongConstant(_)  |
+        Token::ULongConstant(_) => {
             let c = parse_constant(l)?;
             Expression::Constant(c)
         },

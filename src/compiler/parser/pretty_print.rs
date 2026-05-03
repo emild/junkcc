@@ -7,8 +7,14 @@ fn pretty_print_typed_expression(typed_expr: &TypedExpression, indent: usize)
         Expression::Constant(Const::ConstInt(c)) => {
             println!("{}Constant(INT = {})", " ".repeat(indent), c);
         },
+        Expression::Constant(Const::ConstUInt(c)) => {
+            println!("{}Constant(UINT = {})", " ".repeat(indent), c);
+        },
         Expression::Constant(Const::ConstLong(c)) => {
             println!("{}Constant(LONG = {})", " ".repeat(indent), c);
+        },
+        Expression::Constant(Const::ConstULong(c)) => {
+            println!("{}Constant(ULONG = {})", " ".repeat(indent), c);
         },
         Expression::Var(var_name) => {
             println!("{}Var(TYPE='{}' NAME='{}')", " ".repeat(indent), opt_type_str(typ), var_name);

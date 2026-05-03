@@ -53,16 +53,15 @@ pub fn typex_init(expr: Expression) -> TypedExpression
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum Const {
     ConstInt(i32),
-    ConstLong(i64)
+    ConstUInt(u32),
+    ConstLong(i64),
+    ConstULong(u64)
 }
 
 impl Const {
     pub fn to_typex(&self) -> TypedExpression
     {
-        let typ = match self {
-            Const::ConstInt(_)  => Type::Int,
-            Const::ConstLong(_) => Type::Long
-        };
+        let typ = self.get_type();
         typex_set_type(Expression::Constant(self.clone()), typ)
     }
 
@@ -70,7 +69,9 @@ impl Const {
     {
         match self {
             Const::ConstInt(_)  => Type::Int,
-            Const::ConstLong(_) => Type::Long
+            Const::ConstUInt(_) => Type::UInt,
+            Const::ConstLong(_) => Type::Long,
+            Const::ConstULong(_)=> Type::ULong
         }
     }
 
@@ -78,17 +79,22 @@ impl Const {
     {
         match self {
             Const::ConstInt(c)  => i64::from(*c),
-            Const::ConstLong(c) => *c
+            Const::ConstUInt(c) => i64::from(*c),
+            Const::ConstLong(c) => *c,
+            Const::ConstULong(c) => *c as i64
         }
     }
 
     pub fn is_false(&self) -> bool
     {
         match self {
-            Const::ConstInt(0) |
-            Const::ConstLong(0) => true,
+            Const::ConstInt(0)  |
+            Const::ConstUInt(0) |
+            Const::ConstLong(0) |
+            Const::ConstULong(0)
+                => true,
 
-            _ => false
+            _   => false
         }
     }
 
@@ -97,15 +103,57 @@ impl Const {
         !self.is_false()
     }
 
+    //TODO: This is not scalable. Search for a better solution!!
     pub fn convert_to(&self, typ: &Type) -> Const
     {
-        match (typ, self) {
-            (Type::Int,  Const::ConstInt(_)) |
-            (Type::Long, Const::ConstLong(_))  => self.clone(),
+        match (self, typ) {
+            (Const::ConstInt(_),    Type::Int)    |
+            (Const::ConstUInt(_),   Type::UInt)   |
+            (Const::ConstLong(_),   Type::Long)   |
+            (Const::ConstULong(_),  Type::ULong)
+                => self.clone(),
 
-            (Type::Int, Const::ConstLong(c)) => Const::ConstInt((*c & 0xFFFFFFFF) as i32),
-            (Type::Long, Const::ConstInt(c)) => Const::ConstLong(i64::from(*c)),
-            (Type::FuncType(_, _, _), _) => { panic!("Conversion to function type is not allowed"); }
+            (Const::ConstUInt(c), Type::Int)
+                => Const::ConstInt(*c as i32),
+
+            (Const::ConstLong(c), Type::Int)
+                => Const::ConstInt((*c & 0xFFFFFFFF) as i32),
+
+            (Const::ConstULong(c), Type::Int)
+                => Const::ConstInt((*c & 0xFFFFFFFF) as i32),
+
+
+            (Const::ConstInt(c), Type::UInt)
+                => Const::ConstUInt(*c as u32),
+
+            (Const::ConstLong(c), Type::UInt)
+                => Const::ConstUInt((*c & 0xFFFFFFFF) as u32),
+
+            (Const::ConstULong(c), Type::UInt)
+                => Const::ConstUInt((*c & 0xFFFFFFFF) as u32),
+
+
+            (Const::ConstInt(c), Type::Long)
+                => Const::ConstLong(i64::from(*c)),
+
+            (Const::ConstUInt(c), Type::Long)
+                => Const::ConstLong(i64::from(*c)),
+
+            (Const::ConstULong(c), Type::Long)
+                => Const::ConstLong(*c as i64),
+
+
+            (Const::ConstInt(c), Type::ULong)
+                => Const::ConstULong(*c as u64),
+
+            (Const::ConstUInt(c), Type::ULong)
+                => Const::ConstULong(u64::from(*c)),
+
+            (Const::ConstLong(c), Type::ULong)
+                => Const::ConstULong(*c as u64),
+
+
+            (_, Type::FuncType(_, _, _)) => { panic!("Conversion to function type is not allowed"); }
         }
     }
 
@@ -113,7 +161,9 @@ impl Const {
     {
         match self {
             Const::ConstInt(c)  => Const::ConstInt(!c),
-            Const::ConstLong(c) => Const::ConstLong(!c)
+            Const::ConstUInt(c) => Const::ConstUInt(!c),
+            Const::ConstLong(c) => Const::ConstLong(!c),
+            Const::ConstULong(c) => Const::ConstULong(!c)
         }
     }
 
@@ -121,7 +171,9 @@ impl Const {
     {
         match self {
             Const::ConstInt(c)  => Const::ConstInt((*c == 0)  as i32),
-            Const::ConstLong(c) => Const::ConstLong((*c == 0) as i64)
+            Const::ConstUInt(c) => Const::ConstUInt((*c == 0) as u32),
+            Const::ConstLong(c) => Const::ConstLong((*c == 0) as i64),
+            Const::ConstULong(c) => Const::ConstULong((*c == 0) as u64)
         }
     }
 
@@ -129,16 +181,16 @@ impl Const {
     {
         match self {
             Const::ConstInt(c)  => Const::ConstInt(-*c),
-            Const::ConstLong(c) => Const::ConstLong(-*c)
+            Const::ConstUInt(c)  => Const::ConstUInt(-(*c as i32) as u32),
+            Const::ConstLong(c) => Const::ConstLong(-*c),
+            Const::ConstULong(c) => Const::ConstULong(-(*c as i64) as u64)
+
         }
     }
 
     pub fn unary_plus(&self) -> Const
     {
-        match self {
-            Const::ConstInt(c)  => Const::ConstInt(*c),
-            Const::ConstLong(c) => Const::ConstLong(*c)
-        }
+        self.clone()
     }
 
 
@@ -146,30 +198,78 @@ impl Const {
     pub fn add(&self, other: &Const) -> Const
     {
         match (self, other) {
-            (Const::ConstInt(a), Const::ConstInt(b)) => Const::ConstInt(a + b),
-            (Const::ConstLong(a), Const::ConstLong(b)) => Const::ConstLong(a + b),
-            (Const::ConstInt(a), Const::ConstLong(b)) => Const::ConstLong(i64::from(*a) + b),
-            (Const::ConstLong(a), Const::ConstInt(b)) => Const::ConstLong(a + i64::from(*b))
+            (Const::ConstInt(a), Const::ConstInt(b)) => Const::ConstInt(*a + *b),
+            (Const::ConstUInt(a), Const::ConstUInt(b)) => Const::ConstUInt(*a + *b),
+            (Const::ConstLong(a), Const::ConstLong(b)) => Const::ConstLong(*a + *b),
+            (Const::ConstULong(a), Const::ConstULong(b)) => Const::ConstULong(*a + *b),
+
+            (Const::ConstInt(a), Const::ConstUInt(b)) => Const::ConstUInt(*a as u32 + *b),
+            (Const::ConstInt(a), Const::ConstLong(b)) => Const::ConstLong(*a as i64 + *b),
+            (Const::ConstInt(a), Const::ConstULong(b)) => Const::ConstULong(*a as u64 + *b),
+
+            (Const::ConstUInt(a), Const::ConstInt(b)) => Const::ConstUInt(*a + (*b as u32)),
+            (Const::ConstUInt(a), Const::ConstLong(b)) => Const::ConstLong(*a as i64 + *b),
+            (Const::ConstUInt(a), Const::ConstULong(b)) => Const::ConstULong(*a as u64 + *b),
+
+            (Const::ConstLong(a), Const::ConstInt(b)) => Const::ConstLong(*a + (*b as i64)),
+            (Const::ConstLong(a), Const::ConstUInt(b)) => Const::ConstLong(*a + (*b as i64)),
+            (Const::ConstLong(a), Const::ConstULong(b)) => Const::ConstULong(*a as u64 + *b),
+
+            (Const::ConstULong(a), Const::ConstInt(b)) => Const::ConstULong(*a + (*b as u64)),
+            (Const::ConstULong(a), Const::ConstUInt(b)) => Const::ConstULong(*a + (*b as u64)),
+            (Const::ConstULong(a), Const::ConstLong(b)) => Const::ConstULong(*a + (*b as u64))
         }
     }
 
     pub fn sub(&self, other: &Const) -> Const
     {
         match (self, other) {
-            (Const::ConstInt(a), Const::ConstInt(b)) => Const::ConstInt(a - b),
-            (Const::ConstLong(a), Const::ConstLong(b)) => Const::ConstLong(a - b),
-            (Const::ConstInt(a), Const::ConstLong(b)) => Const::ConstLong(i64::from(*a) - b),
-            (Const::ConstLong(a), Const::ConstInt(b)) => Const::ConstLong(a - i64::from(*b))
+            (Const::ConstInt(a), Const::ConstInt(b)) => Const::ConstInt(*a - *b),
+            (Const::ConstUInt(a), Const::ConstUInt(b)) => Const::ConstUInt(*a - *b),
+            (Const::ConstLong(a), Const::ConstLong(b)) => Const::ConstLong(*a - *b),
+            (Const::ConstULong(a), Const::ConstULong(b)) => Const::ConstULong(*a - *b),
+
+            (Const::ConstInt(a), Const::ConstUInt(b)) => Const::ConstUInt(*a as u32 - *b),
+            (Const::ConstInt(a), Const::ConstLong(b)) => Const::ConstLong(*a as i64 - *b),
+            (Const::ConstInt(a), Const::ConstULong(b)) => Const::ConstULong(*a as u64 - *b),
+
+            (Const::ConstUInt(a), Const::ConstInt(b)) => Const::ConstUInt(*a - (*b as u32)),
+            (Const::ConstUInt(a), Const::ConstLong(b)) => Const::ConstLong(*a as i64 - *b),
+            (Const::ConstUInt(a), Const::ConstULong(b)) => Const::ConstULong(*a as u64 - *b),
+
+            (Const::ConstLong(a), Const::ConstInt(b)) => Const::ConstLong(*a - (*b as i64)),
+            (Const::ConstLong(a), Const::ConstUInt(b)) => Const::ConstLong(*a - (*b as i64)),
+            (Const::ConstLong(a), Const::ConstULong(b)) => Const::ConstULong(*a as u64 - *b),
+
+            (Const::ConstULong(a), Const::ConstInt(b)) => Const::ConstULong(*a - (*b as u64)),
+            (Const::ConstULong(a), Const::ConstUInt(b)) => Const::ConstULong(*a - (*b as u64)),
+            (Const::ConstULong(a), Const::ConstLong(b)) => Const::ConstULong(*a - (*b as u64))
         }
     }
 
     pub fn mul(&self, other: &Const) -> Const
     {
         match (self, other) {
-            (Const::ConstInt(a), Const::ConstInt(b)) => Const::ConstInt(a * b),
-            (Const::ConstLong(a), Const::ConstLong(b)) => Const::ConstLong(a * b),
-            (Const::ConstInt(a), Const::ConstLong(b)) => Const::ConstLong(i64::from(*a) * b),
-            (Const::ConstLong(a), Const::ConstInt(b)) => Const::ConstLong(a * i64::from(*b))
+            (Const::ConstInt(a), Const::ConstInt(b)) => Const::ConstInt(*a * *b),
+            (Const::ConstUInt(a), Const::ConstUInt(b)) => Const::ConstUInt(*a * *b),
+            (Const::ConstLong(a), Const::ConstLong(b)) => Const::ConstLong(*a * *b),
+            (Const::ConstULong(a), Const::ConstULong(b)) => Const::ConstULong(*a * *b),
+
+            (Const::ConstInt(a), Const::ConstUInt(b)) => Const::ConstUInt(*a as u32 * *b),
+            (Const::ConstInt(a), Const::ConstLong(b)) => Const::ConstLong(*a as i64 * *b),
+            (Const::ConstInt(a), Const::ConstULong(b)) => Const::ConstULong(*a as u64 * *b),
+
+            (Const::ConstUInt(a), Const::ConstInt(b)) => Const::ConstUInt(*a * (*b as u32)),
+            (Const::ConstUInt(a), Const::ConstLong(b)) => Const::ConstLong(*a as i64 * *b),
+            (Const::ConstUInt(a), Const::ConstULong(b)) => Const::ConstULong(*a as u64 * *b),
+
+            (Const::ConstLong(a), Const::ConstInt(b)) => Const::ConstLong(*a * (*b as i64)),
+            (Const::ConstLong(a), Const::ConstUInt(b)) => Const::ConstLong(*a * (*b as i64)),
+            (Const::ConstLong(a), Const::ConstULong(b)) => Const::ConstULong(*a as u64 * *b),
+
+            (Const::ConstULong(a), Const::ConstInt(b)) => Const::ConstULong(*a * (*b as u64)),
+            (Const::ConstULong(a), Const::ConstUInt(b)) => Const::ConstULong(*a * (*b as u64)),
+            (Const::ConstULong(a), Const::ConstLong(b)) => Const::ConstULong(*a * (*b as u64))
         }
     }
 
@@ -177,10 +277,26 @@ impl Const {
     {
         assert!(other.is_true());
         match (self, other) {
-            (Const::ConstInt(a), Const::ConstInt(b)) => Const::ConstInt(a / b),
-            (Const::ConstLong(a), Const::ConstLong(b)) => Const::ConstLong(a / b),
-            (Const::ConstInt(a), Const::ConstLong(b)) => Const::ConstLong(i64::from(*a) / b),
-            (Const::ConstLong(a), Const::ConstInt(b)) => Const::ConstLong(a / i64::from(*b))
+            (Const::ConstInt(a), Const::ConstInt(b)) => Const::ConstInt(*a / *b),
+            (Const::ConstUInt(a), Const::ConstUInt(b)) => Const::ConstUInt(*a / *b),
+            (Const::ConstLong(a), Const::ConstLong(b)) => Const::ConstLong(*a / *b),
+            (Const::ConstULong(a), Const::ConstULong(b)) => Const::ConstULong(*a / *b),
+
+            (Const::ConstInt(a), Const::ConstUInt(b)) => Const::ConstUInt(*a as u32 / *b),
+            (Const::ConstInt(a), Const::ConstLong(b)) => Const::ConstLong(*a as i64 / *b),
+            (Const::ConstInt(a), Const::ConstULong(b)) => Const::ConstULong(*a as u64 / *b),
+
+            (Const::ConstUInt(a), Const::ConstInt(b)) => Const::ConstUInt(*a / (*b as u32)),
+            (Const::ConstUInt(a), Const::ConstLong(b)) => Const::ConstLong(*a as i64 / *b),
+            (Const::ConstUInt(a), Const::ConstULong(b)) => Const::ConstULong(*a as u64 / *b),
+
+            (Const::ConstLong(a), Const::ConstInt(b)) => Const::ConstLong(*a / (*b as i64)),
+            (Const::ConstLong(a), Const::ConstUInt(b)) => Const::ConstLong(*a / (*b as i64)),
+            (Const::ConstLong(a), Const::ConstULong(b)) => Const::ConstULong(*a as u64 / *b),
+
+            (Const::ConstULong(a), Const::ConstInt(b)) => Const::ConstULong(*a / (*b as u64)),
+            (Const::ConstULong(a), Const::ConstUInt(b)) => Const::ConstULong(*a / (*b as u64)),
+            (Const::ConstULong(a), Const::ConstLong(b)) => Const::ConstULong(*a / (*b as u64))
         }
     }
 
@@ -188,20 +304,52 @@ impl Const {
     {
         assert!(other.is_true());
         match (self, other) {
-            (Const::ConstInt(a), Const::ConstInt(b)) => Const::ConstInt(a % b),
-            (Const::ConstLong(a), Const::ConstLong(b)) => Const::ConstLong(a % b),
-            (Const::ConstInt(a), Const::ConstLong(b)) => Const::ConstLong(i64::from(*a) % b),
-            (Const::ConstLong(a), Const::ConstInt(b)) => Const::ConstLong(a % i64::from(*b))
+            (Const::ConstInt(a), Const::ConstInt(b)) => Const::ConstInt(*a % *b),
+            (Const::ConstUInt(a), Const::ConstUInt(b)) => Const::ConstUInt(*a % *b),
+            (Const::ConstLong(a), Const::ConstLong(b)) => Const::ConstLong(*a % *b),
+            (Const::ConstULong(a), Const::ConstULong(b)) => Const::ConstULong(*a % *b),
+
+            (Const::ConstInt(a), Const::ConstUInt(b)) => Const::ConstUInt(*a as u32 % *b),
+            (Const::ConstInt(a), Const::ConstLong(b)) => Const::ConstLong(*a as i64 % *b),
+            (Const::ConstInt(a), Const::ConstULong(b)) => Const::ConstULong(*a as u64 % *b),
+
+            (Const::ConstUInt(a), Const::ConstInt(b)) => Const::ConstUInt(*a % (*b as u32)),
+            (Const::ConstUInt(a), Const::ConstLong(b)) => Const::ConstLong(*a as i64 % *b),
+            (Const::ConstUInt(a), Const::ConstULong(b)) => Const::ConstULong(*a as u64 % *b),
+
+            (Const::ConstLong(a), Const::ConstInt(b)) => Const::ConstLong(*a % (*b as i64)),
+            (Const::ConstLong(a), Const::ConstUInt(b)) => Const::ConstLong(*a % (*b as i64)),
+            (Const::ConstLong(a), Const::ConstULong(b)) => Const::ConstULong(*a as u64 % *b),
+
+            (Const::ConstULong(a), Const::ConstInt(b)) => Const::ConstULong(*a % (*b as u64)),
+            (Const::ConstULong(a), Const::ConstUInt(b)) => Const::ConstULong(*a % (*b as u64)),
+            (Const::ConstULong(a), Const::ConstLong(b)) => Const::ConstULong(*a % (*b as u64))
         }
     }
 
     pub fn bin_and(&self, other: &Const) -> Const
     {
         match (self, other) {
-            (Const::ConstInt(a), Const::ConstInt(b)) => Const::ConstInt(a & b),
-            (Const::ConstLong(a), Const::ConstLong(b)) => Const::ConstLong(a & b),
-            (Const::ConstInt(a), Const::ConstLong(b)) => Const::ConstLong(i64::from(*a) & b),
-            (Const::ConstLong(a), Const::ConstInt(b)) => Const::ConstLong(a & i64::from(*b))
+            (Const::ConstInt(a), Const::ConstInt(b)) => Const::ConstInt(*a & *b),
+            (Const::ConstUInt(a), Const::ConstUInt(b)) => Const::ConstUInt(*a & *b),
+            (Const::ConstLong(a), Const::ConstLong(b)) => Const::ConstLong(*a & *b),
+            (Const::ConstULong(a), Const::ConstULong(b)) => Const::ConstULong(*a & *b),
+
+            (Const::ConstInt(a), Const::ConstUInt(b)) => Const::ConstUInt(*a as u32 & *b),
+            (Const::ConstInt(a), Const::ConstLong(b)) => Const::ConstLong(*a as i64 & *b),
+            (Const::ConstInt(a), Const::ConstULong(b)) => Const::ConstULong(*a as u64 & *b),
+
+            (Const::ConstUInt(a), Const::ConstInt(b)) => Const::ConstUInt(*a & (*b as u32)),
+            (Const::ConstUInt(a), Const::ConstLong(b)) => Const::ConstLong(*a as i64 & *b),
+            (Const::ConstUInt(a), Const::ConstULong(b)) => Const::ConstULong(*a as u64 & *b),
+
+            (Const::ConstLong(a), Const::ConstInt(b)) => Const::ConstLong(*a & (*b as i64)),
+            (Const::ConstLong(a), Const::ConstUInt(b)) => Const::ConstLong(*a & (*b as i64)),
+            (Const::ConstLong(a), Const::ConstULong(b)) => Const::ConstULong(*a as u64 & *b),
+
+            (Const::ConstULong(a), Const::ConstInt(b)) => Const::ConstULong(*a & (*b as u64)),
+            (Const::ConstULong(a), Const::ConstUInt(b)) => Const::ConstULong(*a & (*b as u64)),
+            (Const::ConstULong(a), Const::ConstLong(b)) => Const::ConstULong(*a & (*b as u64))
         }
     }
 
@@ -209,10 +357,26 @@ impl Const {
     pub fn bin_or(&self, other: &Const) -> Const
     {
         match (self, other) {
-            (Const::ConstInt(a), Const::ConstInt(b)) => Const::ConstInt(a | b),
-            (Const::ConstLong(a), Const::ConstLong(b)) => Const::ConstLong(a | b),
-            (Const::ConstInt(a), Const::ConstLong(b)) => Const::ConstLong(i64::from(*a) | b),
-            (Const::ConstLong(a), Const::ConstInt(b)) => Const::ConstLong(a | i64::from(*b))
+            (Const::ConstInt(a), Const::ConstInt(b)) => Const::ConstInt(*a | *b),
+            (Const::ConstUInt(a), Const::ConstUInt(b)) => Const::ConstUInt(*a | *b),
+            (Const::ConstLong(a), Const::ConstLong(b)) => Const::ConstLong(*a | *b),
+            (Const::ConstULong(a), Const::ConstULong(b)) => Const::ConstULong(*a | *b),
+
+            (Const::ConstInt(a), Const::ConstUInt(b)) => Const::ConstUInt(*a as u32 | *b),
+            (Const::ConstInt(a), Const::ConstLong(b)) => Const::ConstLong(*a as i64 | *b),
+            (Const::ConstInt(a), Const::ConstULong(b)) => Const::ConstULong(*a as u64 | *b),
+
+            (Const::ConstUInt(a), Const::ConstInt(b)) => Const::ConstUInt(*a | (*b as u32)),
+            (Const::ConstUInt(a), Const::ConstLong(b)) => Const::ConstLong(*a as i64 | *b),
+            (Const::ConstUInt(a), Const::ConstULong(b)) => Const::ConstULong(*a as u64 | *b),
+
+            (Const::ConstLong(a), Const::ConstInt(b)) => Const::ConstLong(*a | (*b as i64)),
+            (Const::ConstLong(a), Const::ConstUInt(b)) => Const::ConstLong(*a | (*b as i64)),
+            (Const::ConstLong(a), Const::ConstULong(b)) => Const::ConstULong(*a as u64 | *b),
+
+            (Const::ConstULong(a), Const::ConstInt(b)) => Const::ConstULong(*a | (*b as u64)),
+            (Const::ConstULong(a), Const::ConstUInt(b)) => Const::ConstULong(*a | (*b as u64)),
+            (Const::ConstULong(a), Const::ConstLong(b)) => Const::ConstULong(*a | (*b as u64))
         }
     }
 
@@ -220,10 +384,26 @@ impl Const {
     pub fn bin_xor(&self, other: &Const) -> Const
     {
         match (self, other) {
-            (Const::ConstInt(a), Const::ConstInt(b)) => Const::ConstInt(a ^ b),
-            (Const::ConstLong(a), Const::ConstLong(b)) => Const::ConstLong(a ^ b),
-            (Const::ConstInt(a), Const::ConstLong(b)) => Const::ConstLong(i64::from(*a) ^ b),
-            (Const::ConstLong(a), Const::ConstInt(b)) => Const::ConstLong(a ^ i64::from(*b))
+            (Const::ConstInt(a), Const::ConstInt(b)) => Const::ConstInt(*a ^ *b),
+            (Const::ConstUInt(a), Const::ConstUInt(b)) => Const::ConstUInt(*a ^ *b),
+            (Const::ConstLong(a), Const::ConstLong(b)) => Const::ConstLong(*a ^ *b),
+            (Const::ConstULong(a), Const::ConstULong(b)) => Const::ConstULong(*a ^ *b),
+
+            (Const::ConstInt(a), Const::ConstUInt(b)) => Const::ConstUInt(*a as u32 ^ *b),
+            (Const::ConstInt(a), Const::ConstLong(b)) => Const::ConstLong(*a as i64 ^ *b),
+            (Const::ConstInt(a), Const::ConstULong(b)) => Const::ConstULong(*a as u64 ^ *b),
+
+            (Const::ConstUInt(a), Const::ConstInt(b)) => Const::ConstUInt(*a ^ (*b as u32)),
+            (Const::ConstUInt(a), Const::ConstLong(b)) => Const::ConstLong(*a as i64 ^ *b),
+            (Const::ConstUInt(a), Const::ConstULong(b)) => Const::ConstULong(*a as u64 ^ *b),
+
+            (Const::ConstLong(a), Const::ConstInt(b)) => Const::ConstLong(*a ^ (*b as i64)),
+            (Const::ConstLong(a), Const::ConstUInt(b)) => Const::ConstLong(*a ^ (*b as i64)),
+            (Const::ConstLong(a), Const::ConstULong(b)) => Const::ConstULong(*a as u64 ^ *b),
+
+            (Const::ConstULong(a), Const::ConstInt(b)) => Const::ConstULong(*a ^ (*b as u64)),
+            (Const::ConstULong(a), Const::ConstUInt(b)) => Const::ConstULong(*a ^ (*b as u64)),
+            (Const::ConstULong(a), Const::ConstLong(b)) => Const::ConstULong(*a ^ (*b as u64))
         }
     }
 
@@ -231,20 +411,20 @@ impl Const {
     pub fn left_shift(&self, other: &Const) -> Const
     {
         match (self, other) {
-            (Const::ConstInt(a), Const::ConstInt(b)) => Const::ConstInt(a << b),
-            (Const::ConstLong(a), Const::ConstLong(b)) => Const::ConstLong(a << b),
-            (Const::ConstInt(a), Const::ConstLong(b)) => Const::ConstInt(a << b),
-            (Const::ConstLong(a), Const::ConstInt(b)) => Const::ConstLong(a << b)
+            (Const::ConstInt(a), b) => Const::ConstInt(a << b.to_i64()),
+            (Const::ConstUInt(a),b) => Const::ConstUInt(a << b.to_i64()),
+            (Const::ConstLong(a), b) => Const::ConstLong(a << b.to_i64()),
+            (Const::ConstULong(a), b) => Const::ConstULong(a << b.to_i64())
         }
     }
 
     pub fn right_shift(&self, other: &Const) -> Const
     {
         match (self, other) {
-            (Const::ConstInt(a), Const::ConstInt(b)) => Const::ConstInt(a >> b),
-            (Const::ConstLong(a), Const::ConstLong(b)) => Const::ConstLong(a >> b),
-            (Const::ConstInt(a), Const::ConstLong(b)) => Const::ConstInt(a >> b),
-            (Const::ConstLong(a), Const::ConstInt(b)) => Const::ConstLong(a >> b)
+            (Const::ConstInt(a), b) => Const::ConstInt(a >> b.to_i64()),
+            (Const::ConstUInt(a),b) => Const::ConstUInt(a >> b.to_i64()),
+            (Const::ConstLong(a), b) => Const::ConstLong(a >> b.to_i64()),
+            (Const::ConstULong(a), b) => Const::ConstULong(a >> b.to_i64())
         }
     }
 
@@ -273,10 +453,27 @@ impl Const {
     pub fn lt(&self, other: &Const) -> Const
     {
         match (self, other) {
-            (Const::ConstInt(a), Const::ConstInt(b)) => Const::ConstInt((a < b) as i32),
-            (Const::ConstLong(a), Const::ConstLong(b)) => Const::ConstInt((a < b) as i32),
-            (Const::ConstInt(a), Const::ConstLong(b)) => Const::ConstInt((i64::from(*a) < *b) as i32),
-            (Const::ConstLong(a), Const::ConstInt(b)) => Const::ConstInt((*a < i64::from(*b)) as i32)
+            (Const::ConstInt(a), Const::ConstInt(b)) => Const::ConstInt((*a < *b) as i32),
+            (Const::ConstUInt(a), Const::ConstUInt(b)) => Const::ConstInt((*a < *b) as i32),
+            (Const::ConstLong(a), Const::ConstLong(b)) => Const::ConstInt((*a < *b) as i32),
+            (Const::ConstULong(a), Const::ConstULong(b)) => Const::ConstInt((*a < *b) as i32),
+
+            (Const::ConstInt(a), Const::ConstUInt(b)) => Const::ConstInt(((*a as u32) < *b) as i32),
+            (Const::ConstInt(a), Const::ConstLong(b)) => Const::ConstInt(((*a as i64) < *b) as i32),
+            (Const::ConstInt(a), Const::ConstULong(b)) => Const::ConstInt(((*a as u64) < *b) as i32),
+
+            (Const::ConstUInt(a), Const::ConstInt(b)) => Const::ConstInt((*a < (*b as u32)) as i32),
+            (Const::ConstUInt(a), Const::ConstLong(b)) => Const::ConstInt(((*a as i64) < *b) as i32),
+            (Const::ConstUInt(a), Const::ConstULong(b)) => Const::ConstInt(((*a as u64) < *b) as i32),
+
+            (Const::ConstLong(a), Const::ConstInt(b)) => Const::ConstInt((*a < (*b as i64)) as i32),
+            (Const::ConstLong(a), Const::ConstUInt(b)) => Const::ConstInt((*a < (*b as i64)) as i32),
+            (Const::ConstLong(a), Const::ConstULong(b)) => Const::ConstInt(((*a as u64) < *b) as i32),
+
+            (Const::ConstULong(a), Const::ConstInt(b)) => Const::ConstInt((*a < (*b as u64)) as i32),
+            (Const::ConstULong(a), Const::ConstUInt(b)) => Const::ConstInt((*a < (*b as u64)) as i32),
+            (Const::ConstULong(a), Const::ConstLong(b)) => Const::ConstInt((*a < (*b as u64)) as i32)
+
         }
     }
 
@@ -297,22 +494,12 @@ impl Const {
 
     pub fn eq(&self, other: &Const) -> Const
     {
-        match (self, other) {
-            (Const::ConstInt(a), Const::ConstInt(b)) => Const::ConstInt((a == b) as i32),
-            (Const::ConstLong(a), Const::ConstLong(b)) => Const::ConstInt((a == b) as i32),
-            (Const::ConstInt(a), Const::ConstLong(b)) => Const::ConstInt((i64::from(*a) == *b) as i32),
-            (Const::ConstLong(a), Const::ConstInt(b)) => Const::ConstInt((*a == i64::from(*b)) as i32)
-        }
+        self.le(other).logical_and(&other.le(self))
     }
 
     pub fn ne(&self, other: &Const) -> Const
     {
-        match (self, other) {
-            (Const::ConstInt(a), Const::ConstInt(b)) => Const::ConstInt((a != b) as i32),
-            (Const::ConstLong(a), Const::ConstLong(b)) => Const::ConstInt((a != b) as i32),
-            (Const::ConstInt(a), Const::ConstLong(b)) => Const::ConstInt((i64::from(*a) != *b) as i32),
-            (Const::ConstLong(a), Const::ConstInt(b)) => Const::ConstInt((*a != i64::from(*b)) as i32)
-        }
+        self.eq(other).logical_not()
     }
 
 
@@ -487,6 +674,8 @@ pub enum UnlabeledStatement {
 pub enum Type {
     Int,
     Long,
+    UInt,
+    ULong,
     FuncType(Vec<Type> /* param_types */, Box<Type> /* ret_type */, bool /* has_body, i.e. defined */)
 }
 
@@ -505,6 +694,8 @@ impl Type
         match self {
             Type::Int               => String::from("int"),
             Type::Long              => String::from("long"),
+            Type::UInt              => String::from("uint"),
+            Type::ULong             => String::from("ulong"),
             Type::FuncType(param_types, ret_type,_) => {
                     assert!(!ret_type.is_func());
                     let param_types_str : Vec<String> = param_types.iter().map(|typ| typ.to_string()).collect();
@@ -516,8 +707,12 @@ impl Type
     pub fn alignment(&self) -> usize
     {
         match self {
-            Type::Int => 4,
-            Type::Long => 8,
+            Type::Int   |
+            Type::UInt  => 4,
+
+            Type::Long  |
+            Type::ULong => 8,
+
             _ => { panic!("Attempt to call alignment() for function type"); }
         }
     }
@@ -587,7 +782,7 @@ pub enum Program {
 <variable-declaration>  ::= <specifier>+ <identifier> [ "=" <exp> ] ";"
 <function-declaration>  ::= <specifier>+ <identifier> "(" [<param-list>] )" ( <block> | ";" )
 <specifier>             ::= <type-specifier> | "static" | "extern"
-<type-specifier>        ::= "int" | "long"
+<type-specifier>        ::= "int" | "long" | "unsigned" | "signed"
 <param-list>            ::= "" |
                             "void" |
                             <type-specifier> <identifier> ["," <type-specifier> <identifier>"]*
@@ -624,9 +819,11 @@ pub enum Program {
                             "="  | "+=" | "-=" | "*=" | "/=" | "%=" |
                             "|=" | "&=" |
                             "<<="| ">>="
-<const>                 ::= <int> | <long>
+<const>                 ::= <int> | <long> | <uint> | <ulong>
 <identifier>            ::= ? Token::Identifier ?
 <int>                   ::= ? Token::IntConstant ?
 <long>                  ::= ? Token::LongConstant ?
+<uint>                  ::= ? Token::UIntConstant ?
+<ulong>                 ::= ? Token::ULongConstant ?
 
 */
