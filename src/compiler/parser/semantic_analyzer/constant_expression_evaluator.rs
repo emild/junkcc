@@ -97,7 +97,9 @@ fn evaluate_constant_expression_with_default_type(typed_expr: &TypedExpression) 
             evaluate_constant_binary_operator(binop, sub_expr_1, sub_expr_2)?
         },
         Expression::Constant(Const::ConstInt(c)) => Const::ConstInt(*c),
+        Expression::Constant(Const::ConstUInt(c)) => Const::ConstUInt(*c),
         Expression::Constant(Const::ConstLong(c)) => Const::ConstLong(*c),
+        Expression::Constant(Const::ConstULong(c)) => Const::ConstULong(*c),
         Expression::Conditional(cond_exp, true_exp, false_exp) => {
             let cond_val = evaluate_constant_expression_with_default_type(cond_exp)?;
             let val = if cond_val.is_true() {

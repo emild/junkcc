@@ -563,7 +563,9 @@ fn type_str(typ: &Type) -> String
 {
     match typ {
         Type::Int => String::from("int"),
+        Type::UInt => String::from("uint"),
         Type::Long => String::from("long"),
+        Type::ULong => String::from("ulong"),
         Type::FuncType(param_types, ret_type, _) => {
             let mut param_types_str = vec![];
             for param_type in param_types {
@@ -641,8 +643,10 @@ fn typecheck_function_declaration(func_decl: &mut FunctionDeclaration, symbol_ta
                     }
                 };
             },
-            Type::Int |
-            Type::Long => {
+            Type::Int   |
+            Type::UInt  |
+            Type::Long  |
+            Type::ULong => {
                 return Err(format!("Function '{}()' redefines variable '{}", func_name, func_name));
             }
         }

@@ -134,14 +134,9 @@ fn resolve_typed_expression(typed_expr: &TypedExpression, identifier_map: &mut H
             Expression::Unary(unary_op.clone(), Box::new(resolved_expr))
         },
 
-        Expression::Constant(Const::ConstInt(c)) => {
-            Expression::Constant(Const::ConstInt(*c))
+        Expression::Constant(c) => {
+            Expression::Constant(c.clone())
         },
-
-        Expression::Constant(Const::ConstLong(c)) => {
-            Expression::Constant(Const::ConstLong(*c))
-        },
-
 
         Expression::Cast(target_type, expr) => {
             let resolved_expr = resolve_typed_expression(expr, identifier_map)?;

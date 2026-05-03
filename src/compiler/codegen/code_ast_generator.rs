@@ -34,8 +34,13 @@ fn get_tacky_value_assembly_type(val: &tacky::ast::Val, symbol_table: &HashMap<S
 {
     match val {
         tacky::ast::Val::Var(var_name) => get_symbol_assembly_type(var_name, symbol_table),
-        tacky::ast::Val::Constant(Const::ConstInt(_)) => AssemblyType::LongWord,
-        tacky::ast::Val::Constant(Const::ConstLong(_)) => AssemblyType::QuadWord
+        tacky::ast::Val::Constant(Const::ConstInt(_)) |
+        tacky::ast::Val::Constant(Const::ConstUInt(_))
+            => AssemblyType::LongWord,
+
+        tacky::ast::Val::Constant(Const::ConstLong(_)) |
+        tacky::ast::Val::Constant(Const::ConstULong(_))
+            => AssemblyType::QuadWord
     }
 }
 
