@@ -124,6 +124,20 @@ fn pretty_print_tacky_instructions(instructions: &Vec<Instruction>, indent: usiz
                 pretty_print_tacky_val(&src);
                 println!(")");
             },
+            Instruction::Truncate(src, dst) => {
+                print!("{}", " ".repeat(indent));
+                pretty_print_tacky_val(&dst);
+                print!(" = TRUNCATE(");
+                pretty_print_tacky_val(&src);
+                println!(")");
+            },
+            Instruction::SignExtend(src, dst) => {
+                print!("{}", " ".repeat(indent));
+                pretty_print_tacky_val(&dst);
+                print!(" = SIGN_EXTEND(");
+                pretty_print_tacky_val(&src);
+                println!(")");
+            },
             Instruction::Jump(target) => {
                 print!("{}", " ".repeat(indent));
                 println!("JUMP {}", target);
@@ -156,7 +170,7 @@ fn pretty_print_tacky_instructions(instructions: &Vec<Instruction>, indent: usiz
                 }
                 println!(")")
             }
-            _ => {}
+            //_ => {}
         };
     }
 }
