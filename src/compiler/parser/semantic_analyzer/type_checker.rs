@@ -15,7 +15,9 @@ pub enum InitialValue {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum StaticInit {
     IntInit(i32),
-    LongInit(i64)
+    LongInit(i64),
+    UIntInit(u32),
+    ULongInit(u64)
 }
 
 impl StaticInit
@@ -24,10 +26,28 @@ impl StaticInit
     {
         assert!(!typ.is_func());
         match (self, typ) {
-            (StaticInit::IntInit(_), Type::Int) |
-            (StaticInit::LongInit(_), Type::Long) => self.clone(),
-            (StaticInit::IntInit(c), Type::Long) => StaticInit::LongInit(i64::from(*c)),
+            (StaticInit::IntInit(_), Type::Int)     |
+            (StaticInit::LongInit(_), Type::Long)   |
+            (StaticInit::UIntInit(_), Type::UInt)   |
+            (StaticInit::ULongInit(_), Type::ULong) => self.clone(),
+
+            (StaticInit::UIntInit(c), Type::Int) => StaticInit::IntInit(*c  as i32),
             (StaticInit::LongInit(c), Type::Int) => StaticInit::IntInit((*c & 0xFFFFFFFF) as i32),
+            (StaticInit::ULongInit(c), Type::Int) => StaticInit::IntInit((*c & 0xFFFFFFFF) as i32),
+
+            (StaticInit::IntInit(c), Type::UInt) => StaticInit::UIntInit(*c  as u32),
+            (StaticInit::LongInit(c), Type::UInt) => StaticInit::UIntInit((*c & 0xFFFFFFFF) as u32),
+            (StaticInit::ULongInit(c), Type::UInt) => StaticInit::UIntInit((*c & 0xFFFFFFFF) as u32),
+
+            (StaticInit::IntInit(c), Type::Long) => StaticInit::LongInit(*c  as i64),
+            (StaticInit::UIntInit(c), Type::Long) => StaticInit::LongInit(*c  as i64),
+            (StaticInit::ULongInit(c), Type::Long) => StaticInit::LongInit(*c  as i64),
+
+            (StaticInit::IntInit(c), Type::ULong) => StaticInit::ULongInit(*c  as u64),
+            (StaticInit::UIntInit(c), Type::ULong) => StaticInit::ULongInit(*c  as u64),
+            (StaticInit::LongInit(c), Type::ULong) => StaticInit::ULongInit(*c  as u64),
+
+
             _ => { panic!("Invalid StaticInit Conversion"); }
         }
     }
@@ -36,16 +56,21 @@ impl StaticInit
     {
         match self {
             StaticInit::IntInit(c) => format!("int({})", c),
+            StaticInit::UIntInit(c) => format!("uint({})", c),
             StaticInit::LongInit(c)  => format!("long({})", c),
+            StaticInit::ULongInit(c)  => format!("ulong({})", c),
         }
     }
 
     pub fn is_zero(&self) -> bool
     {
         match self {
-            StaticInit::IntInit(0) |
-            StaticInit::LongInit(0) => true,
-            _ => false
+            StaticInit::IntInit(0)  |
+            StaticInit::UIntInit(0) |
+            StaticInit::LongInit(0) |
+            StaticInit::ULongInit(0)
+                => true,
+            _   => false
         }
     }
 }
@@ -69,8 +94,19 @@ fn get_common_type(typ1: &Type, typ2: &Type) -> Type
     if typ1 == typ2 {
         typ1.clone()
     }
+    else if typ1.size() == typ2.size() {
+        if typ1.is_signed() {
+            typ2.clone()
+        }
+        else {
+            typ1.clone()
+        }
+    }
+    else if typ1.size() > typ2.size() {
+        typ1.clone()
+    }
     else {
-        Type::Long
+        typ2.clone()
     }
 }
 
@@ -135,8 +171,10 @@ fn typecheck_expr_var(var_name: &String, symbol_table: &mut HashMap<String, Symb
         None => {
             return Err(format!("Variable '{}' not declared in scope", var_name));
         },
-        Some(SymbolInfo{ typ: Type::Int, attrs: _}) => Type::Int,
-        Some(SymbolInfo{ typ: Type::Long, attrs: _}) => Type::Long,
+        Some(SymbolInfo{ typ: Type::Int, attrs: _})     => Type::Int,
+        Some(SymbolInfo{ typ: Type::UInt, attrs: _})    => Type::UInt,
+        Some(SymbolInfo{ typ: Type::Long, attrs: _})    => Type::Long,
+        Some(SymbolInfo{ typ: Type::ULong, attrs: _})   => Type::ULong,
         _ => {
             return Err(format!(
                 "Object '{}' has wrong type. Expected some integer type, actual type: '{:?}'",
@@ -228,8 +266,13 @@ fn typecheck_expr_binary(binop: &BinaryOperator, typed_left: &TypedExpression, t
 
         BinaryOperator::ShiftLeft |
         BinaryOperator::ShiftRight => {
-            let typ = typex_get_type(&typed_left);
-            (Expression::Binary(binop.clone(), Box::new(typed_left), Box::new(typed_right)), typ)
+            //We convert the shift count to the type of the left operand, as this
+            //allows us more uniform handling for the rest of the code
+            //TODO: Check if this has serious performance impact
+
+            let typ_left = typex_get_type(&typed_left);
+            let converted_right = convert_to(typed_right, &typ_left);
+            (Expression::Binary(binop.clone(), Box::new(typed_left), Box::new(converted_right)), typ_left)
         },
 
         BinaryOperator::Assign |
@@ -487,8 +530,14 @@ fn typecheck_file_scope_variable_declaration(var_decl: &VariableDeclaration, sym
         Some(TypedExpression::TypedExp(_, Expression::Constant(Const::ConstInt(init_val)))) => {
             InitialValue::Initial(StaticInit::IntInit(*init_val).convert_to(typ))
         },
+        Some(TypedExpression::TypedExp(_, Expression::Constant(Const::ConstUInt(init_val)))) => {
+            InitialValue::Initial(StaticInit::UIntInit(*init_val).convert_to(typ))
+        },
         Some(TypedExpression::TypedExp(_, Expression::Constant(Const::ConstLong(init_val)))) => {
             InitialValue::Initial(StaticInit::LongInit(*init_val).convert_to(typ))
+        },
+        Some(TypedExpression::TypedExp(_, Expression::Constant(Const::ConstULong(init_val)))) => {
+            InitialValue::Initial(StaticInit::ULongInit(*init_val).convert_to(typ))
         },
         None => {
             if *stg_class == Some(StorageClass::Extern) {

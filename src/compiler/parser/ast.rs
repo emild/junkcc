@@ -716,6 +716,34 @@ impl Type
             _ => { panic!("Attempt to call alignment() for function type"); }
         }
     }
+
+   pub fn size(&self) -> usize
+    {
+        match self {
+            Type::Int   |
+            Type::UInt  => 4,
+
+            Type::Long  |
+            Type::ULong => 8,
+
+            _ => { panic!("Attempt to call size() for function type"); }
+        }
+    }
+
+    pub fn is_signed(&self) -> bool
+    {
+        match self {
+            Type::Int   |
+            Type::Long   => true,
+
+            Type::UInt  |
+            Type::ULong => false,
+
+            _ => { panic!("Attempt to call is_signed() for function type"); }
+        }
+    }
+
+
 }
 
 

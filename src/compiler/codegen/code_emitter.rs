@@ -385,7 +385,11 @@ fn emit_nonzero_static_init(init_value: &StaticInit, buf_writer: &mut BufWriter<
     match init_value {
         StaticInit::IntInit(c) =>
             writeln!(buf_writer, "{}.long {}", " ".repeat(16), c),
+        StaticInit::UIntInit(c) =>
+            writeln!(buf_writer, "{}.long {}", " ".repeat(16), c),
         StaticInit::LongInit(c) =>
+            writeln!(buf_writer, "{}.quad {}", " ".repeat(16), c),
+        StaticInit::ULongInit(c) =>
             writeln!(buf_writer, "{}.quad {}", " ".repeat(16), c)
     }
 }
