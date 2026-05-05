@@ -45,18 +45,6 @@ fn get_tacky_value_assembly_type(val: &tacky::ast::Val, symbol_table: &HashMap<S
 }
 
 
-/*
-fn get_operand_assembly_type(oprnd: &Operand, symbol_table: &HashMap<String, SymbolInfo>) -> AssemblyType
-{
-    match oprnd {
-        Operand::Pseudo(sym) => get_symbol_assembly_type(sym, symbol_table),
-        Operand::Imm(_) => AssemblyType::QuadWord,
-        _ => { panic!("code_ast_generator: Attempt to get assembly type for non tacky derived operand '{:?}'", oprnd); }
-    }
-}
-    */
-
-
 
 fn convert_tacky_value_to_operand(val: &tacky::ast::Val) -> Result<Operand, String>
 {
@@ -489,6 +477,9 @@ fn generate_code_for_tacky_instructions(tacky_instructions: &Vec<tacky::ast::Ins
             },
             tacky::ast::Instruction::Truncate(src, dst, ) => {
                 generate_code_for_tacky_truncate(src, dst, symbol_table, instructions)?;
+            },
+            tacky::ast::Instruction::ZeroExtend(src, dst ) => {
+                panic!("Code gen: No support for ZeroExtend (YET)");
             }
 
 

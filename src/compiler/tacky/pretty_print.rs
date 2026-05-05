@@ -138,6 +138,13 @@ fn pretty_print_tacky_instructions(instructions: &Vec<Instruction>, indent: usiz
                 pretty_print_tacky_val(&src);
                 println!(")");
             },
+            Instruction::ZeroExtend(src, dst) => {
+                print!("{}", " ".repeat(indent));
+                pretty_print_tacky_val(&dst);
+                print!(" = ZERO_EXTEND(");
+                pretty_print_tacky_val(&src);
+                println!(")");
+            },
             Instruction::Jump(target) => {
                 print!("{}", " ".repeat(indent));
                 println!("JUMP {}", target);

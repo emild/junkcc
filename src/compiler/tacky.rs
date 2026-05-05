@@ -94,8 +94,10 @@ fn emit_tacky_pre_inc_dec(bin_op: BinaryOperator, var_name: &String, typ: &Type,
 {
     let dst = Val::Var(var_name.clone());
     let src = match typ {
-        Type::Int => parser::ast::Const::ConstInt(1),
-        Type::Long => parser::ast::Const::ConstLong(1),
+        Type::Int   => parser::ast::Const::ConstInt(1),
+        Type::UInt  => parser::ast::Const::ConstUInt(1),
+        Type::Long  => parser::ast::Const::ConstLong(1),
+        Type::ULong => parser::ast::Const::ConstULong(1),
         _ => { panic!("TACKY pre_inc_dec(): Invalid type: {}", typ.to_string()); }
     };
     let src = Val::Constant(src);
@@ -112,8 +114,10 @@ fn emit_tacky_post_inc_dec(bin_op: BinaryOperator, var_name: &String, typ: &Type
     instructions.push(Instruction::Copy(dst.clone(), new_dst.clone()));
 
     let src = match typ {
-        Type::Int => parser::ast::Const::ConstInt(1),
-        Type::Long => parser::ast::Const::ConstLong(1),
+        Type::Int   => parser::ast::Const::ConstInt(1),
+        Type::UInt  => parser::ast::Const::ConstUInt(1),
+        Type::Long  => parser::ast::Const::ConstLong(1),
+        Type::ULong => parser::ast::Const::ConstULong(1),
         _ => { panic!("TACKY post_inc_dec(): Invalid type: {}", typ.to_string()); }
     };
     let src = Val::Constant(src);
@@ -131,8 +135,14 @@ fn emit_tacky_expression(typed_expr: &TypedExpression, instructions: &mut Vec<In
         parser::ast::Expression::Constant(parser::ast::Const::ConstInt(c)) => {
             Val::Constant(parser::ast::Const::ConstInt(*c))
         },
+        parser::ast::Expression::Constant(parser::ast::Const::ConstUInt(c)) => {
+            Val::Constant(parser::ast::Const::ConstUInt(*c))
+        },
         parser::ast::Expression::Constant(parser::ast::Const::ConstLong(c)) => {
             Val::Constant(parser::ast::Const::ConstLong(*c))
+        },
+        parser::ast::Expression::Constant(parser::ast::Const::ConstULong(c)) => {
+            Val::Constant(parser::ast::Const::ConstULong(*c))
         },
         parser::ast::Expression::Var(var_name) => {
             Val::Var(var_name.clone())
@@ -324,21 +334,21 @@ fn emit_tacky_expression(typed_expr: &TypedExpression, instructions: &mut Vec<In
             }
             else {
                 let dst = make_tacky_var(typ, symbol_table);
-                match *typ {
-                    Type::Long => {
-                        instructions.push(Instruction::SignExtend(expr_result, dst.clone()));
-                    },
-                    Type::Int => {
-                        instructions.push(Instruction::Truncate(expr_result, dst.clone()));
-                    }
-                    _ => {
-                        panic!("TACKY: Cannot cast expression to type '{}'", typ.to_string());
-                    }
-                };
+                if expr_type.size() == typ.size() {
+                    instructions.push(Instruction::Copy(expr_result, dst.clone()));
+                }
+                else if expr_type.size() > typ.size() {
+                    instructions.push(Instruction::Truncate(expr_result, dst.clone()));
+                }
+                else if typ.is_signed() {
+                    instructions.push(Instruction::SignExtend(expr_result, dst.clone()));
+                }
+                else {
+                    instructions.push(Instruction::ZeroExtend(expr_result, dst.clone()));
+                }
 
                 dst
             }
-
         }
         ,
           _ => { panic!("TACKY Conversion: unsupported/unimplemented expression, got '{:?}'", expr); }
@@ -620,8 +630,10 @@ fn emit_tacky_static_duration_variables(symbol_table: &mut HashMap<String, Symbo
                 InitialValue::Initial(init_val) => init_val.clone(),
                 InitialValue::Tentative =>
                     match typ {
-                        Type::Int => parser::StaticInit::IntInit(0),
-                        Type::Long => parser::StaticInit::LongInit(0),
+                        Type::Int   => parser::StaticInit::IntInit(0),
+                        Type::UInt  => parser::StaticInit::UIntInit(0),
+                        Type::Long  => parser::StaticInit::LongInit(0),
+                        Type::ULong => parser::StaticInit::LongInit(0),
                         _ => {panic!("TACKY emit_tacky_static_duration_variables(): Invalid type: '{}'", typ.to_string()); }
                     }
                 InitialValue::NoInitializer => { continue; }

@@ -20,6 +20,7 @@ pub enum Instruction {
     Return(Val),
     SignExtend(Val /* src */, Val /* dst */),
     Truncate(Val /* src */, Val /* dst */),
+    ZeroExtend(Val /* src */, Val /* dst */),
     Unary(UnaryOperator, Val /* src */, Val /* dst */),
     Binary(BinaryOperator, Val /* src 1 */, Val /* src 2 */, Val /* dst */),
     Copy(Val /* src */, Val /* dst */),
