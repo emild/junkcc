@@ -437,12 +437,12 @@ fn pretty_print_variable_declaration(decl: &VariableDeclaration, indent: usize)
 {
     match decl {
         VariableDeclaration::Declarant(var_name, Some(expr_init), typ, stg_class) => {
-            println!("{}{}{} Var {} = (", " ".repeat(indent), storage_class_str(stg_class), type_str(typ), var_name);
+            println!("{}{} {} Var {} = (", " ".repeat(indent), storage_class_str(stg_class), type_str(typ), var_name);
             pretty_print_typed_expression(expr_init, indent + 4);
             println!("{})", " ".repeat(indent));
         },
         VariableDeclaration::Declarant(var_name,None, typ, stg_class ) => {
-            println!("{}{}{} var {}", " ".repeat(indent),  storage_class_str(stg_class), type_str(typ), var_name);
+            println!("{}{} {} var {}", " ".repeat(indent),  storage_class_str(stg_class), type_str(typ), var_name);
         }
     }
 }
