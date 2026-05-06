@@ -196,10 +196,17 @@ fn emit_cc(cc: &CC, buf_writer: &mut BufWriter<fs::File>) -> std::io::Result<()>
     let cc_str = match cc {
         CC::E  => "e",
         CC::NE => "ne",
+
         CC::L  => "l",
         CC::LE => "le",
         CC::G  => "g",
-        CC::GE => "ge"
+        CC::GE => "ge",
+
+        CC::B  => "b",
+        CC::BE => "be",
+        CC::A  => "a",
+        CC::AE => "ae"
+
     };
 
     write!(buf_writer, "{}", cc_str)?;
@@ -360,9 +367,10 @@ fn emit_body(instructions: &Vec<Instruction>, assembly_symbol_table: &HashMap<St
             Instruction::Label(label) => {
                 writeln!(buf_writer, "L.{}:", label)?;
             },
-          //  _ => {
-          //      return Err(std::io::Error::other(format!("Unsupported instruction '{:?}'", ins)));
-          //  }
+            //TODO: REMOVE
+            _ => {
+                return Err(std::io::Error::other(format!("Unsupported instruction '{:?}'", ins)));
+            }
         };
     }
     Ok(())

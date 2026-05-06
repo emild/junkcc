@@ -64,10 +64,16 @@ fn pretty_print_conditional_jump(cc: &CC)
     match cc {
         CC::E  => print!("je"),
         CC::NE => print!("jne"),
+
         CC::L  => print!("jl"),
         CC::LE => print!("jle"),
         CC::G  => print!("jg"),
-        CC::GE => print!("jge")
+        CC::GE => print!("jge"),
+
+        CC::B  => print!("jb"),
+        CC::BE => print!("jbe"),
+        CC::A  => print!("ja"),
+        CC::AE => print!("jae"),
     }
 }
 
@@ -76,10 +82,16 @@ fn pretty_print_setcc(cc: &CC)
     match cc {
         CC::E  => print!("sete"),
         CC::NE => print!("setne"),
+
         CC::L  => print!("setl"),
         CC::LE => print!("setle"),
         CC::G  => print!("setg"),
-        CC::GE => print!("setge")
+        CC::GE => print!("setge"),
+
+        CC::B  => print!("setb"),
+        CC::BE => print!("setbe"),
+        CC::A  => print!("seta"),
+        CC::AE => print!("setae"),
     }
 }
 
@@ -135,6 +147,11 @@ fn pretty_print_instructions(instructions: &Vec<Instruction>, indent: usize)
                 pretty_print_operand(divisor);
                 println!("");
             },
+            Instruction::Div(ass_type, divisor) => {
+                print!("{}div typ={}, divisor=", " ".repeat(indent), assembly_type_suffix(ass_type));
+                pretty_print_operand(divisor);
+                println!("");
+            },
             Instruction::Jmp(label) => {
                 println!("{}jmp {}", " ".repeat(indent), label);
             },
@@ -162,7 +179,15 @@ fn pretty_print_instructions(instructions: &Vec<Instruction>, indent: usize)
                 print!(", dest=");
                 pretty_print_operand(&dest);
                 println!("");
-            }
+            },
+            Instruction::MovZeroExtend(src, dst) => {
+                print!("{}MovZeroExtend src=", " ".repeat(indent));
+                pretty_print_operand(&src);
+                print!(", dest=");
+                pretty_print_operand(&dst);
+                println!("");
+            },
+
 
           //  _ => { panic!("Unknown instruction: '{:?}'", ins); }
         };

@@ -52,7 +52,7 @@ fn fixup_instruction_operands(instruction: &Instruction) -> Option<Vec<Instructi
                 Instruction::Movsx(Operand::Reg(Register::R10), Operand::Reg(Register::R11)),
                 Instruction::Mov(AssemblyType::QuadWord, Operand::Reg(Register::R11), dst.clone())
             ])
-        }
+        },
 
         //Movsx doesn't accept immediate as source
         Instruction::Movsx(Operand::Imm(src_c), Operand::Reg(dest_reg)) => {
@@ -68,7 +68,24 @@ fn fixup_instruction_operands(instruction: &Instruction) -> Option<Vec<Instructi
                 Instruction::Movsx(src.clone(), Operand::Reg(Register::R11)),
                 Instruction::Mov(AssemblyType::QuadWord, Operand::Reg(Register::R11), dst.clone())
             ])
-        }
+        },
+
+        //MovZeroExtend to register is just a plain mov
+        Instruction::MovZeroExtend(src, Operand::Reg(dst_reg))  => {
+            Some(vec![
+                Instruction::Mov(AssemblyType::QuadWord, Operand::Imm(0), Operand::Reg(dst_reg.clone())),
+                Instruction::Mov(AssemblyType::LongWord, src.clone(), Operand::Reg(dst_reg.clone())),
+            ])
+        },
+
+        //MovZeroExtend does not accept memory as destination
+        Instruction::MovZeroExtend(src, dst) if dst.is_mem() => {
+            Some(vec![
+                Instruction::Mov(AssemblyType::QuadWord, Operand::Imm(0), Operand::Reg(Register::R11)),
+                Instruction::Mov(AssemblyType::LongWord, src.clone(), Operand::Reg(Register::R11)),
+                Instruction::Mov(AssemblyType::QuadWord, Operand::Reg(Register::R11), dst.clone())
+            ])
+        },
 
         //Shift count must be in CL
         Instruction::Binary(binop, ass_type, src, dst) if *binop == BinaryOperator::Shl || *binop == BinaryOperator::Shr => {
@@ -155,6 +172,13 @@ fn fixup_instruction_operands(instruction: &Instruction) -> Option<Vec<Instructi
             ])
         },
 
+        //Div: Divisor cannot be immediate
+        Instruction::Div(ass_type, Operand::Imm(c)) => {
+            Some(vec![
+                Instruction::Mov(ass_type.clone(), Operand::Imm(*c), Operand::Reg(Register::R10)),
+                Instruction::Idiv(ass_type.clone(), Operand::Reg(Register::R10))
+            ])
+        },
 
         //Cmp: Quad versions: If the first operand is immediate, only its lower 32 bits are considered, and
         //the operand is sign-extended to 64 bits. If the actual value of the immediate cannot be represented on

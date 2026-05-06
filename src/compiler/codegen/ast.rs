@@ -49,10 +49,18 @@ pub enum Register {
 pub enum CC { //Condition Code
     E,
     NE,
+
+    /* signed comparisons */
     L,
     LE,
     G,
-    GE
+    GE,
+
+    /* unsigned comparisons */
+    B,
+    BE,
+    A,
+    AE
 }
 
 #[derive(Debug, Clone)]
@@ -119,10 +127,12 @@ pub enum BinaryOperator {
 pub enum Instruction {
     Mov(AssemblyType, Operand /* src */, Operand /* dst */),
     Movsx(Operand /* src */, Operand /* dst */),
+    MovZeroExtend(Operand /* src */, Operand /* dst */),
     Unary(UnaryOperator, AssemblyType, Operand),
     Binary(BinaryOperator, AssemblyType, Operand, Operand),
     Cmp(AssemblyType, Operand, Operand),
     Idiv(AssemblyType, Operand),
+    Div(AssemblyType, Operand),
     Cdq(AssemblyType),
     Jmp(String),
     JmpCC(CC, String),

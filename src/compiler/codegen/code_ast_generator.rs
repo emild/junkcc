@@ -13,8 +13,10 @@ use super::ast::*;
 fn convert_type_to_assembly_type(typ: &Type) -> AssemblyType
 {
     match typ {
-        Type::Int  => AssemblyType::LongWord,
-        Type::Long => AssemblyType::QuadWord,
+        Type::Int |
+        Type::UInt  => AssemblyType::LongWord,
+        Type::Long|
+        Type::ULong => AssemblyType::QuadWord,
         _ => { panic!("code_ast_generator: Attempt to call convert_type_to_assembly_type() on non scalar type: '{:?}'", typ); }
     }
 }
@@ -30,10 +32,14 @@ fn get_symbol_assembly_type(sym: &String, symbol_table: &HashMap<String, SymbolI
     }
 }
 
+
+
 fn get_tacky_value_assembly_type(val: &tacky::ast::Val, symbol_table: &HashMap<String, SymbolInfo>) -> AssemblyType
 {
     match val {
-        tacky::ast::Val::Var(var_name) => get_symbol_assembly_type(var_name, symbol_table),
+        tacky::ast::Val::Var(var_name)
+            => get_symbol_assembly_type(var_name, symbol_table),
+
         tacky::ast::Val::Constant(Const::ConstInt(_)) |
         tacky::ast::Val::Constant(Const::ConstUInt(_))
             => AssemblyType::LongWord,
@@ -44,6 +50,34 @@ fn get_tacky_value_assembly_type(val: &tacky::ast::Val, symbol_table: &HashMap<S
     }
 }
 
+
+fn is_tacky_variable_signed(var_name: &String, symbol_table: &HashMap<String, SymbolInfo>) -> bool
+{
+    if let Some(sym_info) = symbol_table.get(var_name) {
+        sym_info.typ.is_signed()
+    }
+    else {
+        panic!("code_ast_generator: Symbol '{}' not found in [frontend] symbol table", var_name);
+    }
+
+}
+
+
+fn is_tacky_value_signed(val: &tacky::ast::Val, symbol_table: &HashMap<String, SymbolInfo>) -> bool
+{
+    match val {
+        tacky::ast::Val::Var(var_name)
+            => is_tacky_variable_signed(var_name, symbol_table),
+
+        tacky::ast::Val::Constant(Const::ConstInt(_)) |
+        tacky::ast::Val::Constant(Const::ConstLong(_))
+            => true,
+
+        tacky::ast::Val::Constant(Const::ConstUInt(_)) |
+        tacky::ast::Val::Constant(Const::ConstULong(_))
+            => false
+    }
+}
 
 
 fn convert_tacky_value_to_operand(val: &tacky::ast::Val) -> Result<Operand, String>
@@ -137,6 +171,7 @@ fn generate_code_for_tacky_unary_instruction(
 
 
 fn generate_code_for_remainder_instruction(
+    is_signed: bool,
     src1: &tacky::ast::Val,
     src2: &tacky::ast::Val,
     dst: &tacky::ast::Val,
@@ -149,12 +184,23 @@ fn generate_code_for_remainder_instruction(
     let src2 = convert_tacky_value_to_operand(src2)?;
     let dst  = convert_tacky_value_to_operand(dst)?;
 
-    let mut div_instructions = vec![
-        Instruction::Mov(src1_ass_type.clone(), src1.clone(), Operand::Reg(Register::AX)),
-        Instruction::Cdq(src1_ass_type.clone()),
-        Instruction::Idiv(src1_ass_type.clone(), src2.clone()),
-        Instruction::Mov(src1_ass_type.clone(), Operand::Reg(Register::DX), dst.clone())
-    ];
+    let mut div_instructions =
+    if is_signed {
+        vec![
+            Instruction::Mov(src1_ass_type.clone(), src1.clone(), Operand::Reg(Register::AX)),
+            Instruction::Cdq(src1_ass_type.clone()),
+            Instruction::Idiv(src1_ass_type.clone(), src2.clone()),
+            Instruction::Mov(src1_ass_type.clone(), Operand::Reg(Register::DX), dst.clone())
+        ]
+    }
+    else {
+        vec![
+            Instruction::Mov(src1_ass_type.clone(), src1.clone(), Operand::Reg(Register::AX)),
+            Instruction::Mov(src1_ass_type.clone(), Operand::Imm(0), Operand::Reg(Register::DX)),
+            Instruction::Div(src1_ass_type.clone(), src2.clone()),
+            Instruction::Mov(src1_ass_type.clone(), Operand::Reg(Register::DX), dst.clone())
+        ]
+    };
 
     instructions.append(&mut div_instructions);
 
@@ -163,6 +209,7 @@ fn generate_code_for_remainder_instruction(
 
 
 fn generate_code_for_divide_instruction(
+    is_signed: bool,
     src1: &tacky::ast::Val,
     src2: &tacky::ast::Val,
     dst: &tacky::ast::Val,
@@ -175,12 +222,22 @@ fn generate_code_for_divide_instruction(
     let src2 = convert_tacky_value_to_operand(src2)?;
     let dst  = convert_tacky_value_to_operand(dst)?;
 
-    let mut div_instructions = vec![
-        Instruction::Mov(src1_ass_type.clone(), src1.clone(), Operand::Reg(Register::AX)),
-        Instruction::Cdq(src1_ass_type.clone()),
-        Instruction::Idiv(src1_ass_type.clone(), src2.clone()),
-        Instruction::Mov(src1_ass_type.clone(), Operand::Reg(Register::AX), dst.clone())
-    ];
+    let mut div_instructions = if is_signed {
+        vec![
+            Instruction::Mov(src1_ass_type.clone(), src1.clone(), Operand::Reg(Register::AX)),
+            Instruction::Cdq(src1_ass_type.clone()),
+            Instruction::Idiv(src1_ass_type.clone(), src2.clone()),
+            Instruction::Mov(src1_ass_type.clone(), Operand::Reg(Register::AX), dst.clone())
+        ]
+    }
+    else {
+        vec![
+            Instruction::Mov(src1_ass_type.clone(), src1.clone(), Operand::Reg(Register::AX)),
+            Instruction::Mov(src1_ass_type.clone(), Operand::Imm(0), Operand::Reg(Register::DX)),
+            Instruction::Idiv(src1_ass_type.clone(), src2.clone()),
+            Instruction::Mov(src1_ass_type.clone(), Operand::Reg(Register::AX), dst.clone())
+        ]
+    };
 
     instructions.append(&mut div_instructions);
 
@@ -241,16 +298,17 @@ fn generate_code_for_tacky_binary_instruction(
     symbol_table: &HashMap<String, SymbolInfo>,
     instructions: &mut Vec<Instruction>) -> Result<(), String>
 {
-    //let src1 = convert_tacky_value_to_operand(src1)?;
-    //let src2 = convert_tacky_value_to_operand(src2)?;
-    //let dst  = convert_tacky_value_to_operand(dst)?;
+    let is_src1_signed = is_tacky_value_signed(src1, symbol_table);
+    let is_src2_signed = is_tacky_value_signed(src2, symbol_table);
+    assert_eq!(is_src1_signed, is_src2_signed);
+    let is_signed = is_src1_signed;
 
     let result = match bin_op {
         tacky::ast::BinaryOperator::Add => generate_code_for_binary_instruction(&BinaryOperator::Add, &src1, &src2, &dst, symbol_table, instructions)?,
         tacky::ast::BinaryOperator::Subtract => generate_code_for_binary_instruction(&BinaryOperator::Sub, &src1, &src2, &dst, symbol_table, instructions)?,
         tacky::ast::BinaryOperator::Multiply => generate_code_for_binary_instruction(&BinaryOperator::Mul, &src1, &src2, &dst, symbol_table, instructions)?,
-        tacky::ast::BinaryOperator::Divide => generate_code_for_divide_instruction(&src1, &src2, &dst, symbol_table, instructions)?,
-        tacky::ast::BinaryOperator::Remainder => generate_code_for_remainder_instruction(&src1, &src2, &dst, symbol_table, instructions)?,
+        tacky::ast::BinaryOperator::Divide => generate_code_for_divide_instruction(is_signed, &src1, &src2, &dst, symbol_table, instructions)?,
+        tacky::ast::BinaryOperator::Remainder => generate_code_for_remainder_instruction(is_signed, &src1, &src2, &dst, symbol_table, instructions)?,
         tacky::ast::BinaryOperator::BitwiseAnd => generate_code_for_binary_instruction(&BinaryOperator::And, &src1, &src2, &dst, symbol_table, instructions)?,
         tacky::ast::BinaryOperator::BitwiseOr => generate_code_for_binary_instruction(&BinaryOperator::Or, &src1, &src2, &dst, symbol_table, instructions)?,
         tacky::ast::BinaryOperator::BitwiseXor => generate_code_for_binary_instruction(&BinaryOperator::Xor, &src1, &src2, &dst, symbol_table, instructions)?,
@@ -258,12 +316,24 @@ fn generate_code_for_tacky_binary_instruction(
         tacky::ast::BinaryOperator::ShiftRight => generate_code_for_binary_instruction(&BinaryOperator::Shr, &src1, &src2, &dst, symbol_table, instructions)?,
         tacky::ast::BinaryOperator::Equal => generate_code_for_condition(&CC::E, &src1, &src2, &dst, symbol_table, instructions)?,
         tacky::ast::BinaryOperator::NotEqual => generate_code_for_condition(&CC::NE, &src1, &src2, &dst, symbol_table, instructions)?,
-        tacky::ast::BinaryOperator::LessThan => generate_code_for_condition(&CC::L, &src1, &src2, &dst, symbol_table, instructions)?,
-        tacky::ast::BinaryOperator::LessOrEqual => generate_code_for_condition(&CC::LE, &src1, &src2, &dst, symbol_table, instructions)?,
-        tacky::ast::BinaryOperator::GreaterThan => generate_code_for_condition(&CC::G, &src1, &src2, &dst, symbol_table, instructions)?,
-        tacky::ast::BinaryOperator::GreaterOrEqual => generate_code_for_condition(&CC::GE, &src1, &src2, &dst, symbol_table, instructions)?,
+        tacky::ast::BinaryOperator::LessThan => {
+            let cc = if is_signed { CC::L } else { CC::B };
+            generate_code_for_condition(&cc, &src1, &src2, &dst, symbol_table, instructions)?
+        },
+        tacky::ast::BinaryOperator::LessOrEqual => {
+            let cc = if is_signed { CC::LE } else { CC::BE };
+            generate_code_for_condition(&cc, &src1, &src2, &dst, symbol_table, instructions)?
+        },
+        tacky::ast::BinaryOperator::GreaterThan => {
+            let cc = if is_signed { CC::G } else { CC::A };
+            generate_code_for_condition(&cc, &src1, &src2, &dst, symbol_table, instructions)?
+        },
+        tacky::ast::BinaryOperator::GreaterOrEqual => {
+            let cc = if is_signed { CC::GE } else { CC:: AE };
+            generate_code_for_condition(&cc, &src1, &src2, &dst, symbol_table, instructions)?
+        }
 
-        //_ => { panic!("codegen::generate_binary_instruction(): Unimplemented binop: {:?}", bin_op); }
+        // _ => { panic!("codegen::generate_binary_instruction(): Unimplemented binop: {:?}", bin_op); }
     };
 
     Ok(result)
@@ -440,6 +510,14 @@ fn generate_code_for_tacky_truncate(src: &tacky::ast::Val, dst: &tacky::ast::Val
     Ok(())
 }
 
+fn generate_code_for_tacky_zero_extend(src: &tacky::ast::Val, dst: &tacky::ast::Val, _symbol_table: &HashMap<String, SymbolInfo>, instructions: &mut Vec<Instruction>) -> Result<(), String>
+{
+    let src_op = convert_tacky_value_to_operand(src)?;
+    let dst_op = convert_tacky_value_to_operand(dst)?;
+    instructions.push(Instruction::MovZeroExtend(src_op, dst_op));
+
+    Ok(())
+}
 
 fn generate_code_for_tacky_instructions(tacky_instructions: &Vec<tacky::ast::Instruction>, symbol_table: &HashMap<String, SymbolInfo>, instructions: &mut Vec<Instruction>) -> Result<(), String>
 {
@@ -479,7 +557,7 @@ fn generate_code_for_tacky_instructions(tacky_instructions: &Vec<tacky::ast::Ins
                 generate_code_for_tacky_truncate(src, dst, symbol_table, instructions)?;
             },
             tacky::ast::Instruction::ZeroExtend(src, dst ) => {
-                panic!("Code gen: No support for ZeroExtend (YET)");
+                generate_code_for_tacky_zero_extend(src, dst, symbol_table, instructions)?;
             }
 
 

@@ -69,7 +69,12 @@ fn replace_pseudo_operands_in_function_body(instructions: &mut Vec<Instruction>,
                 let new_src = pseudo_operand_state.replace_operand(&src, &AssemblyType::LongWord);
                 let new_dst = pseudo_operand_state.replace_operand(&dst, &AssemblyType::QuadWord);
                 Some(Instruction::Movsx(new_src.clone(), new_dst.clone()))
-            }
+            },
+            Instruction::MovZeroExtend(src, dst) => {
+                let new_src = pseudo_operand_state.replace_operand(&src, &AssemblyType::LongWord);
+                let new_dst = pseudo_operand_state.replace_operand(&dst, &AssemblyType::QuadWord);
+                Some(Instruction::MovZeroExtend(new_src, new_dst))
+            },
             Instruction::Push(src) => {
                 let new_src = pseudo_operand_state.replace_operand(&src, &AssemblyType::QuadWord);
                 Some(Instruction::Push(new_src))
@@ -86,6 +91,10 @@ fn replace_pseudo_operands_in_function_body(instructions: &mut Vec<Instruction>,
             Instruction::Idiv(ass_type, divisor) => {
                 let new_divisor = pseudo_operand_state.replace_operand(&divisor, ass_type);
                 Some(Instruction::Idiv(ass_type.clone(), new_divisor))
+            },
+            Instruction::Div(ass_type, divisor) => {
+                let new_divisor = pseudo_operand_state.replace_operand(&divisor, ass_type);
+                Some(Instruction::Div(ass_type.clone(), new_divisor))
             },
             Instruction::Cmp(ass_type, src1, src2) => {
                 let new_src1 = pseudo_operand_state.replace_operand(&src1, ass_type);
