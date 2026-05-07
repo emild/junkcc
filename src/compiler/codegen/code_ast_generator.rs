@@ -234,7 +234,7 @@ fn generate_code_for_divide_instruction(
         vec![
             Instruction::Mov(src1_ass_type.clone(), src1.clone(), Operand::Reg(Register::AX)),
             Instruction::Mov(src1_ass_type.clone(), Operand::Imm(0), Operand::Reg(Register::DX)),
-            Instruction::Idiv(src1_ass_type.clone(), src2.clone()),
+            Instruction::Div(src1_ass_type.clone(), src2.clone()),
             Instruction::Mov(src1_ass_type.clone(), Operand::Reg(Register::AX), dst.clone())
         ]
     };
