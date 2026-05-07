@@ -339,6 +339,12 @@ fn emit_body(instructions: &Vec<Instruction>, assembly_symbol_table: &HashMap<St
                 emit_operand(divisor, &op_size, buf_writer)?;
                 writeln!(buf_writer, "")?;
             },
+            Instruction::Div(ass_type, divisor) => {
+                write!(buf_writer, "{}div{} ", " ".repeat(16), instruction_suffix(ass_type))?;
+                let op_size = get_operand_size(ass_type);
+                emit_operand(divisor, &op_size, buf_writer)?;
+                writeln!(buf_writer, "")?;
+            },
             Instruction::Cmp(ass_type, src1, src2) => {
                 let op_size = get_operand_size(ass_type);
                 write!(buf_writer, "{}cmp{} ", " ".repeat(16), instruction_suffix(ass_type))?;
@@ -363,14 +369,20 @@ fn emit_body(instructions: &Vec<Instruction>, assembly_symbol_table: &HashMap<St
             Instruction::Call(label) => {
                 write!(buf_writer, "{}", " ".repeat(16))?;
                 emit_call_instruction(label, assembly_symbol_table, buf_writer)?;
-            }
+            },
             Instruction::Label(label) => {
                 writeln!(buf_writer, "L.{}:", label)?;
             },
-            //TODO: REMOVE
-            _ => {
-                return Err(std::io::Error::other(format!("Unsupported instruction '{:?}'", ins)));
+            Instruction::MovZeroExtend(_, _) => {
+                //MovZeroExtend should have been replaced by other instructions
+                //before the code emission stage
+                panic!("Code Emitter: Attempt to emit MovZeroExtend");
             }
+
+            //TODO: REMOVE
+            //_ => {
+            //    return Err(std::io::Error::other(format!("Unsupported instruction '{:?}'", ins)));
+            //}
         };
     }
     Ok(())
@@ -379,9 +391,16 @@ fn emit_body(instructions: &Vec<Instruction>, assembly_symbol_table: &HashMap<St
 fn emit_zero_static_init(init_value: &StaticInit, buf_writer: &mut BufWriter<fs::File>) -> std::io::Result<()>
 {
     let op_size = match init_value {
-        StaticInit::IntInit(0) => 4,
-        StaticInit::LongInit(0) => 8,
-        _ => { panic!("Attempt to place non-zero value '{:?}' in .bss", init_value); }
+        StaticInit::IntInit(0)  |
+        StaticInit::UIntInit(0)
+            => 4,
+
+        StaticInit::LongInit(0) |
+        StaticInit::ULongInit(0)
+            => 8,
+
+        _
+            => { panic!("Attempt to place non-zero value '{:?}' in .bss", init_value); }
     };
 
     writeln!(buf_writer, "{}.zero {}", " ".repeat(16), op_size)
