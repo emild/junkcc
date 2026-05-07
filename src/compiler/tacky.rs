@@ -340,7 +340,7 @@ fn emit_tacky_expression(typed_expr: &TypedExpression, instructions: &mut Vec<In
                 else if expr_type.size() > typ.size() {
                     instructions.push(Instruction::Truncate(expr_result, dst.clone()));
                 }
-                else if typ.is_signed() {
+                else if expr_type.is_signed() {
                     instructions.push(Instruction::SignExtend(expr_result, dst.clone()));
                 }
                 else {
