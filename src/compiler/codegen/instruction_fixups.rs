@@ -73,7 +73,7 @@ fn fixup_instruction_operands(instruction: &Instruction) -> Option<Vec<Instructi
         //MovZeroExtend to register is just a plain mov
         Instruction::MovZeroExtend(src, Operand::Reg(dst_reg))  => {
             Some(vec![
-                Instruction::Mov(AssemblyType::QuadWord, Operand::Imm(0), Operand::Reg(dst_reg.clone())),
+                //Movl sets the upper 4 bytes of the destination register to 0
                 Instruction::Mov(AssemblyType::LongWord, src.clone(), Operand::Reg(dst_reg.clone())),
             ])
         },
@@ -81,7 +81,7 @@ fn fixup_instruction_operands(instruction: &Instruction) -> Option<Vec<Instructi
         //MovZeroExtend does not accept memory as destination
         Instruction::MovZeroExtend(src, dst) if dst.is_mem() => {
             Some(vec![
-                Instruction::Mov(AssemblyType::QuadWord, Operand::Imm(0), Operand::Reg(Register::R11)),
+                //Movl sets the upper 4 bytes of R11 to zero
                 Instruction::Mov(AssemblyType::LongWord, src.clone(), Operand::Reg(Register::R11)),
                 Instruction::Mov(AssemblyType::QuadWord, Operand::Reg(Register::R11), dst.clone())
             ])
