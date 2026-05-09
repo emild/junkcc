@@ -176,8 +176,6 @@ fn emit_binary_operator(binary_operator: &BinaryOperator, ass_type: &AssemblyTyp
         BinaryOperator::And => ("and",  &op_size, &op_size),
         BinaryOperator::Or  => ("or",   &op_size, &op_size),
         BinaryOperator::Xor => ("xor",  &op_size, &op_size),
-        BinaryOperator::Shl => ("sal",  &OperandSize::Byte, &op_size),
-        BinaryOperator::Shr => ("sar",  &OperandSize::Byte, &op_size),
         _ => { return Err(std::io::Error::other(format!("Emit Code: Unsupported binary operand, got '{:?}'", binary_operator))); }
     };
 
@@ -190,6 +188,25 @@ fn emit_binary_operator(binary_operator: &BinaryOperator, ass_type: &AssemblyTyp
     Ok(())
 }
 
+
+fn emit_shift(instruction: &Instruction, ass_type: &AssemblyType, shift_count: &Operand, dest: &Operand, buf_writer: &mut BufWriter<fs::File>) -> std::io::Result<()>
+{
+    let dst_size = get_operand_size(ass_type);
+    let mnemonic = match instruction {
+        Instruction::Shl(_,_,_)  => "shl",
+        Instruction::Shrl(_,_,_) => "shr",
+        Instruction::Shra(_,_,_) => "sar",
+        _ => { panic!("Not a shift instruction: '{:?}'", instruction);}
+    };
+
+    write!(buf_writer, "{}{}{} ", " ".repeat(16), mnemonic, instruction_suffix(ass_type))?;
+    emit_operand(shift_count, &OperandSize::Byte, buf_writer)?;
+    write!(buf_writer, ", ")?;
+    emit_operand(dest, &dst_size, buf_writer)?;
+    writeln!(buf_writer, "")?;
+
+    Ok(())
+}
 
 fn emit_cc(cc: &CC, buf_writer: &mut BufWriter<fs::File>) -> std::io::Result<()>
 {
@@ -333,6 +350,11 @@ fn emit_body(instructions: &Vec<Instruction>, assembly_symbol_table: &HashMap<St
             Instruction::Binary(binary_operator, ass_type, src, dst) => {
                 emit_binary_operator(binary_operator, ass_type, src, dst, buf_writer)?;
             },
+            Instruction::Shl(ass_type, shift_count, dest) |
+            Instruction::Shrl(ass_type, shift_count, dest)|
+            Instruction::Shra(ass_type, shift_count, dest) => {
+                emit_shift(&ins, ass_type, shift_count, dest, buf_writer)?;
+            }
             Instruction::Idiv(ass_type, divisor) => {
                 write!(buf_writer, "{}idiv{} ", " ".repeat(16), instruction_suffix(ass_type))?;
                 let op_size = get_operand_size(ass_type);

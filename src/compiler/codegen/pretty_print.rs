@@ -52,8 +52,6 @@ fn pretty_print_binary_operator(binary_op: &BinaryOperator)
         BinaryOperator::And => { print!("and"); },
         BinaryOperator::Or  => { print!("or");  },
         BinaryOperator::Xor => { print!("xor"); },
-        BinaryOperator::Shl => { print!("sal"); },
-        BinaryOperator::Shr => { print!("sar"); },
         //_ => { panic!("Unexpected binary operator: '{:?}'", binary_op); }
     }
 }
@@ -141,6 +139,27 @@ fn pretty_print_instructions(instructions: &Vec<Instruction>, indent: usize)
             },
             Instruction::Cdq(ass_type) => {
                 println!("{}cdq typ={}", " ".repeat(indent), assembly_type_suffix(ass_type));
+            },
+            Instruction::Shl(ass_type, shift_count, dest) => {
+                print!("{}shl typ={}, count=", " ".repeat(indent), assembly_type_suffix(ass_type));
+                pretty_print_operand(&shift_count);
+                print!(", dest=");
+                pretty_print_operand(&dest);
+                println!("");
+            },
+            Instruction::Shrl(ass_type, shift_count, dest) => {
+                print!("{}srl typ={}, count=", " ".repeat(indent), assembly_type_suffix(ass_type));
+                pretty_print_operand(&shift_count);
+                print!(", dest=");
+                pretty_print_operand(&dest);
+                println!("");
+            },
+            Instruction::Shra(ass_type, shift_count, dest) => {
+                print!("{}sra typ={}, count=", " ".repeat(indent), assembly_type_suffix(ass_type));
+                pretty_print_operand(&shift_count);
+                print!(", dest=");
+                pretty_print_operand(&dest);
+                println!("");
             },
             Instruction::Idiv(ass_type, divisor) => {
                 print!("{}idiv typ={}, divisor=", " ".repeat(indent), assembly_type_suffix(ass_type));

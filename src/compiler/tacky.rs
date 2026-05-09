@@ -268,7 +268,7 @@ fn emit_tacky_expression(typed_expr: &TypedExpression, instructions: &mut Vec<In
                 parser::ast::BinaryOperator::ShiftRight |
                 parser::ast::BinaryOperator::ShiftLeftAssign |
                 parser::ast::BinaryOperator::ShiftRightAssign => {
-                    //assert_eq!(typ2, Type::Int);
+                    assert_eq!(typ2, Type::Int);
                 },
                 _ => { assert_eq!(typ1, typ2); }
             };

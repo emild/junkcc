@@ -117,9 +117,7 @@ pub enum BinaryOperator {
     Mul,
     Or,
     And,
-    Xor,
-    Shl,
-    Shr
+    Xor
 }
 
 
@@ -133,6 +131,9 @@ pub enum Instruction {
     Cmp(AssemblyType, Operand, Operand),
     Idiv(AssemblyType, Operand),
     Div(AssemblyType, Operand),
+    Shl(AssemblyType, Operand /* shift count */, Operand /* target */),
+    Shra(AssemblyType, Operand /* shift count */, Operand /* target */),
+    Shrl(AssemblyType, Operand /* shift count */, Operand /* target */),
     Cdq(AssemblyType),
     Jmp(String),
     JmpCC(CC, String),

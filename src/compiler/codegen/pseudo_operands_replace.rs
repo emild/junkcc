@@ -96,6 +96,21 @@ fn replace_pseudo_operands_in_function_body(instructions: &mut Vec<Instruction>,
                 let new_divisor = pseudo_operand_state.replace_operand(&divisor, ass_type);
                 Some(Instruction::Div(ass_type.clone(), new_divisor))
             },
+            Instruction::Shl(ass_type, src, dst) => {
+                let new_src = pseudo_operand_state.replace_operand(&src, ass_type);
+                let new_dst = pseudo_operand_state.replace_operand(&dst, ass_type);
+                Some(Instruction::Shl(ass_type.clone(), new_src, new_dst))
+            },
+            Instruction::Shra(ass_type, src, dst) => {
+                let new_src = pseudo_operand_state.replace_operand(&src, ass_type);
+                let new_dst = pseudo_operand_state.replace_operand(&dst, ass_type);
+                Some(Instruction::Shra(ass_type.clone(), new_src, new_dst))
+            },
+            Instruction::Shrl(ass_type, src, dst) => {
+                let new_src = pseudo_operand_state.replace_operand(&src, ass_type);
+                let new_dst = pseudo_operand_state.replace_operand(&dst, ass_type);
+                Some(Instruction::Shrl(ass_type.clone(), new_src, new_dst))
+            },
             Instruction::Cmp(ass_type, src1, src2) => {
                 let new_src1 = pseudo_operand_state.replace_operand(&src1, ass_type);
                 let new_src2 = pseudo_operand_state.replace_operand(&src2, ass_type);

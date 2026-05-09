@@ -87,18 +87,52 @@ fn fixup_instruction_operands(instruction: &Instruction) -> Option<Vec<Instructi
             ])
         },
 
-        //Shift count must be in CL
-        Instruction::Binary(binop, ass_type, src, dst) if *binop == BinaryOperator::Shl || *binop == BinaryOperator::Shr => {
+        //Shift count must be either immediate or in CL
+        Instruction::Shl(ass_type, src, dst) => {
             let result = match src {
-                Operand::Reg(Register::CX) => None,
-                _ => Some(vec![
-                    Instruction::Mov(AssemblyType::LongWord, src.clone(), Operand::Reg(Register::CX)),
-                    Instruction::Binary(binop.clone(), ass_type.clone(), Operand::Reg(Register::CX), dst.clone())
-                ])
+                Operand::Reg(Register::CX) |
+                Operand::Imm(_)
+                    => None,
+                _
+                    => Some(vec![
+                        Instruction::Mov(AssemblyType::LongWord, src.clone(), Operand::Reg(Register::CX)),
+                        Instruction::Shl(ass_type.clone(), Operand::Reg(Register::CX), dst.clone())
+                    ])
             };
 
             result
         },
+
+        Instruction::Shrl(ass_type, src, dst) => {
+            let result = match src {
+                Operand::Reg(Register::CX) |
+                Operand::Imm(_)
+                    => None,
+                _
+                    => Some(vec![
+                        Instruction::Mov(AssemblyType::LongWord, src.clone(), Operand::Reg(Register::CX)),
+                        Instruction::Shrl(ass_type.clone(), Operand::Reg(Register::CX), dst.clone())
+                    ])
+            };
+
+            result
+        },
+
+        Instruction::Shra(ass_type, src, dst) => {
+            let result = match src {
+                Operand::Reg(Register::CX) |
+                Operand::Imm(_)
+                    => None,
+                _
+                    => Some(vec![
+                        Instruction::Mov(AssemblyType::LongWord, src.clone(), Operand::Reg(Register::CX)),
+                        Instruction::Shra(ass_type.clone(), Operand::Reg(Register::CX), dst.clone())
+                    ])
+            };
+
+            result
+        },
+
 
         //For quadword (64 bit) versions of Mul, if the source operand is immediate
         //only its lower 32 bits are considered. The operand is sign-extended to 64 bits
@@ -143,7 +177,7 @@ fn fixup_instruction_operands(instruction: &Instruction) -> Option<Vec<Instructi
         //For quadword (64 bit) versions of Add, Sub, And, Or, Xor, if the source operand is immediate
         //only its lower 32 bits are considered. The operand is sign-extended to 64 bits
         //If we need an operand beyond the 32 bit range, we must store it into a register first
-        Instruction::Binary(binop, AssemblyType::QuadWord, Operand::Imm(src_c), dst) if  *binop != BinaryOperator::Shl && *binop != BinaryOperator::Shr => {
+        Instruction::Binary(binop, AssemblyType::QuadWord, Operand::Imm(src_c), dst) => {
             if is_representable_on_32_bits(*src_c) {
                 None
             }

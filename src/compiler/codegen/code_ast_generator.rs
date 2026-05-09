@@ -245,8 +245,52 @@ fn generate_code_for_divide_instruction(
 }
 
 
+fn generate_code_for_shift_left_instruction(
+    src1: &tacky::ast::Val,
+    src2: &tacky::ast::Val,
+    dst: &tacky::ast::Val,
+    symbol_table: &HashMap<String, SymbolInfo>,
+    instructions: &mut Vec<Instruction>) -> Result<(), String>
+{
+    let src1_ass_type = get_tacky_value_assembly_type(src1, symbol_table);
 
-//add, sub, and mul
+    let src1 = convert_tacky_value_to_operand(src1)?;
+    let src2 = convert_tacky_value_to_operand(src2)?;
+    let dst  = convert_tacky_value_to_operand(dst)?;
+
+    instructions.push(Instruction::Mov(src1_ass_type.clone(), src1.clone(), dst.clone()));
+    instructions.push(Instruction::Shl(src1_ass_type.clone(), src2.clone(), dst.clone()));
+
+    Ok(())
+}
+
+fn generate_code_for_shift_right_instruction(
+    is_signed: bool,
+    src1: &tacky::ast::Val,
+    src2: &tacky::ast::Val,
+    dst: &tacky::ast::Val,
+    symbol_table: &HashMap<String, SymbolInfo>,
+    instructions: &mut Vec<Instruction>) -> Result<(), String>
+{
+    let src1_ass_type = get_tacky_value_assembly_type(src1, symbol_table);
+
+    let src1 = convert_tacky_value_to_operand(src1)?;
+    let src2 = convert_tacky_value_to_operand(src2)?;
+    let dst  = convert_tacky_value_to_operand(dst)?;
+
+    instructions.push(Instruction::Mov(src1_ass_type.clone(), src1.clone(), dst.clone()));
+    if is_signed {
+        instructions.push(Instruction::Shra(src1_ass_type.clone(), src2.clone(), dst.clone()));
+    }
+    else {
+        instructions.push(Instruction::Shrl(src1_ass_type.clone(), src2.clone(), dst.clone()));
+    }
+
+    Ok(())
+}
+
+
+//add, sub, mul, and, or, xor
 fn generate_code_for_binary_instruction(
     bin_op: &BinaryOperator,
     src1: &tacky::ast::Val,
@@ -300,7 +344,15 @@ fn generate_code_for_tacky_binary_instruction(
 {
     let is_src1_signed = is_tacky_value_signed(src1, symbol_table);
     let is_src2_signed = is_tacky_value_signed(src2, symbol_table);
-    assert_eq!(is_src1_signed, is_src2_signed);
+    match bin_op {
+        tacky::ast::BinaryOperator::ShiftLeft |
+        tacky::ast::BinaryOperator::ShiftRight => {
+            assert!(is_src2_signed);
+        },
+        _ => {
+            assert_eq!(is_src1_signed, is_src2_signed);
+        }
+    }
     let is_signed = is_src1_signed;
 
     let result = match bin_op {
@@ -312,8 +364,8 @@ fn generate_code_for_tacky_binary_instruction(
         tacky::ast::BinaryOperator::BitwiseAnd => generate_code_for_binary_instruction(&BinaryOperator::And, &src1, &src2, &dst, symbol_table, instructions)?,
         tacky::ast::BinaryOperator::BitwiseOr => generate_code_for_binary_instruction(&BinaryOperator::Or, &src1, &src2, &dst, symbol_table, instructions)?,
         tacky::ast::BinaryOperator::BitwiseXor => generate_code_for_binary_instruction(&BinaryOperator::Xor, &src1, &src2, &dst, symbol_table, instructions)?,
-        tacky::ast::BinaryOperator::ShiftLeft => generate_code_for_binary_instruction(&BinaryOperator::Shl, &src1, &src2, &dst, symbol_table, instructions)?,
-        tacky::ast::BinaryOperator::ShiftRight => generate_code_for_binary_instruction(&BinaryOperator::Shr, &src1, &src2, &dst, symbol_table, instructions)?,
+        tacky::ast::BinaryOperator::ShiftLeft => generate_code_for_shift_left_instruction(&src1, &src2, &dst, symbol_table, instructions)?,
+        tacky::ast::BinaryOperator::ShiftRight => generate_code_for_shift_right_instruction(is_signed, &src1, &src2, &dst, symbol_table, instructions)?,
         tacky::ast::BinaryOperator::Equal => generate_code_for_condition(&CC::E, &src1, &src2, &dst, symbol_table, instructions)?,
         tacky::ast::BinaryOperator::NotEqual => generate_code_for_condition(&CC::NE, &src1, &src2, &dst, symbol_table, instructions)?,
         tacky::ast::BinaryOperator::LessThan => {

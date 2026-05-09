@@ -201,9 +201,17 @@ fn typecheck_expr_assignment(binop: &Option<BinaryOperator>, left: &TypedExpress
         _ => { return Err(format!("Assignment to non-lvalue")); }
     };
 
-    //TODO / BUGBUG! TAKE CARE TO MAKE SURE THAT THE LEFT EXPRESSION IS *ALWAYS* EVALUATED ONCE!!!
+
     let result_expr = match binop {
+        Some(BinaryOperator::ShiftLeftAssign) |
+        Some(BinaryOperator::ShiftRightAssign) => {
+            let converted_right = convert_to(typed_right, &Type::Int);
+            let noncompound_binop = get_noncompound_operator(&binop.clone().unwrap())?;
+            let result = typex_set_type(Expression::Binary(noncompound_binop, Box::new(typed_left.clone()), Box::new(converted_right)), typ_left.clone());
+            Expression::Assignment(Box::new(typed_left), Box::new(result))
+        },
         Some(binop) => {
+            //TODO / BUGBUG! TAKE CARE TO MAKE SURE THAT THE LEFT EXPRESSION IS *ALWAYS* EVALUATED ONCE!!!
             let common_type = get_common_type(&typ_left, &typ_right);
             let converted_right = convert_to(typed_right, &common_type);
             let converted_left = convert_to(typed_left.clone(), &common_type);
@@ -266,12 +274,9 @@ fn typecheck_expr_binary(binop: &BinaryOperator, typed_left: &TypedExpression, t
 
         BinaryOperator::ShiftLeft |
         BinaryOperator::ShiftRight => {
-            //We convert the shift count to the type of the left operand, as this
-            //allows us more uniform handling for the rest of the code
-            //TODO: Check if this has serious performance impact
 
             let typ_left = typex_get_type(&typed_left);
-            let converted_right = convert_to(typed_right, &typ_left);
+            let converted_right = convert_to(typed_right, &Type::Int);
             (Expression::Binary(binop.clone(), Box::new(typed_left), Box::new(converted_right)), typ_left)
         },
 
@@ -283,8 +288,6 @@ fn typecheck_expr_binary(binop: &BinaryOperator, typed_left: &TypedExpression, t
         BinaryOperator::DivideAssign |
         BinaryOperator::MultiplyAssign |
         BinaryOperator::RemainderAssign |
-        BinaryOperator::ShiftLeftAssign |
-        BinaryOperator::ShiftRightAssign |
         BinaryOperator::SubtractAssign => {
             let typ_left = typex_get_type(&typed_left);
             let typ_right = typex_get_type(&typed_right);
@@ -294,6 +297,12 @@ fn typecheck_expr_binary(binop: &BinaryOperator, typed_left: &TypedExpression, t
             (Expression::Cast(typ_left.clone(), Box::new(ex)), typ_left)
         },
 
+        BinaryOperator::ShiftLeftAssign |
+        BinaryOperator::ShiftRightAssign => {
+            let typ_left = typex_get_type(&typed_left);
+            let converted_right = convert_to(typed_right, &Type::Int);
+            (Expression::Binary(binop.clone(), Box::new(typed_left), Box::new(converted_right)), typ_left)
+        },
         BinaryOperator::ConditionalMiddle => {
             panic!("Typecheck for ConditionalMiddle");
         }
