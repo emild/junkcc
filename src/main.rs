@@ -5,9 +5,9 @@ use log::{trace};
 fn main() -> Result<(), String> {
     env_logger::init();
 
-    let cfg = 
+    let cfg =
         Config::build(env::args())
-            .unwrap_or_else(|err| { 
+            .unwrap_or_else(|err| {
                 eprintln!("{err}");
                 std::process::exit(1);
             });
@@ -16,7 +16,7 @@ fn main() -> Result<(), String> {
     trace!("{cfg:?}");
 
     junkcc::run(cfg)
-        .unwrap_or_else(|err| { 
+        .unwrap_or_else(|err| {
                 eprintln!("{err}");
                 std::process::exit(1);
     });

@@ -4,6 +4,9 @@ use std::{collections::HashMap, fs::File};
 #[derive(Debug)]
 pub struct Config {
     pub input_file_paths: Vec<String>,
+    pub libraries: Vec<String>, //Should be of format: "-l<foo>"
+    pub library_search_paths: Vec<String>, //Should be of format -L<foo>
+    pub include_search_paths: Vec<String>, //Should be of format -I<foo>
     pub stop_after_lexer: bool,
     pub stop_after_parser: bool,
     pub stop_after_semantic_analysis: bool,
@@ -63,6 +66,47 @@ fn supported_file_types() -> Vec<String> {
 
 
 impl Config {
+
+    //accepts both -<opt> <value> and -<opt><value> forms
+    fn parse_value_option(
+        arg: &String,
+        args: &mut impl Iterator<Item=String>,
+        opt_map: &mut HashMap<&str, &mut Vec<String>>
+    ) -> Result<(), String>
+    {
+        if !arg.starts_with('-') {
+            return Err(format!("Option '{arg}' does not start with '-'"));
+        }
+
+        if arg.len()< 2 {
+            return Err(format!("Plain '-' is not a valid option"));
+        }
+
+        match opt_map.get_mut(&arg[1..2]) {
+            None => { return Err(format!("Invalid option: '{arg}'")); },
+            Some(str_vec) => {
+                let opt_val = if arg.len() > 2 {
+                    String::from(&arg[2..])
+                }
+                else {
+                    let next = args.next();
+                    if next.is_none() {
+                        return Err(format!("Option '{arg}' expects a value, but none was given"));
+                    }
+                    let arg_val = next.unwrap();
+                    if arg_val.starts_with("-") {
+                        return Err(format!("Option '{arg}' expects a value, but none was given"));
+                    }
+                    arg_val
+                };
+
+                (*str_vec).push(opt_val);
+            }
+        }
+
+        Ok(())
+    }
+
     pub fn build(mut args: impl Iterator<Item=String>) -> Result<Config, String>
     {
         args.next();
@@ -74,7 +118,7 @@ impl Config {
         let mut stop_after_assembly_generation = false;
         let mut do_not_link = false;
 
-        let mut opt_map = HashMap::from([
+        let mut flag_opt_map = HashMap::from([
             (String::from("--lex"), &mut stop_after_lexer),
             (String::from("--parse"), &mut stop_after_parser),
             (String::from("--validate"), &mut stop_after_semantic_analysis),
@@ -86,6 +130,15 @@ impl Config {
 
 
         let mut input_file_paths = vec![];
+        let mut include_search_paths: Vec<String> = vec![];
+        let mut library_search_paths: Vec<String> = vec![];
+        let mut libraries: Vec<String> = vec![];
+
+        let mut value_opt_map = HashMap::from([
+            ("I", &mut include_search_paths),
+            ("L", &mut library_search_paths),
+            ("l", &mut libraries)
+        ]);
 
         loop {
             let arg = args.next();
@@ -95,7 +148,7 @@ impl Config {
 
             let arg = arg.unwrap();
 
-            match opt_map.get_mut(&arg) {
+            match flag_opt_map.get_mut(&arg) {
                 Some(opt_val) => {
                     if **opt_val {
                         return Err(format!("Duplicate option: '{arg}'"));
@@ -104,7 +157,8 @@ impl Config {
                 },
                 None => {
                     if arg.starts_with("-") {
-                        return Err(format!("Invalid option: '{arg}'"));
+                        Self::parse_value_option(&arg, &mut args, &mut value_opt_map)?;
+                        continue;
                     }
 
                     if arg.len() < 3 {
@@ -128,6 +182,9 @@ impl Config {
 
         Ok(Config {
             input_file_paths: input_file_paths,
+            include_search_paths,
+            library_search_paths,
+            libraries,
             stop_after_lexer,
             stop_after_parser,
             stop_after_semantic_analysis,

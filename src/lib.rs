@@ -65,7 +65,7 @@ pub fn run(config: Config) -> Result<(), String>
         match config::get_file_type(&input_file_path) {
             Some(config::FileType::CSource) => {
                 let pp_file_path = get_pp_filename(&input_file_path);
-                driver::preprocess(&input_file_path, &pp_file_path)?;
+                driver::preprocess(&input_file_path, &pp_file_path, &config.include_search_paths)?;
                 let as_file_path = get_as_filename(&input_file_path);
                 driver::compile(&config, &pp_file_path, &as_file_path)?;
                 if  stop_early {
@@ -97,7 +97,7 @@ pub fn run(config: Config) -> Result<(), String>
 
     if !stop_early && !config.do_not_link {
 
-        driver::link(&exe_file_path, &obj_file_paths)?;
+        driver::link(&exe_file_path, &obj_file_paths, &config.library_search_paths, &config.libraries)?;
     }
 
     Ok(())

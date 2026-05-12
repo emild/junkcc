@@ -51,9 +51,20 @@ fn run_helper_program(exe_name: &str,
 }
 
 
-pub fn preprocess(input_file_path: &String, pp_file_path: &String) -> Result<(), String>
+pub fn preprocess(input_file_path: &String, pp_file_path: &String, include_search_paths: &[String]) -> Result<(), String>
 {
-    let args = ["-P", &input_file_path, "-o", &pp_file_path];
+    let mut inc_paths = vec![];
+    for inc_path in include_search_paths {
+        inc_paths.push(format!("-I{inc_path}"));
+    }
+
+    let mut args = vec![];
+    for inc_path in &inc_paths {
+        args.push(inc_path.as_str());
+    }
+
+    let mut args_end = vec!["-P", &input_file_path, "-o", &pp_file_path];
+    args.append(&mut args_end);
 
     return run_helper_program(CPP_EXE, &args);
 }
@@ -75,7 +86,7 @@ pub fn assemble(as_file_path: &String, obj_file_path: &String) -> Result<(), Str
 }
 
 
-pub fn link(exe_file_path: &String, obj_file_paths: &[String]) -> Result<(), String>
+pub fn link(exe_file_path: &String, obj_file_paths: &[String], library_search_paths: &[String], libraries: &[String]) -> Result<(), String>
 {
     let mut args = vec![
         "-o", &exe_file_path
@@ -88,10 +99,29 @@ pub fn link(exe_file_path: &String, obj_file_paths: &[String]) -> Result<(), Str
     for arg in [
         CRT1_O, CRTI_O, CRTN_O,
         "-dynamic-linker", ELF_INTEPRETER,
-        LIBC
     ] {
         args.push(arg);
     }
+
+    let mut lib_search_paths = vec![];
+    for lib_search_path in library_search_paths {
+        lib_search_paths.push(format!("-L{}", lib_search_path));
+    }
+
+    let mut libs = vec![];
+    for lib in libraries {
+        libs.push(format!("-l{}", lib));
+    }
+
+    for lib_search_path in &lib_search_paths {
+        args.push(lib_search_path.as_str());
+    }
+
+    for lib in &libs {
+        args.push(lib.as_str());
+    }
+
+    args.push(LIBC);
 
     return run_helper_program(LD_EXE, &args);
 }
