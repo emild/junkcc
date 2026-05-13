@@ -6,18 +6,22 @@ use std::io::{BufRead, BufReader};
 use regex::Regex;
 
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum Token {
     Identifier(String),
+
     IntConstant(i32),
     LongConstant(i64),
     UIntConstant(u32),
     ULongConstant(u64),
 
+    DoubleConstant(f64),
+
     KwInt,
     KwLong,
     KwSigned,
     KwUnsigned,
+    KwDouble,
     KwVoid,
     KwReturn,
     KwIf,
@@ -112,10 +116,13 @@ impl RegexTable {
         let regexes = vec![
             RegexTableEntry { r: Regex::new(r"^[a-zA-Z_]\w*\b").unwrap(),   f: Self::parse_id },
 
-            RegexTableEntry { r: Regex::new(r"^[0-9]+([lL][uU]|[uU][lL])\b").unwrap(),  f: Self::parse_ulong_constant },
-            RegexTableEntry { r: Regex::new(r"^[0-9]+[uU]\b").unwrap(),                 f: Self::parse_uint_constant },
-            RegexTableEntry { r: Regex::new(r"^[0-9]+[lL]\b").unwrap(),                 f: Self::parse_long_constant },
-            RegexTableEntry { r: Regex::new(r"^[0-9]+\b").unwrap(),                     f: Self::parse_int_constant },
+
+            //double constants: 12.3456, .1234, 1234., 1E+4, 1.234E-5, .345E3, 12.E4
+            RegexTableEntry { r: Regex::new(r"^(?<token>((([0-9]*\.[0-9]+)|([0-9]+\.?))[Ee][+-]?[0-9]+)|([0-9]*\.[0-9]+)|([0-9]+\.))[^\w.]").unwrap(), f: Self::parse_double_constant },
+            RegexTableEntry { r: Regex::new(r"^(?<token>[0-9]+([lL][uU]|[uU][lL]))[^\w.]").unwrap(),  f: Self::parse_ulong_constant },
+            RegexTableEntry { r: Regex::new(r"^(?<token>[0-9]+[uU])[^\w.]").unwrap(),                 f: Self::parse_uint_constant },
+            RegexTableEntry { r: Regex::new(r"^(?<token>[0-9]+[lL])[^\w.]").unwrap(),                 f: Self::parse_long_constant },
+            RegexTableEntry { r: Regex::new(r"^(?<token>[0-9]+)[^\w.]").unwrap(),                     f: Self::parse_int_constant },
 
             RegexTableEntry { r: Regex::new(r"^\?").unwrap(),               f: |_, _| Ok(Token::QuestionMark) },
             RegexTableEntry { r: Regex::new(r"^\(").unwrap(),               f: |_, _| Ok(Token::OpenParenthesis) },
@@ -181,6 +188,7 @@ impl RegexTable {
                 ("long",        Token::KwLong),
                 ("signed",      Token::KwSigned),
                 ("unsigned",    Token::KwUnsigned),
+                ("double",      Token::KwDouble),
                 ("return",      Token::KwReturn),
                 ("void",        Token::KwVoid),
                 ("goto",        Token::KwGoto),
@@ -264,6 +272,15 @@ impl RegexTable {
         }
         else {
             Err(format!("Failed to parse unsigned int constant: '{}' Overflow??", s))
+        }
+    }
+
+    fn parse_double_constant(&self, s: &str) -> Result<Token, String> {
+        if let Ok(double_constant) = s.parse::<f64>() {
+            Ok(Token::DoubleConstant(double_constant))
+        }
+        else {
+            Err(format!("Failed to parse double constant: '{}'", s))
         }
     }
 
@@ -351,12 +368,14 @@ impl Lexer {
 
 
                 for rte in self.regex_table.regexes.iter() {
-                    if let Some(token_match) = rte.r.find(&self.current_line[self.current_line_position..]) {
-                        if !token_match.is_empty() {
-                            match (rte.f)(&self.regex_table, token_match.as_str()) {
+                    if let Some(token_match) = rte.r.captures(&self.current_line[self.current_line_position..]) {
+                        if token_match.len() != 0 {
+                            //We search for a match group named "token" or if that match group is no present, the first match group
+                            let matched_part = token_match.name("token").unwrap_or(token_match.get(0).unwrap());
+                            match (rte.f)(&self.regex_table, matched_part.as_str()) {
                                 Ok(token) => {
-                                    trace!("FOUND TOKEN {token:?} between [{}..{}]", self.current_line_position + token_match.start(), self.current_line_position + token_match.end());
-                                    self.current_line_position += token_match.len();
+                                    trace!("FOUND TOKEN {token:?} between [{}..{}]", self.current_line_position + matched_part.start(), self.current_line_position + matched_part.end());
+                                    self.current_line_position += matched_part.len();
                                     return Ok(token);
                                 },
                                 Err(e) => {

@@ -14,25 +14,19 @@ use crate::compiler::lexer::{self, Token};
 use ast::*;
 
 
-lazy_static! {
-    static ref TYPE_TOKENS: HashSet<Token> = HashSet::from([
-        Token::KwSigned,
-        Token::KwUnsigned,
-        Token::KwInt,
-        Token::KwLong
-    ]);
-
-    static ref TOKENS_TO_STORAGE_CLASSES: HashMap<Token, ast::StorageClass> = HashMap:: from([
-        (Token::KwStatic, ast::StorageClass::Static),
-        (Token::KwExtern, ast::StorageClass::Extern)
-    ]);
-}
-
-
-
 fn is_type(t: &Token) -> bool
 {
-    return (*TYPE_TOKENS).contains(t);
+
+    match t {
+        Token::KwInt        |
+        Token::KwLong       |
+        Token::KwSigned     |
+        Token::KwUnsigned
+            => true,
+        _
+            => false
+    }
+
 }
 
 
@@ -120,15 +114,29 @@ fn parse_type(l: &mut lexer::Lexer) -> Result<ast::Type, String>
 
 
 
+fn to_storage_class(t: &Token) -> Option<StorageClass>
+{
+        match t {
+            Token::KwStatic
+                => Some(StorageClass::Static),
+
+            Token::KwExtern
+                => Some(StorageClass::Extern),
+            _
+                => None
+        }
+}
+
+
 fn is_storage_class(t: &Token) -> bool
 {
-    return (*TOKENS_TO_STORAGE_CLASSES).contains_key(t);
+    to_storage_class(t).is_some()
 }
 
 
 fn check_storage_class(t: &Token) -> Result<ast::StorageClass, String>
 {
-    let storage_class = TOKENS_TO_STORAGE_CLASSES.get(t);
+    let storage_class = to_storage_class(t);
 
     match storage_class {
         Some(storage_class) => Ok(storage_class.clone()),
