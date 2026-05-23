@@ -439,7 +439,9 @@ fn emit_nonzero_static_init(init_value: &StaticInit, buf_writer: &mut BufWriter<
         StaticInit::LongInit(c) =>
             writeln!(buf_writer, "{}.quad {}", " ".repeat(16), c),
         StaticInit::ULongInit(c) =>
-            writeln!(buf_writer, "{}.quad {}", " ".repeat(16), c)
+            writeln!(buf_writer, "{}.quad {}", " ".repeat(16), c),
+        StaticInit::DoubleInit(c) =>
+            panic!("Code emission for double not YET supported")
     }
 }
 
