@@ -21,7 +21,8 @@ fn is_type(t: &Token) -> bool
         Token::KwInt        |
         Token::KwLong       |
         Token::KwSigned     |
-        Token::KwUnsigned
+        Token::KwUnsigned   |
+        Token::KwDouble
             => true,
         _
             => false
@@ -38,6 +39,7 @@ fn check_type(tokens: &Vec<Token>) -> Result<ast::Type, String>
             Token::KwInt  => ast::Type::Int,
             Token::KwUnsigned => ast::Type::UInt,
             Token::KwLong => ast::Type::Long,
+            Token::KwDouble => ast::Type::Double,
 
             _ => { return Err(format!("Invalid type specifier: '{:?}'", tokens)); }
         },
@@ -649,10 +651,11 @@ fn parse_constant(l: &mut lexer::Lexer) -> Result<Const, String>
     let t = l.get_token()?;
     match t {
         Token::EOS => Err(format!("Expected int constant, got end of file")),
-        Token::IntConstant(c) => Ok(Const::ConstInt(c)),
-        Token::UIntConstant(c) => Ok(Const::ConstUInt(c)),
-        Token::LongConstant(c) => Ok(Const::ConstLong(c)),
-        Token::ULongConstant(c) => Ok(Const::ConstULong(c)),
+        Token::IntConstant(c) => Ok(Const::I(IntegerConst::ConstInt(c))),
+        Token::UIntConstant(c) => Ok(Const::I(IntegerConst::ConstUInt(c))),
+        Token::LongConstant(c) => Ok(Const::I(IntegerConst::ConstLong(c))),
+        Token::ULongConstant(c) => Ok(Const::I(IntegerConst::ConstULong(c))),
+        Token::DoubleConstant(c) => Ok(Const::F(FloatingPointConst::ConstDouble(c))),
         _ => Err(format!("Expected integer constant, got {:?}", t))
     }
 }
@@ -818,7 +821,8 @@ fn parse_factor(l: &mut lexer::Lexer) -> Result<TypedExpression, String>
         Token::IntConstant(_)   |
         Token::UIntConstant(_)  |
         Token::LongConstant(_)  |
-        Token::ULongConstant(_) => {
+        Token::ULongConstant(_) |
+        Token::DoubleConstant(_)=> {
             let c = parse_constant(l)?;
             Expression::Constant(c)
         },

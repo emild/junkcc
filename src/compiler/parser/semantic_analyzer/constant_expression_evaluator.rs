@@ -30,6 +30,17 @@ fn evaluate_constant_unary_operator(unop: &UnaryOperator, sub_expr: &TypedExpres
 }
 
 
+fn check_if_not_double(arg1: &Const, arg2: &Const) -> Result<(), String>
+{
+    match (arg1, arg2) {
+        (Const::F(_), _) |
+        (_, Const::F(_))
+            => Ok(()),
+        _
+            => Err(format!("Operand is not supported for double"))
+    }
+}
+
 fn evaluate_constant_binary_operator(binop: &BinaryOperator, sub_expr_1: &TypedExpression, sub_expr_2: &TypedExpression) -> Result<Const, String>
 {
     let arg1 = evaluate_constant_expression_with_default_type(sub_expr_1)?;
@@ -37,11 +48,11 @@ fn evaluate_constant_binary_operator(binop: &BinaryOperator, sub_expr_1: &TypedE
 
     let binop_val = match binop {
         BinaryOperator::Add             =>  arg1.add(&arg2),
-        BinaryOperator::BitwiseAnd      =>  arg1.bin_and(&arg2),
-        BinaryOperator::BitwiseOr       =>  arg1.bin_or(&arg2),
-        BinaryOperator::BitwiseXor      =>  arg1.bin_xor(&arg2),
+        BinaryOperator::BitwiseAnd      =>  { check_if_not_double(&arg1, &arg2)?; arg1.bin_and(&arg2) },
+        BinaryOperator::BitwiseOr       =>  { check_if_not_double(&arg1, &arg2)?; arg1.bin_or(&arg2) },
+        BinaryOperator::BitwiseXor      =>  { check_if_not_double(&arg1, &arg2)?; arg1.bin_xor(&arg2) },
         BinaryOperator::Divide          => {
-            if arg2.is_false() {
+            if !arg1.is_floating_point() && !arg2.is_floating_point() && arg2.is_false() {
                 return Err(format!("Division by zero"))?;
             }
             arg1.div(&arg2)
@@ -56,13 +67,14 @@ fn evaluate_constant_binary_operator(binop: &BinaryOperator, sub_expr_1: &TypedE
         BinaryOperator::Multiply        => arg1.mul(&arg2),
         BinaryOperator::NotEqual        => arg1.ne(&arg2),
         BinaryOperator::Remainder       => {
-            if arg2.is_false() {
+            if !arg1.is_floating_point() && ! arg2.is_floating_point() && arg2.is_false() {
                 return Err(format!("Division by zero"))
             }
+            check_if_not_double(&arg1, &arg2)?;
             arg1.modulo(&arg2)
         },
-        BinaryOperator::ShiftLeft       => arg1.left_shift(&arg2),
-        BinaryOperator::ShiftRight      => arg1.right_shift(&arg2),
+        BinaryOperator::ShiftLeft       => { check_if_not_double(&arg1, &arg2)?; arg1.left_shift(&arg2) },
+        BinaryOperator::ShiftRight      => { check_if_not_double(&arg1, &arg2)?; arg1.right_shift(&arg2) },
         BinaryOperator::Subtract        => arg1.sub(&arg2),
         _ => {
             return Err(format!("Non constant expression '{:?}'", binop));
@@ -96,10 +108,8 @@ fn evaluate_constant_expression_with_default_type(typed_expr: &TypedExpression) 
         Expression::Binary(binop, sub_expr_1 , sub_expr_2) => {
             evaluate_constant_binary_operator(binop, sub_expr_1, sub_expr_2)?
         },
-        Expression::Constant(Const::ConstInt(c)) => Const::ConstInt(*c),
-        Expression::Constant(Const::ConstUInt(c)) => Const::ConstUInt(*c),
-        Expression::Constant(Const::ConstLong(c)) => Const::ConstLong(*c),
-        Expression::Constant(Const::ConstULong(c)) => Const::ConstULong(*c),
+        Expression::Constant(Const::I(c)) => Const::I(c.clone()),
+        Expression::Constant(Const::F(c)) => Const::F(c.clone()),
         Expression::Conditional(cond_exp, true_exp, false_exp) => {
             let cond_val = evaluate_constant_expression_with_default_type(cond_exp)?;
             let val = if cond_val.is_true() {

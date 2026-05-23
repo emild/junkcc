@@ -51,14 +51,228 @@ pub fn typex_init(expr: Expression) -> TypedExpression
 
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub enum Const {
+pub enum IntegerConst {
     ConstInt(i32),
     ConstUInt(u32),
     ConstLong(i64),
     ConstULong(u64)
 }
 
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum FloatingPointConst {
+    ConstDouble(f64)
+}
+
+
+#[derive(Debug, Clone, PartialEq/*, Eq, Hash*/)]
+pub enum Const {
+    I(IntegerConst),
+    F(FloatingPointConst)
+}
+
+
+impl From<i32> for Const {
+    fn from(val: i32) -> Const {
+        Const::I(IntegerConst::ConstInt(val))
+    }
+}
+
+impl From<i64> for Const {
+    fn from(val: i64) -> Const {
+        Const::I(IntegerConst::ConstLong(val))
+    }
+}
+
+impl From<u32> for Const {
+    fn from(val: u32) -> Const {
+        Const::I(IntegerConst::ConstUInt(val))
+    }
+}
+
+impl From<u64> for Const {
+    fn from(val: u64) -> Const {
+        Const::I(IntegerConst::ConstULong(val))
+    }
+}
+
+impl From<f64> for Const {
+    fn from(val: f64) -> Const {
+        Const::F(FloatingPointConst::ConstDouble(val))
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+enum ValueType {
+    SignedInt,
+    UnsignedInt,
+    FloatingPoint
+}
+
+#[derive(Clone)]
+struct ConstIntermediateFormat {
+    pub value_type: ValueType,
+    pub i_val: Option<i64>,
+    pub u_val: Option<u64>,
+    pub f_val: Option<f64>
+}
+
+
+impl ConstIntermediateFormat
+{
+    pub fn to_const(&self, typ: &Type) -> Const
+    {
+        match self.value_type {
+            ValueType::SignedInt        => Const::from_i64(self.i_val.unwrap(), typ),
+            ValueType::UnsignedInt      => Const::from_u64(self.u_val.unwrap(), typ),
+            ValueType::FloatingPoint    => Const::from_f64(self.f_val.unwrap(), typ),
+        }
+    }
+}
+
+
+impl From<i32> for ConstIntermediateFormat {
+    fn from(i_val: i32) -> ConstIntermediateFormat
+    {
+        ConstIntermediateFormat::from(i_val as i64)
+    }
+}
+
+
+impl From<i64> for ConstIntermediateFormat {
+    fn from(i_val: i64) -> ConstIntermediateFormat
+    {
+        ConstIntermediateFormat {
+            value_type: ValueType::SignedInt,
+            i_val: Some(i_val),
+            u_val: None,
+            f_val: None
+        }
+    }
+}
+
+impl From<u32> for ConstIntermediateFormat {
+    fn from(u_val: u32) -> ConstIntermediateFormat
+    {
+        ConstIntermediateFormat::from(u_val as u64)
+    }
+}
+
+
+impl From<u64> for ConstIntermediateFormat {
+    fn from(u_val: u64) -> ConstIntermediateFormat
+    {
+        ConstIntermediateFormat {
+            value_type: ValueType::UnsignedInt,
+            i_val: None,
+            u_val: Some(u_val),
+            f_val: None
+        }
+    }
+}
+
+impl From<f64> for ConstIntermediateFormat {
+    fn from(f_val: f64) -> ConstIntermediateFormat
+    {
+        ConstIntermediateFormat {
+            value_type: ValueType::FloatingPoint,
+            i_val: None,
+            u_val: None,
+            f_val: Some(f_val)
+        }
+    }
+}
+
+
+impl From<&Const> for ConstIntermediateFormat {
+    fn from(c: &Const) -> ConstIntermediateFormat {
+        match c {
+            Const::I(IntegerConst::ConstInt(c)) => ConstIntermediateFormat::from(*c),
+            Const::I(IntegerConst::ConstLong(c)) => ConstIntermediateFormat::from(*c),
+            Const::I(IntegerConst::ConstUInt(c)) => ConstIntermediateFormat::from(*c),
+            Const::I(IntegerConst::ConstULong(c)) => ConstIntermediateFormat::from(*c),
+            Const::F(FloatingPointConst::ConstDouble(c)) => ConstIntermediateFormat::from(*c)
+        }
+    }
+}
+
+
+
+fn get_common_type(a: &Const, b: &Const) -> Type
+{
+    let typ_a = a.get_type();
+    let typ_b = b.get_type();
+
+    if typ_a == typ_b {
+        typ_a.clone()
+    }
+    else if typ_a == Type::Double || typ_b == Type::Double {
+        Type::Double
+    }
+    else if typ_a.size() == typ_b.size() {
+
+        if typ_a.is_signed() {
+            typ_b.clone()
+        }
+        else {
+            typ_a.clone()
+        }
+    }
+    else if typ_a.size() > typ_b.size() {
+        typ_a.clone()
+    }
+    else {
+        typ_b.clone()
+    }
+}
+
+
+
+
 impl Const {
+
+    fn from_i64(i_val: i64, typ: &Type) -> Self
+    {
+        match typ {
+            Type::Int       => Const::I(IntegerConst::ConstInt(i_val as i32)),
+            Type::Long      => Const::I(IntegerConst::ConstLong(i_val)),
+            Type::UInt      => Const::I(IntegerConst::ConstUInt(i_val as u32)),
+            Type::ULong     => Const::I(IntegerConst::ConstULong(i_val as u64)),
+            Type::Double    => Const::F(FloatingPointConst::ConstDouble(i_val as f64)),
+
+            _ => { panic!("Attempt to convert from type: '{:?}'", typ); }
+        }
+    }
+
+
+    fn from_u64(u_val: u64, typ: &Type) -> Self
+    {
+        match typ {
+            Type::Int       => Const::I(IntegerConst::ConstInt(u_val as i32)),
+            Type::Long      => Const::I(IntegerConst::ConstLong(u_val as i64)),
+            Type::UInt      => Const::I(IntegerConst::ConstUInt(u_val as u32)),
+            Type::ULong     => Const::I(IntegerConst::ConstULong(u_val)),
+            Type::Double    => Const::F(FloatingPointConst::ConstDouble(u_val as f64)),
+
+            _ => { panic!("Attempt to convert from type: '{:?}'", typ); }
+        }
+    }
+
+
+    fn from_f64(f_val: f64, typ: &Type) -> Self
+    {
+        match typ {
+            Type::Int       => Const::I(IntegerConst::ConstInt(f_val as i32)),
+            Type::Long      => Const::I(IntegerConst::ConstLong(f_val as i64)),
+            Type::UInt      => Const::I(IntegerConst::ConstUInt(f_val as u32)),
+            Type::ULong     => Const::I(IntegerConst::ConstULong(f_val as u64)),
+            Type::Double    => Const::F(FloatingPointConst::ConstDouble(f_val)),
+
+            _ => { panic!("Attempt to convert from type: '{:?}'", typ); }
+        }
+    }
+
+
     pub fn to_typex(&self) -> TypedExpression
     {
         let typ = self.get_type();
@@ -68,30 +282,47 @@ impl Const {
     pub fn get_type(&self) -> Type
     {
         match self {
-            Const::ConstInt(_)  => Type::Int,
-            Const::ConstUInt(_) => Type::UInt,
-            Const::ConstLong(_) => Type::Long,
-            Const::ConstULong(_)=> Type::ULong
+            Const::I(IntegerConst::ConstInt(_))             => Type::Int,
+            Const::I(IntegerConst::ConstUInt(_))            => Type::UInt,
+            Const::I(IntegerConst::ConstLong(_))            => Type::Long,
+            Const::I(IntegerConst::ConstULong(_))           => Type::ULong,
+            Const::F(FloatingPointConst::ConstDouble(_))    => Type::Double
         }
     }
 
-    pub fn to_i64(&self) -> i64
+
+    pub fn is_floating_point(&self) -> bool
     {
         match self {
-            Const::ConstInt(c)  => i64::from(*c),
-            Const::ConstUInt(c) => i64::from(*c),
-            Const::ConstLong(c) => *c,
-            Const::ConstULong(c) => *c as i64
+            Const::F(_)
+                => true,
+            _
+                => false
         }
     }
+
+
+
+    pub fn to_i64(&self) -> i64
+    {
+        let intrm = ConstIntermediateFormat::from(self);
+
+        match intrm.value_type {
+            ValueType::SignedInt => intrm.i_val.unwrap(),
+            ValueType::UnsignedInt => intrm.u_val.unwrap() as i64,
+            ValueType::FloatingPoint => { panic!("Attempt to convert floating point to i64"); }
+        }
+    }
+
 
     pub fn is_false(&self) -> bool
     {
         match self {
-            Const::ConstInt(0)  |
-            Const::ConstUInt(0) |
-            Const::ConstLong(0) |
-            Const::ConstULong(0)
+            Const::I(IntegerConst::ConstInt(0))      |
+            Const::I(IntegerConst::ConstUInt(0))     |
+            Const::I(IntegerConst::ConstLong(0))     |
+            Const::I(IntegerConst::ConstULong(0))    |
+            Const::F(FloatingPointConst::ConstDouble(0.0))
                 => true,
 
             _   => false
@@ -103,90 +334,68 @@ impl Const {
         !self.is_false()
     }
 
-    //TODO: This is not scalable. Search for a better solution!!
+
     pub fn convert_to(&self, typ: &Type) -> Const
     {
         match (self, typ) {
-            (Const::ConstInt(_),    Type::Int)    |
-            (Const::ConstUInt(_),   Type::UInt)   |
-            (Const::ConstLong(_),   Type::Long)   |
-            (Const::ConstULong(_),  Type::ULong)
+            //micro-optimization
+            (Const::I(IntegerConst::ConstInt(_)),           Type::Int)    |
+            (Const::I(IntegerConst::ConstUInt(_)),          Type::UInt)   |
+            (Const::I(IntegerConst::ConstLong(_)),          Type::Long)   |
+            (Const::I(IntegerConst::ConstULong(_)),         Type::ULong)  |
+            (Const::F(FloatingPointConst::ConstDouble(_)),  Type::Double)
                 => self.clone(),
-
-            (Const::ConstUInt(c), Type::Int)
-                => Const::ConstInt(*c as i32),
-
-            (Const::ConstLong(c), Type::Int)
-                => Const::ConstInt((*c & 0xFFFFFFFF) as i32),
-
-            (Const::ConstULong(c), Type::Int)
-                => Const::ConstInt((*c & 0xFFFFFFFF) as i32),
-
-
-            (Const::ConstInt(c), Type::UInt)
-                => Const::ConstUInt(*c as u32),
-
-            (Const::ConstLong(c), Type::UInt)
-                => Const::ConstUInt((*c & 0xFFFFFFFF) as u32),
-
-            (Const::ConstULong(c), Type::UInt)
-                => Const::ConstUInt((*c & 0xFFFFFFFF) as u32),
-
-
-            (Const::ConstInt(c), Type::Long)
-                => Const::ConstLong(i64::from(*c)),
-
-            (Const::ConstUInt(c), Type::Long)
-                => Const::ConstLong(i64::from(*c)),
-
-            (Const::ConstULong(c), Type::Long)
-                => Const::ConstLong(*c as i64),
-
-
-            (Const::ConstInt(c), Type::ULong)
-                => Const::ConstULong(*c as u64),
-
-            (Const::ConstUInt(c), Type::ULong)
-                => Const::ConstULong(u64::from(*c)),
-
-            (Const::ConstLong(c), Type::ULong)
-                => Const::ConstULong(*c as u64),
-
-
-            (_, Type::FuncType(_, _, _)) => { panic!("Conversion to function type is not allowed"); }
+            _ => {
+                let intrm = ConstIntermediateFormat::from(self);
+                intrm.to_const(&typ)
+            }
         }
     }
+
 
     pub fn complement(&self) -> Const
     {
         match self {
-            Const::ConstInt(c)  => Const::ConstInt(!c),
-            Const::ConstUInt(c) => Const::ConstUInt(!c),
-            Const::ConstLong(c) => Const::ConstLong(!c),
-            Const::ConstULong(c) => Const::ConstULong(!c)
+            Const::I(IntegerConst::ConstInt(c))     => Const::I(IntegerConst::ConstInt(!c)),
+            Const::I(IntegerConst::ConstUInt(c))    => Const::I(IntegerConst::ConstUInt(!c)),
+            Const::I(IntegerConst::ConstLong(c))    => Const::I(IntegerConst::ConstLong(!c)),
+            Const::I(IntegerConst::ConstULong(c))   => Const::I(IntegerConst::ConstULong(!c)),
+            Const::F(_) => { panic!("~ cannot be applied to floating point"); }
         }
     }
 
     pub fn logical_not(&self) -> Const
     {
         match self {
-            Const::ConstInt(c)  => Const::ConstInt((*c == 0)  as i32),
-            Const::ConstUInt(c) => Const::ConstUInt((*c == 0) as u32),
-            Const::ConstLong(c) => Const::ConstLong((*c == 0) as i64),
-            Const::ConstULong(c) => Const::ConstULong((*c == 0) as u64)
+            Const::I(IntegerConst::ConstInt(c))     => Const::I(IntegerConst::ConstInt((*c == 0) as i32)),
+            Const::I(IntegerConst::ConstUInt(c))    => Const::I(IntegerConst::ConstInt((*c == 0) as i32)),
+            Const::I(IntegerConst::ConstLong(c))    => Const::I(IntegerConst::ConstInt((*c == 0) as i32)),
+            Const::I(IntegerConst::ConstULong(c))   => Const::I(IntegerConst::ConstInt((*c == 0) as i32)),
+            Const::F(FloatingPointConst::ConstDouble(c)) =>
+                Const::I(IntegerConst::ConstInt(
+                    if *c == 0.0 {
+                        1
+                    }
+                    else {
+                        0
+                    }
+                )
+            )
         }
     }
+
 
     pub fn unary_minus(&self) -> Const
     {
         match self {
-            Const::ConstInt(c)  => Const::ConstInt(-*c),
-            Const::ConstUInt(c)  => Const::ConstUInt(-(*c as i32) as u32),
-            Const::ConstLong(c) => Const::ConstLong(-*c),
-            Const::ConstULong(c) => Const::ConstULong(-(*c as i64) as u64)
-
+            Const::I(IntegerConst::ConstInt(c))  => Const::I(IntegerConst::ConstInt(-*c)),
+            Const::I(IntegerConst::ConstUInt(c))  => Const::I(IntegerConst::ConstUInt((-(*c as i32)) as u32)),
+            Const::I(IntegerConst::ConstLong(c))  => Const::I(IntegerConst::ConstLong(-*c)) ,
+            Const::I(IntegerConst::ConstULong(c))  => Const::I(IntegerConst::ConstULong((-(*c as i64)) as u64)),
+            Const::F(FloatingPointConst::ConstDouble(c)) => Const::F(FloatingPointConst::ConstDouble(-*c))
         }
     }
+
 
     pub fn unary_plus(&self) -> Const
     {
@@ -194,248 +403,311 @@ impl Const {
     }
 
 
-
     pub fn add(&self, other: &Const) -> Const
     {
         match (self, other) {
-            (Const::ConstInt(a), Const::ConstInt(b)) => Const::ConstInt(*a + *b),
-            (Const::ConstUInt(a), Const::ConstUInt(b)) => Const::ConstUInt(*a + *b),
-            (Const::ConstLong(a), Const::ConstLong(b)) => Const::ConstLong(*a + *b),
-            (Const::ConstULong(a), Const::ConstULong(b)) => Const::ConstULong(*a + *b),
+            (Const::I(IntegerConst::ConstInt(a)), Const::I(IntegerConst::ConstInt(b))) => Const::I(IntegerConst::ConstInt(*a + *b)),
+            (Const::I(IntegerConst::ConstUInt(a)), Const::I(IntegerConst::ConstUInt(b))) => Const::I(IntegerConst::ConstUInt(*a + *b)),
+            (Const::I(IntegerConst::ConstLong(a)), Const::I(IntegerConst::ConstLong(b))) => Const::I(IntegerConst::ConstLong(*a + *b)),
+            (Const::I(IntegerConst::ConstULong(a)), Const::I(IntegerConst::ConstULong(b))) => Const::I(IntegerConst::ConstULong(*a + *b)),
+            (Const::F(FloatingPointConst::ConstDouble(a)), Const::F(FloatingPointConst::ConstDouble(b))) => Const::F(FloatingPointConst::ConstDouble(*a + *b)),
 
-            (Const::ConstInt(a), Const::ConstUInt(b)) => Const::ConstUInt(*a as u32 + *b),
-            (Const::ConstInt(a), Const::ConstLong(b)) => Const::ConstLong(*a as i64 + *b),
-            (Const::ConstInt(a), Const::ConstULong(b)) => Const::ConstULong(*a as u64 + *b),
+            (_, _) => {
+                let common_typ = get_common_type(self, other);
+                let comm_a = self.convert_to(&common_typ);
+                let comm_b = other.convert_to(&common_typ);
+                let intrm_a = ConstIntermediateFormat::from(&comm_a);
+                let intrm_b = ConstIntermediateFormat::from(&comm_b);
+                assert_eq!(intrm_a.value_type, intrm_b.value_type);
+                let mut intrm_r = intrm_a.clone();
 
-            (Const::ConstUInt(a), Const::ConstInt(b)) => Const::ConstUInt(*a + (*b as u32)),
-            (Const::ConstUInt(a), Const::ConstLong(b)) => Const::ConstLong(*a as i64 + *b),
-            (Const::ConstUInt(a), Const::ConstULong(b)) => Const::ConstULong(*a as u64 + *b),
+                match intrm_a.value_type {
+                    ValueType::SignedInt        => *intrm_r.i_val.as_mut().unwrap() += intrm_b.i_val.unwrap(),
+                    ValueType::UnsignedInt      => *intrm_r.u_val.as_mut().unwrap() += intrm_b.u_val.unwrap(),
+                    ValueType::FloatingPoint    => *intrm_r.f_val.as_mut().unwrap() += intrm_b.f_val.unwrap()
+                };
 
-            (Const::ConstLong(a), Const::ConstInt(b)) => Const::ConstLong(*a + (*b as i64)),
-            (Const::ConstLong(a), Const::ConstUInt(b)) => Const::ConstLong(*a + (*b as i64)),
-            (Const::ConstLong(a), Const::ConstULong(b)) => Const::ConstULong(*a as u64 + *b),
-
-            (Const::ConstULong(a), Const::ConstInt(b)) => Const::ConstULong(*a + (*b as u64)),
-            (Const::ConstULong(a), Const::ConstUInt(b)) => Const::ConstULong(*a + (*b as u64)),
-            (Const::ConstULong(a), Const::ConstLong(b)) => Const::ConstULong(*a + (*b as u64))
+                intrm_r.to_const(&common_typ)
+            }
         }
     }
+
+
+
+
 
     pub fn sub(&self, other: &Const) -> Const
     {
         match (self, other) {
-            (Const::ConstInt(a), Const::ConstInt(b)) => Const::ConstInt(*a - *b),
-            (Const::ConstUInt(a), Const::ConstUInt(b)) => Const::ConstUInt(*a - *b),
-            (Const::ConstLong(a), Const::ConstLong(b)) => Const::ConstLong(*a - *b),
-            (Const::ConstULong(a), Const::ConstULong(b)) => Const::ConstULong(*a - *b),
+            (Const::I(IntegerConst::ConstInt(a)), Const::I(IntegerConst::ConstInt(b))) => Const::I(IntegerConst::ConstInt(*a - *b)),
+            (Const::I(IntegerConst::ConstUInt(a)), Const::I(IntegerConst::ConstUInt(b))) => Const::I(IntegerConst::ConstUInt(*a - *b)),
+            (Const::I(IntegerConst::ConstLong(a)), Const::I(IntegerConst::ConstLong(b))) => Const::I(IntegerConst::ConstLong(*a - *b)),
+            (Const::I(IntegerConst::ConstULong(a)), Const::I(IntegerConst::ConstULong(b))) => Const::I(IntegerConst::ConstULong(*a - *b)),
+            (Const::F(FloatingPointConst::ConstDouble(a)), Const::F(FloatingPointConst::ConstDouble(b))) => Const::F(FloatingPointConst::ConstDouble(*a - *b)),
 
-            (Const::ConstInt(a), Const::ConstUInt(b)) => Const::ConstUInt(*a as u32 - *b),
-            (Const::ConstInt(a), Const::ConstLong(b)) => Const::ConstLong(*a as i64 - *b),
-            (Const::ConstInt(a), Const::ConstULong(b)) => Const::ConstULong(*a as u64 - *b),
+            (_, _) => {
+                let common_typ = get_common_type(self, other);
+                let comm_a = self.convert_to(&common_typ);
+                let comm_b = other.convert_to(&common_typ);
+                let intrm_a = ConstIntermediateFormat::from(&comm_a);
+                let intrm_b = ConstIntermediateFormat::from(&comm_b);
+                assert_eq!(intrm_a.value_type, intrm_b.value_type);
+                let mut intrm_r = intrm_a.clone();
 
-            (Const::ConstUInt(a), Const::ConstInt(b)) => Const::ConstUInt(*a - (*b as u32)),
-            (Const::ConstUInt(a), Const::ConstLong(b)) => Const::ConstLong(*a as i64 - *b),
-            (Const::ConstUInt(a), Const::ConstULong(b)) => Const::ConstULong(*a as u64 - *b),
+                match intrm_a.value_type {
+                    ValueType::SignedInt        => *intrm_r.i_val.as_mut().unwrap() -= intrm_b.i_val.unwrap(),
+                    ValueType::UnsignedInt      => *intrm_r.u_val.as_mut().unwrap() -= intrm_b.u_val.unwrap(),
+                    ValueType::FloatingPoint    => *intrm_r.f_val.as_mut().unwrap() -= intrm_b.f_val.unwrap()
+                };
 
-            (Const::ConstLong(a), Const::ConstInt(b)) => Const::ConstLong(*a - (*b as i64)),
-            (Const::ConstLong(a), Const::ConstUInt(b)) => Const::ConstLong(*a - (*b as i64)),
-            (Const::ConstLong(a), Const::ConstULong(b)) => Const::ConstULong(*a as u64 - *b),
-
-            (Const::ConstULong(a), Const::ConstInt(b)) => Const::ConstULong(*a - (*b as u64)),
-            (Const::ConstULong(a), Const::ConstUInt(b)) => Const::ConstULong(*a - (*b as u64)),
-            (Const::ConstULong(a), Const::ConstLong(b)) => Const::ConstULong(*a - (*b as u64))
+                intrm_r.to_const(&common_typ)
+            }
         }
     }
+
 
     pub fn mul(&self, other: &Const) -> Const
     {
         match (self, other) {
-            (Const::ConstInt(a), Const::ConstInt(b)) => Const::ConstInt(*a * *b),
-            (Const::ConstUInt(a), Const::ConstUInt(b)) => Const::ConstUInt(*a * *b),
-            (Const::ConstLong(a), Const::ConstLong(b)) => Const::ConstLong(*a * *b),
-            (Const::ConstULong(a), Const::ConstULong(b)) => Const::ConstULong(*a * *b),
+            (Const::I(IntegerConst::ConstInt(a)), Const::I(IntegerConst::ConstInt(b))) => Const::I(IntegerConst::ConstInt(*a * *b)),
+            (Const::I(IntegerConst::ConstUInt(a)), Const::I(IntegerConst::ConstUInt(b))) => Const::I(IntegerConst::ConstUInt(*a * *b)),
+            (Const::I(IntegerConst::ConstLong(a)), Const::I(IntegerConst::ConstLong(b))) => Const::I(IntegerConst::ConstLong(*a * *b)),
+            (Const::I(IntegerConst::ConstULong(a)), Const::I(IntegerConst::ConstULong(b))) => Const::I(IntegerConst::ConstULong(*a * *b)),
+            (Const::F(FloatingPointConst::ConstDouble(a)), Const::F(FloatingPointConst::ConstDouble(b))) => Const::F(FloatingPointConst::ConstDouble(*a * *b)),
 
-            (Const::ConstInt(a), Const::ConstUInt(b)) => Const::ConstUInt(*a as u32 * *b),
-            (Const::ConstInt(a), Const::ConstLong(b)) => Const::ConstLong(*a as i64 * *b),
-            (Const::ConstInt(a), Const::ConstULong(b)) => Const::ConstULong(*a as u64 * *b),
+            (_, _) => {
+                let common_typ = get_common_type(self, other);
+                let comm_a = self.convert_to(&common_typ);
+                let comm_b = other.convert_to(&common_typ);
+                let intrm_a = ConstIntermediateFormat::from(&comm_a);
+                let intrm_b = ConstIntermediateFormat::from(&comm_b);
+                assert_eq!(intrm_a.value_type, intrm_b.value_type);
+                let mut intrm_r = intrm_a.clone();
 
-            (Const::ConstUInt(a), Const::ConstInt(b)) => Const::ConstUInt(*a * (*b as u32)),
-            (Const::ConstUInt(a), Const::ConstLong(b)) => Const::ConstLong(*a as i64 * *b),
-            (Const::ConstUInt(a), Const::ConstULong(b)) => Const::ConstULong(*a as u64 * *b),
+                match intrm_a.value_type {
+                    ValueType::SignedInt        => *intrm_r.i_val.as_mut().unwrap() *= intrm_b.i_val.unwrap(),
+                    ValueType::UnsignedInt      => *intrm_r.u_val.as_mut().unwrap() *= intrm_b.u_val.unwrap(),
+                    ValueType::FloatingPoint    => *intrm_r.f_val.as_mut().unwrap() *= intrm_b.f_val.unwrap()
+                };
 
-            (Const::ConstLong(a), Const::ConstInt(b)) => Const::ConstLong(*a * (*b as i64)),
-            (Const::ConstLong(a), Const::ConstUInt(b)) => Const::ConstLong(*a * (*b as i64)),
-            (Const::ConstLong(a), Const::ConstULong(b)) => Const::ConstULong(*a as u64 * *b),
-
-            (Const::ConstULong(a), Const::ConstInt(b)) => Const::ConstULong(*a * (*b as u64)),
-            (Const::ConstULong(a), Const::ConstUInt(b)) => Const::ConstULong(*a * (*b as u64)),
-            (Const::ConstULong(a), Const::ConstLong(b)) => Const::ConstULong(*a * (*b as u64))
+                intrm_r.to_const(&common_typ)
+            }
         }
     }
+
+
 
     pub fn div(&self, other: &Const) -> Const
     {
-        assert!(other.is_true());
+        assert!(other.is_floating_point() || other.is_true() );
         match (self, other) {
-            (Const::ConstInt(a), Const::ConstInt(b)) => Const::ConstInt(*a / *b),
-            (Const::ConstUInt(a), Const::ConstUInt(b)) => Const::ConstUInt(*a / *b),
-            (Const::ConstLong(a), Const::ConstLong(b)) => Const::ConstLong(*a / *b),
-            (Const::ConstULong(a), Const::ConstULong(b)) => Const::ConstULong(*a / *b),
+            (Const::I(IntegerConst::ConstInt(a)), Const::I(IntegerConst::ConstInt(b))) => Const::I(IntegerConst::ConstInt(*a / *b)),
+            (Const::I(IntegerConst::ConstUInt(a)), Const::I(IntegerConst::ConstUInt(b))) => Const::I(IntegerConst::ConstUInt(*a / *b)),
+            (Const::I(IntegerConst::ConstLong(a)), Const::I(IntegerConst::ConstLong(b))) => Const::I(IntegerConst::ConstLong(*a / *b)),
+            (Const::I(IntegerConst::ConstULong(a)), Const::I(IntegerConst::ConstULong(b))) => Const::I(IntegerConst::ConstULong(*a / *b)),
+            (Const::F(FloatingPointConst::ConstDouble(a)), Const::F(FloatingPointConst::ConstDouble(b))) => Const::F(FloatingPointConst::ConstDouble(*a / *b)),
 
-            (Const::ConstInt(a), Const::ConstUInt(b)) => Const::ConstUInt(*a as u32 / *b),
-            (Const::ConstInt(a), Const::ConstLong(b)) => Const::ConstLong(*a as i64 / *b),
-            (Const::ConstInt(a), Const::ConstULong(b)) => Const::ConstULong(*a as u64 / *b),
+            (_, _) => {
+                let common_typ = get_common_type(self, other);
+                let comm_a = self.convert_to(&common_typ);
+                let comm_b = other.convert_to(&common_typ);
+                let intrm_a = ConstIntermediateFormat::from(&comm_a);
+                let intrm_b = ConstIntermediateFormat::from(&comm_b);
+                assert_eq!(intrm_a.value_type, intrm_b.value_type);
+                let mut intrm_r = intrm_a.clone();
 
-            (Const::ConstUInt(a), Const::ConstInt(b)) => Const::ConstUInt(*a / (*b as u32)),
-            (Const::ConstUInt(a), Const::ConstLong(b)) => Const::ConstLong(*a as i64 / *b),
-            (Const::ConstUInt(a), Const::ConstULong(b)) => Const::ConstULong(*a as u64 / *b),
+                match intrm_a.value_type {
+                    ValueType::SignedInt        => *intrm_r.i_val.as_mut().unwrap() /= intrm_b.i_val.unwrap(),
+                    ValueType::UnsignedInt      => *intrm_r.u_val.as_mut().unwrap() /= intrm_b.u_val.unwrap(),
+                    ValueType::FloatingPoint    => *intrm_r.f_val.as_mut().unwrap() /= intrm_b.f_val.unwrap()
+                };
 
-            (Const::ConstLong(a), Const::ConstInt(b)) => Const::ConstLong(*a / (*b as i64)),
-            (Const::ConstLong(a), Const::ConstUInt(b)) => Const::ConstLong(*a / (*b as i64)),
-            (Const::ConstLong(a), Const::ConstULong(b)) => Const::ConstULong(*a as u64 / *b),
-
-            (Const::ConstULong(a), Const::ConstInt(b)) => Const::ConstULong(*a / (*b as u64)),
-            (Const::ConstULong(a), Const::ConstUInt(b)) => Const::ConstULong(*a / (*b as u64)),
-            (Const::ConstULong(a), Const::ConstLong(b)) => Const::ConstULong(*a / (*b as u64))
+                intrm_r.to_const(&common_typ)
+            }
         }
     }
+
+
 
     pub fn modulo(&self, other: &Const) -> Const
     {
+        assert!(!self.is_floating_point());
+        assert!(!other.is_floating_point());
         assert!(other.is_true());
         match (self, other) {
-            (Const::ConstInt(a), Const::ConstInt(b)) => Const::ConstInt(*a % *b),
-            (Const::ConstUInt(a), Const::ConstUInt(b)) => Const::ConstUInt(*a % *b),
-            (Const::ConstLong(a), Const::ConstLong(b)) => Const::ConstLong(*a % *b),
-            (Const::ConstULong(a), Const::ConstULong(b)) => Const::ConstULong(*a % *b),
+            (Const::I(IntegerConst::ConstInt(a)), Const::I(IntegerConst::ConstInt(b))) => Const::I(IntegerConst::ConstInt(*a % *b)),
+            (Const::I(IntegerConst::ConstUInt(a)), Const::I(IntegerConst::ConstUInt(b))) => Const::I(IntegerConst::ConstUInt(*a % *b)),
+            (Const::I(IntegerConst::ConstLong(a)), Const::I(IntegerConst::ConstLong(b))) => Const::I(IntegerConst::ConstLong(*a % *b)),
+            (Const::I(IntegerConst::ConstULong(a)), Const::I(IntegerConst::ConstULong(b))) => Const::I(IntegerConst::ConstULong(*a % *b)),
+            (_, _) => {
+                let common_typ = get_common_type(self, other);
+                let comm_a = self.convert_to(&common_typ);
+                let comm_b = other.convert_to(&common_typ);
+                let intrm_a = ConstIntermediateFormat::from(&comm_a);
+                let intrm_b = ConstIntermediateFormat::from(&comm_b);
+                assert_eq!(intrm_a.value_type, intrm_b.value_type);
+                let mut intrm_r = intrm_a.clone();
 
-            (Const::ConstInt(a), Const::ConstUInt(b)) => Const::ConstUInt(*a as u32 % *b),
-            (Const::ConstInt(a), Const::ConstLong(b)) => Const::ConstLong(*a as i64 % *b),
-            (Const::ConstInt(a), Const::ConstULong(b)) => Const::ConstULong(*a as u64 % *b),
+                match intrm_a.value_type {
+                    ValueType::SignedInt        => *intrm_r.i_val.as_mut().unwrap() %= intrm_b.i_val.unwrap(),
+                    ValueType::UnsignedInt      => *intrm_r.u_val.as_mut().unwrap() %= intrm_b.u_val.unwrap(),
+                    ValueType::FloatingPoint    => { panic!("Cannot apply '%' to floating point"); }
+                };
 
-            (Const::ConstUInt(a), Const::ConstInt(b)) => Const::ConstUInt(*a % (*b as u32)),
-            (Const::ConstUInt(a), Const::ConstLong(b)) => Const::ConstLong(*a as i64 % *b),
-            (Const::ConstUInt(a), Const::ConstULong(b)) => Const::ConstULong(*a as u64 % *b),
-
-            (Const::ConstLong(a), Const::ConstInt(b)) => Const::ConstLong(*a % (*b as i64)),
-            (Const::ConstLong(a), Const::ConstUInt(b)) => Const::ConstLong(*a % (*b as i64)),
-            (Const::ConstLong(a), Const::ConstULong(b)) => Const::ConstULong(*a as u64 % *b),
-
-            (Const::ConstULong(a), Const::ConstInt(b)) => Const::ConstULong(*a % (*b as u64)),
-            (Const::ConstULong(a), Const::ConstUInt(b)) => Const::ConstULong(*a % (*b as u64)),
-            (Const::ConstULong(a), Const::ConstLong(b)) => Const::ConstULong(*a % (*b as u64))
+                intrm_r.to_const(&common_typ)
+            }
         }
     }
 
+
+
+
     pub fn bin_and(&self, other: &Const) -> Const
     {
+        assert!(!self.is_floating_point());
+        assert!(!other.is_floating_point());
+
         match (self, other) {
-            (Const::ConstInt(a), Const::ConstInt(b)) => Const::ConstInt(*a & *b),
-            (Const::ConstUInt(a), Const::ConstUInt(b)) => Const::ConstUInt(*a & *b),
-            (Const::ConstLong(a), Const::ConstLong(b)) => Const::ConstLong(*a & *b),
-            (Const::ConstULong(a), Const::ConstULong(b)) => Const::ConstULong(*a & *b),
+            (Const::I(IntegerConst::ConstInt(a)), Const::I(IntegerConst::ConstInt(b))) => Const::I(IntegerConst::ConstInt(*a & *b)),
+            (Const::I(IntegerConst::ConstUInt(a)), Const::I(IntegerConst::ConstUInt(b))) => Const::I(IntegerConst::ConstUInt(*a & *b)),
+            (Const::I(IntegerConst::ConstLong(a)), Const::I(IntegerConst::ConstLong(b))) => Const::I(IntegerConst::ConstLong(*a & *b)),
+            (Const::I(IntegerConst::ConstULong(a)), Const::I(IntegerConst::ConstULong(b))) => Const::I(IntegerConst::ConstULong(*a & *b)),
+            (_, _) => {
+                let common_typ = get_common_type(self, other);
+                let comm_a = self.convert_to(&common_typ);
+                let comm_b = other.convert_to(&common_typ);
+                let intrm_a = ConstIntermediateFormat::from(&comm_a);
+                let intrm_b = ConstIntermediateFormat::from(&comm_b);
+                assert_eq!(intrm_a.value_type, intrm_b.value_type);
+                let mut intrm_r = intrm_a.clone();
 
-            (Const::ConstInt(a), Const::ConstUInt(b)) => Const::ConstUInt(*a as u32 & *b),
-            (Const::ConstInt(a), Const::ConstLong(b)) => Const::ConstLong(*a as i64 & *b),
-            (Const::ConstInt(a), Const::ConstULong(b)) => Const::ConstULong(*a as u64 & *b),
+                match intrm_a.value_type {
+                    ValueType::SignedInt        => *intrm_r.i_val.as_mut().unwrap() &= intrm_b.i_val.unwrap(),
+                    ValueType::UnsignedInt      => *intrm_r.u_val.as_mut().unwrap() &= intrm_b.u_val.unwrap(),
+                    ValueType::FloatingPoint    => { panic!("Cannot apply '&' to floating point"); }
+                };
 
-            (Const::ConstUInt(a), Const::ConstInt(b)) => Const::ConstUInt(*a & (*b as u32)),
-            (Const::ConstUInt(a), Const::ConstLong(b)) => Const::ConstLong(*a as i64 & *b),
-            (Const::ConstUInt(a), Const::ConstULong(b)) => Const::ConstULong(*a as u64 & *b),
-
-            (Const::ConstLong(a), Const::ConstInt(b)) => Const::ConstLong(*a & (*b as i64)),
-            (Const::ConstLong(a), Const::ConstUInt(b)) => Const::ConstLong(*a & (*b as i64)),
-            (Const::ConstLong(a), Const::ConstULong(b)) => Const::ConstULong(*a as u64 & *b),
-
-            (Const::ConstULong(a), Const::ConstInt(b)) => Const::ConstULong(*a & (*b as u64)),
-            (Const::ConstULong(a), Const::ConstUInt(b)) => Const::ConstULong(*a & (*b as u64)),
-            (Const::ConstULong(a), Const::ConstLong(b)) => Const::ConstULong(*a & (*b as u64))
+                intrm_r.to_const(&common_typ)
+            }
         }
     }
 
 
     pub fn bin_or(&self, other: &Const) -> Const
     {
+        assert!(!self.is_floating_point());
+        assert!(!other.is_floating_point());
+
         match (self, other) {
-            (Const::ConstInt(a), Const::ConstInt(b)) => Const::ConstInt(*a | *b),
-            (Const::ConstUInt(a), Const::ConstUInt(b)) => Const::ConstUInt(*a | *b),
-            (Const::ConstLong(a), Const::ConstLong(b)) => Const::ConstLong(*a | *b),
-            (Const::ConstULong(a), Const::ConstULong(b)) => Const::ConstULong(*a | *b),
+            (Const::I(IntegerConst::ConstInt(a)), Const::I(IntegerConst::ConstInt(b))) => Const::I(IntegerConst::ConstInt(*a | *b)),
+            (Const::I(IntegerConst::ConstUInt(a)), Const::I(IntegerConst::ConstUInt(b))) => Const::I(IntegerConst::ConstUInt(*a | *b)),
+            (Const::I(IntegerConst::ConstLong(a)), Const::I(IntegerConst::ConstLong(b))) => Const::I(IntegerConst::ConstLong(*a | *b)),
+            (Const::I(IntegerConst::ConstULong(a)), Const::I(IntegerConst::ConstULong(b))) => Const::I(IntegerConst::ConstULong(*a | *b)),
+            (_, _) => {
+                let common_typ = get_common_type(self, other);
+                let comm_a = self.convert_to(&common_typ);
+                let comm_b = other.convert_to(&common_typ);
+                let intrm_a = ConstIntermediateFormat::from(&comm_a);
+                let intrm_b = ConstIntermediateFormat::from(&comm_b);
+                assert_eq!(intrm_a.value_type, intrm_b.value_type);
+                let mut intrm_r = intrm_a.clone();
 
-            (Const::ConstInt(a), Const::ConstUInt(b)) => Const::ConstUInt(*a as u32 | *b),
-            (Const::ConstInt(a), Const::ConstLong(b)) => Const::ConstLong(*a as i64 | *b),
-            (Const::ConstInt(a), Const::ConstULong(b)) => Const::ConstULong(*a as u64 | *b),
+                match intrm_a.value_type {
+                    ValueType::SignedInt        => *intrm_r.i_val.as_mut().unwrap() |= intrm_b.i_val.unwrap(),
+                    ValueType::UnsignedInt      => *intrm_r.u_val.as_mut().unwrap() |= intrm_b.u_val.unwrap(),
+                    ValueType::FloatingPoint    => { panic!("Cannot apply '|' to floating point"); }
+                };
 
-            (Const::ConstUInt(a), Const::ConstInt(b)) => Const::ConstUInt(*a | (*b as u32)),
-            (Const::ConstUInt(a), Const::ConstLong(b)) => Const::ConstLong(*a as i64 | *b),
-            (Const::ConstUInt(a), Const::ConstULong(b)) => Const::ConstULong(*a as u64 | *b),
-
-            (Const::ConstLong(a), Const::ConstInt(b)) => Const::ConstLong(*a | (*b as i64)),
-            (Const::ConstLong(a), Const::ConstUInt(b)) => Const::ConstLong(*a | (*b as i64)),
-            (Const::ConstLong(a), Const::ConstULong(b)) => Const::ConstULong(*a as u64 | *b),
-
-            (Const::ConstULong(a), Const::ConstInt(b)) => Const::ConstULong(*a | (*b as u64)),
-            (Const::ConstULong(a), Const::ConstUInt(b)) => Const::ConstULong(*a | (*b as u64)),
-            (Const::ConstULong(a), Const::ConstLong(b)) => Const::ConstULong(*a | (*b as u64))
+                intrm_r.to_const(&common_typ)
+            }
         }
     }
 
 
     pub fn bin_xor(&self, other: &Const) -> Const
     {
+        assert!(!self.is_floating_point());
+        assert!(!other.is_floating_point());
+
         match (self, other) {
-            (Const::ConstInt(a), Const::ConstInt(b)) => Const::ConstInt(*a ^ *b),
-            (Const::ConstUInt(a), Const::ConstUInt(b)) => Const::ConstUInt(*a ^ *b),
-            (Const::ConstLong(a), Const::ConstLong(b)) => Const::ConstLong(*a ^ *b),
-            (Const::ConstULong(a), Const::ConstULong(b)) => Const::ConstULong(*a ^ *b),
+            (Const::I(IntegerConst::ConstInt(a)), Const::I(IntegerConst::ConstInt(b))) => Const::I(IntegerConst::ConstInt(*a ^ *b)),
+            (Const::I(IntegerConst::ConstUInt(a)), Const::I(IntegerConst::ConstUInt(b))) => Const::I(IntegerConst::ConstUInt(*a ^ *b)),
+            (Const::I(IntegerConst::ConstLong(a)), Const::I(IntegerConst::ConstLong(b))) => Const::I(IntegerConst::ConstLong(*a ^ *b)),
+            (Const::I(IntegerConst::ConstULong(a)), Const::I(IntegerConst::ConstULong(b))) => Const::I(IntegerConst::ConstULong(*a ^ *b)),
+            (_, _) => {
+                let common_typ = get_common_type(self, other);
+                let comm_a = self.convert_to(&common_typ);
+                let comm_b = other.convert_to(&common_typ);
+                let intrm_a = ConstIntermediateFormat::from(&comm_a);
+                let intrm_b = ConstIntermediateFormat::from(&comm_b);
+                assert_eq!(intrm_a.value_type, intrm_b.value_type);
+                let mut intrm_r = intrm_a.clone();
 
-            (Const::ConstInt(a), Const::ConstUInt(b)) => Const::ConstUInt(*a as u32 ^ *b),
-            (Const::ConstInt(a), Const::ConstLong(b)) => Const::ConstLong(*a as i64 ^ *b),
-            (Const::ConstInt(a), Const::ConstULong(b)) => Const::ConstULong(*a as u64 ^ *b),
+                match intrm_a.value_type {
+                    ValueType::SignedInt        => *intrm_r.i_val.as_mut().unwrap() ^= intrm_b.i_val.unwrap(),
+                    ValueType::UnsignedInt      => *intrm_r.u_val.as_mut().unwrap() ^= intrm_b.u_val.unwrap(),
+                    ValueType::FloatingPoint    => { panic!("Cannot apply '^' to floating point"); }
+                };
 
-            (Const::ConstUInt(a), Const::ConstInt(b)) => Const::ConstUInt(*a ^ (*b as u32)),
-            (Const::ConstUInt(a), Const::ConstLong(b)) => Const::ConstLong(*a as i64 ^ *b),
-            (Const::ConstUInt(a), Const::ConstULong(b)) => Const::ConstULong(*a as u64 ^ *b),
-
-            (Const::ConstLong(a), Const::ConstInt(b)) => Const::ConstLong(*a ^ (*b as i64)),
-            (Const::ConstLong(a), Const::ConstUInt(b)) => Const::ConstLong(*a ^ (*b as i64)),
-            (Const::ConstLong(a), Const::ConstULong(b)) => Const::ConstULong(*a as u64 ^ *b),
-
-            (Const::ConstULong(a), Const::ConstInt(b)) => Const::ConstULong(*a ^ (*b as u64)),
-            (Const::ConstULong(a), Const::ConstUInt(b)) => Const::ConstULong(*a ^ (*b as u64)),
-            (Const::ConstULong(a), Const::ConstLong(b)) => Const::ConstULong(*a ^ (*b as u64))
+                intrm_r.to_const(&common_typ)
+            }
         }
     }
 
 
     pub fn left_shift(&self, other: &Const) -> Const
     {
-        match (self, other) {
-            (Const::ConstInt(a), b) => Const::ConstInt(a << b.to_i64()),
-            (Const::ConstUInt(a),b) => Const::ConstUInt(a << b.to_i64()),
-            (Const::ConstLong(a), b) => Const::ConstLong(a << b.to_i64()),
-            (Const::ConstULong(a), b) => Const::ConstULong(a << b.to_i64())
+        assert!(!self.is_floating_point());
+        assert!(!other.is_floating_point());
+
+        let typ = self.get_type();
+        let intrm_self = ConstIntermediateFormat::from(self);
+        let other = other.convert_to(&Type::Int);
+        let intrm_other = ConstIntermediateFormat::from(&other);
+
+        let mut result = intrm_self.clone();
+
+        match intrm_self.value_type {
+            ValueType::SignedInt => { result.i_val = Some(intrm_self.i_val.unwrap() << intrm_other.i_val.unwrap()); },
+            ValueType::UnsignedInt => { result.u_val = Some(intrm_self.u_val.unwrap() << intrm_other.i_val.unwrap()); },
+            ValueType::FloatingPoint => { panic!("<< Cannot be applied to floating point"); }
         }
+
+        result.to_const(&typ)
     }
+
+
 
     pub fn right_shift(&self, other: &Const) -> Const
     {
-        match (self, other) {
-            (Const::ConstInt(a), b) => Const::ConstInt(a >> b.to_i64()),
-            (Const::ConstUInt(a),b) => Const::ConstUInt(a >> b.to_i64()),
-            (Const::ConstLong(a), b) => Const::ConstLong(a >> b.to_i64()),
-            (Const::ConstULong(a), b) => Const::ConstULong(a >> b.to_i64())
+        assert!(!self.is_floating_point());
+        assert!(!other.is_floating_point());
+
+        let typ = self.get_type();
+        let intrm_self = ConstIntermediateFormat::from(self);
+        let other = other.convert_to(&Type::Int);
+        let intrm_other = ConstIntermediateFormat::from(&other);
+
+        let mut result = intrm_self.clone();
+
+        match intrm_self.value_type {
+            ValueType::SignedInt => { result.i_val = Some(intrm_self.i_val.unwrap() >> intrm_other.i_val.unwrap()); },
+            ValueType::UnsignedInt => { result.u_val = Some(intrm_self.u_val.unwrap() >> intrm_other.i_val.unwrap()); },
+            ValueType::FloatingPoint => { panic!(">> Cannot be applied to floating point"); }
         }
+
+        result.to_const(&typ)
     }
+
 
 
     pub fn logical_and(&self, other: &Const) -> Const
     {
         if self.is_false() || other.is_false() {
-            Const::ConstInt(0)
+            Const::from_i64(0, &Type::Int)
         }
         else {
-            Const::ConstInt(1)
+            Const::from_i64(1, &Type::Int)
         }
     }
 
@@ -443,44 +715,49 @@ impl Const {
     pub fn logical_or(&self, other: &Const) -> Const
     {
         if self.is_true() || other.is_true() {
-            Const::ConstInt(1)
+            Const::from_i64(1, &Type::Int)
         }
         else {
-            Const::ConstInt(0)
+            Const::from_i64(0, &Type::Int)
         }
     }
 
     pub fn lt(&self, other: &Const) -> Const
     {
         match (self, other) {
-            (Const::ConstInt(a), Const::ConstInt(b)) => Const::ConstInt((*a < *b) as i32),
-            (Const::ConstUInt(a), Const::ConstUInt(b)) => Const::ConstInt((*a < *b) as i32),
-            (Const::ConstLong(a), Const::ConstLong(b)) => Const::ConstInt((*a < *b) as i32),
-            (Const::ConstULong(a), Const::ConstULong(b)) => Const::ConstInt((*a < *b) as i32),
+            (Const::I(IntegerConst::ConstInt(a)), Const::I(IntegerConst::ConstInt(b))) => Const::I(IntegerConst::ConstInt((*a < *b) as i32)),
+            (Const::I(IntegerConst::ConstUInt(a)), Const::I(IntegerConst::ConstUInt(b))) => Const::I(IntegerConst::ConstInt((*a < *b) as i32)),
+            (Const::I(IntegerConst::ConstLong(a)), Const::I(IntegerConst::ConstLong(b))) => Const::I(IntegerConst::ConstInt((*a < *b) as i32)),
+            (Const::I(IntegerConst::ConstULong(a)), Const::I(IntegerConst::ConstULong(b))) => Const::I(IntegerConst::ConstInt((*a < *b) as i32)),
+            (Const::F(FloatingPointConst::ConstDouble(a)), Const::F(FloatingPointConst::ConstDouble(b))) => Const::I(IntegerConst::ConstInt((*a < *b) as i32)),
 
-            (Const::ConstInt(a), Const::ConstUInt(b)) => Const::ConstInt(((*a as u32) < *b) as i32),
-            (Const::ConstInt(a), Const::ConstLong(b)) => Const::ConstInt(((*a as i64) < *b) as i32),
-            (Const::ConstInt(a), Const::ConstULong(b)) => Const::ConstInt(((*a as u64) < *b) as i32),
+            (_, _) => {
+                let common_typ = get_common_type(self, other);
+                let comm_a = self.convert_to(&common_typ);
+                let comm_b = other.convert_to(&common_typ);
+                let intrm_a = ConstIntermediateFormat::from(&comm_a);
+                let intrm_b = ConstIntermediateFormat::from(&comm_b);
+                assert_eq!(intrm_a.value_type, intrm_b.value_type);
+                let mut intrm_r = intrm_a.clone();
 
-            (Const::ConstUInt(a), Const::ConstInt(b)) => Const::ConstInt((*a < (*b as u32)) as i32),
-            (Const::ConstUInt(a), Const::ConstLong(b)) => Const::ConstInt(((*a as i64) < *b) as i32),
-            (Const::ConstUInt(a), Const::ConstULong(b)) => Const::ConstInt(((*a as u64) < *b) as i32),
+                intrm_r.value_type = ValueType::SignedInt;
+                match intrm_a.value_type {
+                    ValueType::SignedInt        => *intrm_r.i_val.as_mut().unwrap() = (intrm_a.i_val.unwrap() < intrm_b.i_val.unwrap()) as i64,
+                    ValueType::UnsignedInt      => *intrm_r.i_val.as_mut().unwrap() = (intrm_a.u_val.unwrap() < intrm_b.u_val.unwrap()) as i64,
+                    ValueType::FloatingPoint    => *intrm_r.i_val.as_mut().unwrap() = (intrm_a.f_val.unwrap() < intrm_b.f_val.unwrap()) as i64,
+                };
 
-            (Const::ConstLong(a), Const::ConstInt(b)) => Const::ConstInt((*a < (*b as i64)) as i32),
-            (Const::ConstLong(a), Const::ConstUInt(b)) => Const::ConstInt((*a < (*b as i64)) as i32),
-            (Const::ConstLong(a), Const::ConstULong(b)) => Const::ConstInt(((*a as u64) < *b) as i32),
-
-            (Const::ConstULong(a), Const::ConstInt(b)) => Const::ConstInt((*a < (*b as u64)) as i32),
-            (Const::ConstULong(a), Const::ConstUInt(b)) => Const::ConstInt((*a < (*b as u64)) as i32),
-            (Const::ConstULong(a), Const::ConstLong(b)) => Const::ConstInt((*a < (*b as u64)) as i32)
-
+                intrm_r.to_const(&Type::Int)
+            }
         }
     }
+
 
     pub fn gt(&self, other: &Const) -> Const
     {
         other.lt(self)
     }
+
 
     pub fn le(&self, other: &Const) -> Const
     {
@@ -676,6 +953,7 @@ pub enum Type {
     Long,
     UInt,
     ULong,
+    Double,
     FuncType(Vec<Type> /* param_types */, Box<Type> /* ret_type */, bool /* has_body, i.e. defined */)
 }
 
@@ -696,6 +974,8 @@ impl Type
             Type::Long              => String::from("long"),
             Type::UInt              => String::from("uint"),
             Type::ULong             => String::from("ulong"),
+            Type::Double            => String::from("double"),
+
             Type::FuncType(param_types, ret_type,_) => {
                     assert!(!ret_type.is_func());
                     let param_types_str : Vec<String> = param_types.iter().map(|typ| typ.to_string()).collect();
@@ -711,7 +991,8 @@ impl Type
             Type::UInt  => 4,
 
             Type::Long  |
-            Type::ULong => 8,
+            Type::ULong |
+            Type::Double => 8,
 
             _ => { panic!("Attempt to call alignment() for function type"); }
         }
@@ -724,7 +1005,8 @@ impl Type
             Type::UInt  => 4,
 
             Type::Long  |
-            Type::ULong => 8,
+            Type::ULong |
+            Type::Double => 8,
 
             _ => { panic!("Attempt to call size() for function type"); }
         }
@@ -734,12 +1016,30 @@ impl Type
     {
         match self {
             Type::Int   |
-            Type::Long   => true,
+            Type::Long  |
+            Type::Double => true,
 
             Type::UInt  |
             Type::ULong => false,
 
             _ => { panic!("Attempt to call is_signed() for function type"); }
+        }
+    }
+
+    pub fn is_integer(&self) -> bool
+    {
+        match self {
+            Type::Int   |
+            Type::Long  |
+            Type::UInt  |
+            Type::ULong
+                => true,
+
+            Type::Double
+                => false,
+
+            _
+                => { panic!("Attempt to call is_integer() for '{:?}'", self); }
         }
     }
 
@@ -810,7 +1110,7 @@ pub enum Program {
 <variable-declaration>  ::= <specifier>+ <identifier> [ "=" <exp> ] ";"
 <function-declaration>  ::= <specifier>+ <identifier> "(" [<param-list>] )" ( <block> | ";" )
 <specifier>             ::= <type-specifier> | "static" | "extern"
-<type-specifier>        ::= "int" | "long" | "unsigned" | "signed"
+<type-specifier>        ::= "int" | "long" | "unsigned" | "signed" | "double"
 <param-list>            ::= "" |
                             "void" |
                             <type-specifier> <identifier> ["," <type-specifier> <identifier>"]*
@@ -847,11 +1147,12 @@ pub enum Program {
                             "="  | "+=" | "-=" | "*=" | "/=" | "%=" |
                             "|=" | "&=" |
                             "<<="| ">>="
-<const>                 ::= <int> | <long> | <uint> | <ulong>
+<const>                 ::= <int> | <long> | <uint> | <ulong> | <double>
 <identifier>            ::= ? Token::Identifier ?
 <int>                   ::= ? Token::IntConstant ?
 <long>                  ::= ? Token::LongConstant ?
 <uint>                  ::= ? Token::UIntConstant ?
 <ulong>                 ::= ? Token::ULongConstant ?
+<double>                ::= ? Token::DoubleConstant ?
 
 */

@@ -4,17 +4,20 @@ fn pretty_print_typed_expression(typed_expr: &TypedExpression, indent: usize)
 {
     let TypedExpression::TypedExp(typ, expr ) = typed_expr;
     match expr {
-        Expression::Constant(Const::ConstInt(c)) => {
+        Expression::Constant(Const::I(IntegerConst::ConstInt(c))) => {
             println!("{}Constant(INT = {})", " ".repeat(indent), c);
         },
-        Expression::Constant(Const::ConstUInt(c)) => {
+        Expression::Constant(Const::I(IntegerConst::ConstUInt(c))) => {
             println!("{}Constant(UINT = {})", " ".repeat(indent), c);
         },
-        Expression::Constant(Const::ConstLong(c)) => {
+        Expression::Constant(Const::I(IntegerConst::ConstLong(c))) => {
             println!("{}Constant(LONG = {})", " ".repeat(indent), c);
         },
-        Expression::Constant(Const::ConstULong(c)) => {
+        Expression::Constant(Const::I(IntegerConst::ConstULong(c))) => {
             println!("{}Constant(ULONG = {})", " ".repeat(indent), c);
+        },
+        Expression::Constant(Const::F(FloatingPointConst::ConstDouble(c))) => {
+            println!("{}Constant(DOUBLE = {})", " ".repeat(indent), c);
         },
         Expression::Var(var_name) => {
             println!("{}Var(TYPE='{}' NAME='{}')", " ".repeat(indent), opt_type_str(typ), var_name);
