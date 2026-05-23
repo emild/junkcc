@@ -58,6 +58,18 @@ pub enum IntegerConst {
     ConstULong(u64)
 }
 
+impl IntegerConst {
+    pub fn to_i64(&self) -> i64
+    {
+        match self {
+            Self::ConstInt(c) => *c as i64,
+            Self::ConstUInt(c) => *c as i64,
+            Self::ConstLong(c) => *c,
+            Self::ConstULong(c) => *c as i64
+        }
+    }
+}
+
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum FloatingPointConst {
@@ -198,32 +210,14 @@ impl From<&Const> for ConstIntermediateFormat {
 
 
 
-fn get_common_type(a: &Const, b: &Const) -> Type
+fn get_const_common_type(a: &Const, b: &Const) -> Type
 {
     let typ_a = a.get_type();
     let typ_b = b.get_type();
 
-    if typ_a == typ_b {
-        typ_a.clone()
-    }
-    else if typ_a == Type::Double || typ_b == Type::Double {
-        Type::Double
-    }
-    else if typ_a.size() == typ_b.size() {
+    let common_typ = super::get_common_type(&typ_a, &typ_b);
 
-        if typ_a.is_signed() {
-            typ_b.clone()
-        }
-        else {
-            typ_a.clone()
-        }
-    }
-    else if typ_a.size() > typ_b.size() {
-        typ_a.clone()
-    }
-    else {
-        typ_b.clone()
-    }
+    common_typ
 }
 
 
@@ -413,7 +407,7 @@ impl Const {
             (Const::F(FloatingPointConst::ConstDouble(a)), Const::F(FloatingPointConst::ConstDouble(b))) => Const::F(FloatingPointConst::ConstDouble(*a + *b)),
 
             (_, _) => {
-                let common_typ = get_common_type(self, other);
+                let common_typ = get_const_common_type(self, other);
                 let comm_a = self.convert_to(&common_typ);
                 let comm_b = other.convert_to(&common_typ);
                 let intrm_a = ConstIntermediateFormat::from(&comm_a);
@@ -446,7 +440,7 @@ impl Const {
             (Const::F(FloatingPointConst::ConstDouble(a)), Const::F(FloatingPointConst::ConstDouble(b))) => Const::F(FloatingPointConst::ConstDouble(*a - *b)),
 
             (_, _) => {
-                let common_typ = get_common_type(self, other);
+                let common_typ = get_const_common_type(self, other);
                 let comm_a = self.convert_to(&common_typ);
                 let comm_b = other.convert_to(&common_typ);
                 let intrm_a = ConstIntermediateFormat::from(&comm_a);
@@ -476,7 +470,7 @@ impl Const {
             (Const::F(FloatingPointConst::ConstDouble(a)), Const::F(FloatingPointConst::ConstDouble(b))) => Const::F(FloatingPointConst::ConstDouble(*a * *b)),
 
             (_, _) => {
-                let common_typ = get_common_type(self, other);
+                let common_typ = get_const_common_type(self, other);
                 let comm_a = self.convert_to(&common_typ);
                 let comm_b = other.convert_to(&common_typ);
                 let intrm_a = ConstIntermediateFormat::from(&comm_a);
@@ -508,7 +502,7 @@ impl Const {
             (Const::F(FloatingPointConst::ConstDouble(a)), Const::F(FloatingPointConst::ConstDouble(b))) => Const::F(FloatingPointConst::ConstDouble(*a / *b)),
 
             (_, _) => {
-                let common_typ = get_common_type(self, other);
+                let common_typ = get_const_common_type(self, other);
                 let comm_a = self.convert_to(&common_typ);
                 let comm_b = other.convert_to(&common_typ);
                 let intrm_a = ConstIntermediateFormat::from(&comm_a);
@@ -540,7 +534,7 @@ impl Const {
             (Const::I(IntegerConst::ConstLong(a)), Const::I(IntegerConst::ConstLong(b))) => Const::I(IntegerConst::ConstLong(*a % *b)),
             (Const::I(IntegerConst::ConstULong(a)), Const::I(IntegerConst::ConstULong(b))) => Const::I(IntegerConst::ConstULong(*a % *b)),
             (_, _) => {
-                let common_typ = get_common_type(self, other);
+                let common_typ = get_const_common_type(self, other);
                 let comm_a = self.convert_to(&common_typ);
                 let comm_b = other.convert_to(&common_typ);
                 let intrm_a = ConstIntermediateFormat::from(&comm_a);
@@ -573,7 +567,7 @@ impl Const {
             (Const::I(IntegerConst::ConstLong(a)), Const::I(IntegerConst::ConstLong(b))) => Const::I(IntegerConst::ConstLong(*a & *b)),
             (Const::I(IntegerConst::ConstULong(a)), Const::I(IntegerConst::ConstULong(b))) => Const::I(IntegerConst::ConstULong(*a & *b)),
             (_, _) => {
-                let common_typ = get_common_type(self, other);
+                let common_typ = get_const_common_type(self, other);
                 let comm_a = self.convert_to(&common_typ);
                 let comm_b = other.convert_to(&common_typ);
                 let intrm_a = ConstIntermediateFormat::from(&comm_a);
@@ -604,7 +598,7 @@ impl Const {
             (Const::I(IntegerConst::ConstLong(a)), Const::I(IntegerConst::ConstLong(b))) => Const::I(IntegerConst::ConstLong(*a | *b)),
             (Const::I(IntegerConst::ConstULong(a)), Const::I(IntegerConst::ConstULong(b))) => Const::I(IntegerConst::ConstULong(*a | *b)),
             (_, _) => {
-                let common_typ = get_common_type(self, other);
+                let common_typ = get_const_common_type(self, other);
                 let comm_a = self.convert_to(&common_typ);
                 let comm_b = other.convert_to(&common_typ);
                 let intrm_a = ConstIntermediateFormat::from(&comm_a);
@@ -635,7 +629,7 @@ impl Const {
             (Const::I(IntegerConst::ConstLong(a)), Const::I(IntegerConst::ConstLong(b))) => Const::I(IntegerConst::ConstLong(*a ^ *b)),
             (Const::I(IntegerConst::ConstULong(a)), Const::I(IntegerConst::ConstULong(b))) => Const::I(IntegerConst::ConstULong(*a ^ *b)),
             (_, _) => {
-                let common_typ = get_common_type(self, other);
+                let common_typ = get_const_common_type(self, other);
                 let comm_a = self.convert_to(&common_typ);
                 let comm_b = other.convert_to(&common_typ);
                 let intrm_a = ConstIntermediateFormat::from(&comm_a);
@@ -732,7 +726,7 @@ impl Const {
             (Const::F(FloatingPointConst::ConstDouble(a)), Const::F(FloatingPointConst::ConstDouble(b))) => Const::I(IntegerConst::ConstInt((*a < *b) as i32)),
 
             (_, _) => {
-                let common_typ = get_common_type(self, other);
+                let common_typ = get_const_common_type(self, other);
                 let comm_a = self.convert_to(&common_typ);
                 let comm_b = other.convert_to(&common_typ);
                 let intrm_a = ConstIntermediateFormat::from(&comm_a);
@@ -941,7 +935,7 @@ pub enum UnlabeledStatement {
     While(TypedExpression /* condition */, Box<Statement> /* body */, Option<String> /* loop label */),
     DoWhile(Box<Statement> /* body */, TypedExpression /* condition */, Option<String> /* loop label */),
     For(ForInit, Option<TypedExpression> /* condition */, Option<TypedExpression> /* post */, Box<Statement> /* body */, Option<String> /* loop label */),
-    Switch(TypedExpression, Box<Statement> /* body */, Option<String> /* switch label */, HashMap<Const, String>, /* case constants and global labels */ Option<String> /* default_label */ ),
+    Switch(TypedExpression, Box<Statement> /* body */, Option<String> /* switch label */, HashMap<IntegerConst, String>, /* case constants and global labels */ Option<String> /* default_label */ ),
     Compound(Block),
     Expr(TypedExpression),
     Null

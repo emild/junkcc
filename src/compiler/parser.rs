@@ -997,3 +997,4 @@ pub use semantic_analyzer::IdentifierAttrs;
 pub use semantic_analyzer::SymbolInfo;
 pub use semantic_analyzer::InitialValue;
 pub use semantic_analyzer::StaticInit;
+pub use semantic_analyzer::get_common_type;

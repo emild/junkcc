@@ -131,6 +131,27 @@ fn evaluate_constant_expression_with_default_type(typed_expr: &TypedExpression) 
 }
 
 
+pub fn evaluate_constant_expression_as_integer(typed_expr: &TypedExpression, typ: &Option<Type>) -> Result<IntegerConst, String>
+{
+    let inner_result = evaluate_constant_expression_with_default_type(typed_expr)?;
+
+    let inner_typ = inner_result.get_type();
+    if !inner_typ.is_integer() {
+        return Err(format!("Expected integer constant, got {:?}", inner_result));
+    }
+
+    let expr_val = match typ {
+        None => inner_result,
+        Some(typ) => inner_result.convert_to(typ)
+    };
+
+    match expr_val {
+        Const::I(result) => Ok(result.clone()),
+        _ => Err(format!("Expected integer constant, got {:?}", expr_val))
+    }
+}
+
+
 pub fn evaluate_constant_expression(typed_expr: &TypedExpression, typ: &Option<Type>) -> Result<Const, String>
 {
     let inner_result = evaluate_constant_expression_with_default_type(typed_expr)?;

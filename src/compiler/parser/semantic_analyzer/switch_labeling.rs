@@ -4,15 +4,15 @@ use super::super::super::parser::ast::*;
 use super::unique_global_labels::make_unique_global_switch_label;
 use super::unique_global_labels::make_unique_case_label;
 use super::unique_global_labels::make_global_default_label;
-use super::constant_expression_evaluator::evaluate_constant_expression;
+use super::constant_expression_evaluator::evaluate_constant_expression_as_integer;
 
 pub struct SwitchStatementInfo {
     switch_label: String,
     expr_type: Type
 }
 
-/*
-fn label_unlabeled_statement_switch_statements(unlabeled_stmnt: &mut UnlabeledStatement, switch_stmnt_info: &Option<SwitchStatementInfo>, case_labels_map: &mut HashMap<Const, String>, default_label: &mut Option<String>) -> Result<(), String>
+
+fn label_unlabeled_statement_switch_statements(unlabeled_stmnt: &mut UnlabeledStatement, switch_stmnt_info: &Option<SwitchStatementInfo>, case_labels_map: &mut HashMap<IntegerConst, String>, default_label: &mut Option<String>) -> Result<(), String>
 {
     match unlabeled_stmnt {
         UnlabeledStatement::Break(break_type, break_label) => {
@@ -66,7 +66,7 @@ fn label_unlabeled_statement_switch_statements(unlabeled_stmnt: &mut UnlabeledSt
 }
 
 
-fn label_statement_switch_statements(stmnt: &mut Statement, switch_stmnt_info: &Option<SwitchStatementInfo>, case_labels_map: &mut HashMap<Const, String>, default_label: &mut Option<String>) -> Result<(), String>
+fn label_statement_switch_statements(stmnt: &mut Statement, switch_stmnt_info: &Option<SwitchStatementInfo>, case_labels_map: &mut HashMap<IntegerConst, String>, default_label: &mut Option<String>) -> Result<(), String>
 {
     match stmnt {
         Statement::Stmnt(None, unlabeled_stmnt) => {
@@ -80,7 +80,7 @@ fn label_statement_switch_statements(stmnt: &mut Statement, switch_stmnt_info: &
                             return Err(format!("Case label outside switch statement"));
                         }
                         let switch_stmnt_info = switch_stmnt_info.as_ref().unwrap();
-                        let case_value = evaluate_constant_expression(expr, &Some(switch_stmnt_info.expr_type.clone()))?;
+                        let case_value = evaluate_constant_expression_as_integer(expr, &Some(switch_stmnt_info.expr_type.clone()))?;
 
                         if case_labels_map.contains_key(&case_value) {
                             return Err(format!("Error: Duplicate case value"));
@@ -120,7 +120,7 @@ fn label_statement_switch_statements(stmnt: &mut Statement, switch_stmnt_info: &
 }
 
 
-fn label_block_item_switch_statements(block_item: &mut BlockItem, switch_stmnt_info: &Option<SwitchStatementInfo>, case_labels_map: &mut HashMap<Const, String>, default_label: &mut Option<String>) -> Result<(), String>
+fn label_block_item_switch_statements(block_item: &mut BlockItem, switch_stmnt_info: &Option<SwitchStatementInfo>, case_labels_map: &mut HashMap<IntegerConst, String>, default_label: &mut Option<String>) -> Result<(), String>
 {
     match block_item {
         BlockItem::D(decl) => {
@@ -134,7 +134,7 @@ fn label_block_item_switch_statements(block_item: &mut BlockItem, switch_stmnt_i
 }
 
 
-fn label_block_switch_statements(block: &mut Block, switch_stmnt_info: &Option<SwitchStatementInfo>, case_labels_map: &mut HashMap<Const, String>, default_label: &mut Option<String>) -> Result<(), String>
+fn label_block_switch_statements(block: &mut Block, switch_stmnt_info: &Option<SwitchStatementInfo>, case_labels_map: &mut HashMap<IntegerConst, String>, default_label: &mut Option<String>) -> Result<(), String>
 {
      match block {
         Block::Blk(block_items) => {
@@ -147,11 +147,9 @@ fn label_block_switch_statements(block: &mut Block, switch_stmnt_info: &Option<S
     Ok(())
 }
 
-*/
 
 pub fn label_program_switch_statements(prog: &mut Program) -> Result<(), String>
 {
-    /*
     let Program::ProgramDefinition(decls) = prog;
 
     for decl in decls {
@@ -161,6 +159,5 @@ pub fn label_program_switch_statements(prog: &mut Program) -> Result<(), String>
     }
 
     Ok(())
-    */
-    panic!("Switch labeling not implemented [any more]");
+
 }

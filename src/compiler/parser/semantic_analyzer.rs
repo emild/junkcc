@@ -33,11 +33,11 @@ pub use type_checker::IdentifierAttrs;
 pub use type_checker::SymbolInfo;
 pub use type_checker::InitialValue;
 pub use type_checker::StaticInit;
+pub use type_checker::get_common_type;
 
 
 pub fn semantic_analysis(prog: &Program) -> Result<(Program, HashMap<String, type_checker::SymbolInfo>), String>
 {
-    panic!("semantic_analysis NOT IMPLEMENTED [ANYMORE]");
     let mut resolved_program = resolver::resolve_program(prog)?;
     let mut symbol_table = HashMap::new();
     type_checker::typecheck_program(&mut resolved_program, &mut symbol_table)?;

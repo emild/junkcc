@@ -310,7 +310,6 @@ fn resolve_local_variable_declaration(decl: &VariableDeclaration, identifier_map
                     None
                 }
                 else {
-                    //TODO Handle long constants
                     let resolved_init_val = evaluate_constant_expression(initializer.as_ref().unwrap(), &None)?;
                     Some(resolved_init_val.to_typex())
                 };
@@ -328,7 +327,6 @@ fn resolve_local_variable_declaration(decl: &VariableDeclaration, identifier_map
             let resolved_initializer = match initializer {
                 Some(init_expression) => {
                     let resolved_init_expression = if *stg_class == Some(StorageClass::Static) {
-                        //TODO handle long constants
                         let init_val = evaluate_constant_expression(init_expression, &None)?;
                         init_val.to_typex()
                     }

@@ -5,19 +5,20 @@ use env_logger::init;
 use super::super::ast::*;
 
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum InitialValue {
     Tentative,
     Initial(StaticInit),
     NoInitializer
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum StaticInit {
     IntInit(i32),
     LongInit(i64),
     UIntInit(u32),
-    ULongInit(u64)
+    ULongInit(u64),
+    DoubleInit(f64)
 }
 
 impl StaticInit
@@ -29,26 +30,36 @@ impl StaticInit
             (StaticInit::IntInit(_), Type::Int)     |
             (StaticInit::LongInit(_), Type::Long)   |
             (StaticInit::UIntInit(_), Type::UInt)   |
-            (StaticInit::ULongInit(_), Type::ULong) => self.clone(),
+            (StaticInit::ULongInit(_), Type::ULong) |
+            (StaticInit::DoubleInit(_), Type::Double) => self.clone(),
 
             (StaticInit::UIntInit(c), Type::Int) => StaticInit::IntInit(*c  as i32),
             (StaticInit::LongInit(c), Type::Int) => StaticInit::IntInit((*c & 0xFFFFFFFF) as i32),
             (StaticInit::ULongInit(c), Type::Int) => StaticInit::IntInit((*c & 0xFFFFFFFF) as i32),
+            (StaticInit::DoubleInit(c), Type::Int) => StaticInit::IntInit(*c as i32),
 
             (StaticInit::IntInit(c), Type::UInt) => StaticInit::UIntInit(*c  as u32),
             (StaticInit::LongInit(c), Type::UInt) => StaticInit::UIntInit((*c & 0xFFFFFFFF) as u32),
             (StaticInit::ULongInit(c), Type::UInt) => StaticInit::UIntInit((*c & 0xFFFFFFFF) as u32),
+            (StaticInit::DoubleInit(c), Type::UInt) => StaticInit::UIntInit(*c as u32),
 
             (StaticInit::IntInit(c), Type::Long) => StaticInit::LongInit(*c  as i64),
             (StaticInit::UIntInit(c), Type::Long) => StaticInit::LongInit(*c  as i64),
             (StaticInit::ULongInit(c), Type::Long) => StaticInit::LongInit(*c  as i64),
+            (StaticInit::DoubleInit(c), Type::Long) => StaticInit::LongInit(*c as i64),
 
             (StaticInit::IntInit(c), Type::ULong) => StaticInit::ULongInit(*c  as u64),
             (StaticInit::UIntInit(c), Type::ULong) => StaticInit::ULongInit(*c  as u64),
             (StaticInit::LongInit(c), Type::ULong) => StaticInit::ULongInit(*c  as u64),
+            (StaticInit::DoubleInit(c), Type::ULong) => StaticInit::ULongInit(*c as u64),
+
+            (StaticInit::IntInit(c), Type::Double) => StaticInit::DoubleInit(*c  as f64),
+            (StaticInit::UIntInit(c), Type::Double) => StaticInit::DoubleInit(*c  as f64),
+            (StaticInit::LongInit(c), Type::Double) => StaticInit::DoubleInit(*c  as f64),
+            (StaticInit::ULongInit(c), Type::Double) => StaticInit::DoubleInit(*c as f64),
 
 
-            _ => { panic!("Invalid StaticInit Conversion"); }
+           _ => { panic!("Invalid StaticInit Conversion"); }
         }
     }
 
@@ -59,23 +70,25 @@ impl StaticInit
             StaticInit::UIntInit(c) => format!("uint({})", c),
             StaticInit::LongInit(c)  => format!("long({})", c),
             StaticInit::ULongInit(c)  => format!("ulong({})", c),
+            StaticInit::DoubleInit(c) => format!("double({})", c)
         }
     }
 
     pub fn is_zero(&self) -> bool
     {
         match self {
-            StaticInit::IntInit(0)  |
-            StaticInit::UIntInit(0) |
-            StaticInit::LongInit(0) |
-            StaticInit::ULongInit(0)
+            StaticInit::IntInit(0)      |
+            StaticInit::UIntInit(0)     |
+            StaticInit::LongInit(0)     |
+            StaticInit::ULongInit(0)    |
+            StaticInit::DoubleInit(0.0)
                 => true,
             _   => false
         }
     }
 }
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq)]
 pub enum IdentifierAttrs {
     FuncAttr(bool /* defined */, bool /* global */),        /* Functions */
     StaticAttr(InitialValue /* init */, bool /* global */), /* Variables with static duration */
@@ -89,10 +102,13 @@ pub struct SymbolInfo {
 }
 
 
-fn get_common_type(typ1: &Type, typ2: &Type) -> Type
+pub fn get_common_type(typ1: &Type, typ2: &Type) -> Type
 {
     if typ1 == typ2 {
         typ1.clone()
+    }
+    else if *typ1 == Type::Double || *typ2 == Type::Double {
+        Type::Double
     }
     else if typ1.size() == typ2.size() {
         if typ1.is_signed() {
@@ -171,13 +187,16 @@ fn typecheck_expr_var(var_name: &String, symbol_table: &mut HashMap<String, Symb
         None => {
             return Err(format!("Variable '{}' not declared in scope", var_name));
         },
+
         Some(SymbolInfo{ typ: Type::Int, attrs: _})     => Type::Int,
         Some(SymbolInfo{ typ: Type::UInt, attrs: _})    => Type::UInt,
         Some(SymbolInfo{ typ: Type::Long, attrs: _})    => Type::Long,
         Some(SymbolInfo{ typ: Type::ULong, attrs: _})   => Type::ULong,
+        Some(SymbolInfo{ typ: Type::Double, attrs: _})  => Type::Double,
+
         _ => {
             return Err(format!(
-                "Object '{}' has wrong type. Expected some integer type, actual type: '{:?}'",
+                "Object '{}' has wrong type. Expected some  integer or floating point type, actual type: '{:?}'",
                 var_name,
                 sym_info.as_ref().unwrap().typ
             ));
@@ -205,11 +224,12 @@ fn typecheck_expr_assignment(binop: &Option<BinaryOperator>, left: &TypedExpress
     let result_expr = match binop {
         Some(BinaryOperator::ShiftLeftAssign) |
         Some(BinaryOperator::ShiftRightAssign) => {
-            let converted_right = convert_to(typed_right, &Type::Int);
             let noncompound_binop = get_noncompound_operator(&binop.clone().unwrap())?;
-            let result = typex_set_type(Expression::Binary(noncompound_binop, Box::new(typed_left.clone()), Box::new(converted_right)), typ_left.clone());
-            Expression::Assignment(Box::new(typed_left), Box::new(result))
+            let result = typex_set_type(Expression::Binary(noncompound_binop, Box::new(typed_left.clone()), Box::new(typed_right.clone())), typ_left.clone());
+            let checked_result = typecheck_expression(&result, symbol_table)?;
+            Expression::Assignment(Box::new(typed_left), Box::new(checked_result))
         },
+
         Some(binop) => {
             //TODO / BUGBUG! TAKE CARE TO MAKE SURE THAT THE LEFT EXPRESSION IS *ALWAYS* EVALUATED ONCE!!!
             let common_type = get_common_type(&typ_left, &typ_right);
@@ -217,9 +237,11 @@ fn typecheck_expr_assignment(binop: &Option<BinaryOperator>, left: &TypedExpress
             let converted_left = convert_to(typed_left.clone(), &common_type);
             let noncompound_binop = get_noncompound_operator(binop)?;
             let result = typex_set_type(Expression::Binary(noncompound_binop, Box::new(converted_left), Box::new(converted_right)), common_type.clone());
-            let converted_result = convert_to(result, &typ_left);
+            let checked_result = typecheck_expression(&result, symbol_table)?;
+            let converted_result = convert_to(checked_result, &typ_left);
             Expression::Assignment(Box::new(typed_left), Box::new(converted_result))
         },
+
         None => {
             let converted_right = convert_to(typed_right, &typ_left);
             Expression::Assignment(Box::new(typed_left), Box::new(converted_right))
@@ -244,7 +266,15 @@ fn typecheck_expr_binary(binop: &BinaryOperator, typed_left: &TypedExpression, t
         BinaryOperator::Add |
         BinaryOperator::Subtract |
         BinaryOperator::Multiply |
-        BinaryOperator::Divide |
+        BinaryOperator::Divide  => {
+            let typ_left = typex_get_type(&typed_left);
+            let typ_right = typex_get_type(&typed_right);
+            let typ_common  = get_common_type(&typ_left, &typ_right);
+            let converted_left = convert_to(typed_left, &typ_common);
+            let converted_right = convert_to(typed_right, &typ_common);
+            (Expression::Binary(binop.clone(), Box::new(converted_left), Box::new(converted_right)), typ_common)
+        },
+
         BinaryOperator::Remainder |
         BinaryOperator::BitwiseAnd |
         BinaryOperator::BitwiseOr |
@@ -252,6 +282,9 @@ fn typecheck_expr_binary(binop: &BinaryOperator, typed_left: &TypedExpression, t
             let typ_left = typex_get_type(&typed_left);
             let typ_right = typex_get_type(&typed_right);
             let typ_common  = get_common_type(&typ_left, &typ_right);
+            if !typ_common.is_integer() {
+                return Err(format!("Operator '{:?}' expects integer type arguments, but received '{}'", binop, typ_common.to_string()));
+            }
             let converted_left = convert_to(typed_left, &typ_common);
             let converted_right = convert_to(typed_right, &typ_common);
             (Expression::Binary(binop.clone(), Box::new(converted_left), Box::new(converted_right)), typ_common)
@@ -271,43 +304,50 @@ fn typecheck_expr_binary(binop: &BinaryOperator, typed_left: &TypedExpression, t
             (Expression::Binary(binop.clone(), Box::new(converted_left), Box::new(converted_right)), Type::Int)
         },
 
-
         BinaryOperator::ShiftLeft |
         BinaryOperator::ShiftRight => {
-
             let typ_left = typex_get_type(&typed_left);
+            if !typ_left.is_integer() {
+                return Err(format!("Operator '{:?}' expects integer type for its left argument, but received '{}'", binop, typ_left.to_string()));
+            }
+
+            let typ_right = typex_get_type(&typed_right);
+            if !typ_right.is_integer() {
+                return Err(format!("Operator '{:?}' expects integer type for its right argument, but received '{}'", binop, typ_right.to_string()));
+            }
+
             let converted_right = convert_to(typed_right, &Type::Int);
             (Expression::Binary(binop.clone(), Box::new(typed_left), Box::new(converted_right)), typ_left)
         },
 
-        BinaryOperator::Assign |
-        BinaryOperator::AddAssign |
         BinaryOperator::BitwiseAndAssign |
         BinaryOperator::BitwiseOrAssign |
         BinaryOperator::BitwiseXorAssign |
-        BinaryOperator::DivideAssign |
-        BinaryOperator::MultiplyAssign |
-        BinaryOperator::RemainderAssign |
-        BinaryOperator::SubtractAssign => {
+        BinaryOperator::RemainderAssign => {
             let typ_left = typex_get_type(&typed_left);
             let typ_right = typex_get_type(&typed_right);
             let common_typ = get_common_type(&typ_left, &typ_right);
+            if !common_typ.is_integer() {
+                return Err(format!("Operator '{:?}' expects integer type arguments, but received '{}'", binop, common_typ.to_string()));
+            }
             let converted_right = convert_to(typed_right, &common_typ);
             let ex = typex_set_type(Expression::Binary(binop.clone(), Box::new(typed_left), Box::new(converted_right)), common_typ);
             (Expression::Cast(typ_left.clone(), Box::new(ex)), typ_left)
         },
 
+        BinaryOperator::Assign |
+        BinaryOperator::AddAssign |
+        BinaryOperator::DivideAssign |
+        BinaryOperator::MultiplyAssign |
+        BinaryOperator::SubtractAssign |
         BinaryOperator::ShiftLeftAssign |
         BinaryOperator::ShiftRightAssign => {
-            let typ_left = typex_get_type(&typed_left);
-            let converted_right = convert_to(typed_right, &Type::Int);
-            (Expression::Binary(binop.clone(), Box::new(typed_left), Box::new(converted_right)), typ_left)
+            panic!("Typechecking of operator '{:?}' should not be handled by typecheck_expr_binary()", binop);
         },
+
         BinaryOperator::ConditionalMiddle => {
-            panic!("Typecheck for ConditionalMiddle");
+            panic!("Typecheck for ConditionalMiddle should not be handled by ypecheck_expr_binary()");
         }
-
-
     };
 
     Ok(typex_set_type(result_expr, result_typ))
@@ -335,8 +375,6 @@ fn typecheck_expr_conditional(cond: &TypedExpression, true_expr: &TypedExpressio
 
 
     let ret_val = Expression::Conditional(Box::new(typed_cond), Box::new(typed_true), Box::new(typed_false));
-
-    //TODO: need to check that true_expr and false_expr have both the same type
 
     Ok(typex_set_type(ret_val, result_typ))
 }
@@ -397,8 +435,22 @@ fn typecheck_expr_pre_inc(expr: &TypedExpression, symbol_table: &mut HashMap<Str
 fn typecheck_expr_unary(unop: &UnaryOperator, typed_expr: &TypedExpression, symbol_table: &mut HashMap<String, SymbolInfo>) -> Result<TypedExpression, String>
 {
     let checked_type_expr = typecheck_expression(typed_expr, symbol_table)?;
+
     let typ = match unop {
         UnaryOperator::LogicalNot => Type::Int,
+
+        UnaryOperator::Complement |
+        UnaryOperator::PostDecrement |
+        UnaryOperator::PostIncrement |
+        UnaryOperator::PreDecrement |
+        UnaryOperator::PreIncrement => {
+            let typ = typex_get_type(&checked_type_expr);
+            if !typ.is_integer() {
+                return Err(format!("Unary operator '{:?}' expects integer type argument, but got '{}'", unop, typ.to_string()));
+            }
+            typ
+        },
+
         _ => typex_get_type(&checked_type_expr)
     };
 
@@ -413,24 +465,31 @@ fn typecheck_expression(typed_expr: &TypedExpression, symbol_table: &mut HashMap
         Expression::FunctionCall(func_name, args) => {
             typecheck_expr_function_call(func_name, args, symbol_table)?
         },
+
         Expression::Var(var_name) => {
             typecheck_expr_var(var_name, symbol_table)?
         },
+
         Expression::Assignment(left, right) => {
             typecheck_expr_assignment(&None, left, right, symbol_table)?
         },
+
         Expression::CompoundAssignment(binop,left , right) => {
             typecheck_expr_assignment(&Some(binop.clone()), left, right, symbol_table)?
         },
+
         Expression::Binary(binop, left , right) => {
             typecheck_expr_binary(binop, left, right, symbol_table)?
         },
+
         Expression::Conditional(cond, true_expr, false_expr ) => {
             typecheck_expr_conditional(cond, true_expr, false_expr, symbol_table)?
         },
+
         Expression::Constant(c) => {
             c.to_typex()
         },
+
         Expression::PostDecrement(expr) => {
             typecheck_expr_post_dec(expr, symbol_table)?
         },
@@ -456,8 +515,8 @@ fn typecheck_expression(typed_expr: &TypedExpression, symbol_table: &mut HashMap
             let checked_cast_expr = Expression::Cast(typ.clone(), Box::new(typed_inner));
             typex_set_type(checked_cast_expr, typ.clone())
         }
-
     };
+
     Ok(result_typed_expr)
 }
 
@@ -501,6 +560,9 @@ fn typecheck_local_variable_declaration(var_decl: &mut VariableDeclaration, symb
                 },
                 Some(TypedExpression::TypedExp(_, Expression::Constant(Const::I(IntegerConst::ConstULong(init_val))))) => {
                     StaticInit::ULongInit(*init_val)
+                },
+                Some(TypedExpression::TypedExp(_, Expression::Constant(Const::F(FloatingPointConst::ConstDouble(init_val))))) => {
+                    StaticInit::DoubleInit(*init_val)
                 },
                 None => {
                     StaticInit::IntInit(0)
@@ -553,6 +615,9 @@ fn typecheck_file_scope_variable_declaration(var_decl: &VariableDeclaration, sym
         },
         Some(TypedExpression::TypedExp(_, Expression::Constant(Const::I(IntegerConst::ConstULong(init_val))))) => {
             InitialValue::Initial(StaticInit::ULongInit(*init_val).convert_to(typ))
+        },
+        Some(TypedExpression::TypedExp(_, Expression::Constant(Const::F(FloatingPointConst::ConstDouble(init_val))))) => {
+            InitialValue::Initial(StaticInit::DoubleInit(*init_val).convert_to(typ))
         },
         None => {
             if *stg_class == Some(StorageClass::Extern) {
@@ -887,8 +952,7 @@ fn typecheck_file_scope_declaration(decl: &mut Declaration, symbol_table: &mut H
 
 pub fn typecheck_program(prog: &mut Program, symbol_table: &mut HashMap<String, SymbolInfo>) -> Result<(), String>
 {
-    panic!("typecheck_program NOT IMPLEMENTED [ANYMORE]");
-  /*  match prog {
+    match prog {
         Program::ProgramDefinition(decls) => {
             for decl in decls {
                 typecheck_file_scope_declaration(decl, symbol_table)?;
@@ -896,5 +960,5 @@ pub fn typecheck_program(prog: &mut Program, symbol_table: &mut HashMap<String, 
 
             Ok(())
         }
-    } */
+    }
 }
