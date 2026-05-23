@@ -490,11 +490,17 @@ fn typecheck_local_variable_declaration(var_decl: &mut VariableDeclaration, symb
 
         Some(StorageClass::Static) => {
             let initial_value = match initializer {
-                Some(TypedExpression::TypedExp(_, Expression::Constant(Const::ConstInt(init_val)))) => {
+                Some(TypedExpression::TypedExp(_, Expression::Constant(Const::I(IntegerConst::ConstInt(init_val))))) => {
                     StaticInit::IntInit(*init_val)
                 },
-                Some(TypedExpression::TypedExp(_, Expression::Constant(Const::ConstLong(init_val)))) => {
+                Some(TypedExpression::TypedExp(_, Expression::Constant(Const::I(IntegerConst::ConstUInt(init_val))))) => {
+                    StaticInit::UIntInit(*init_val)
+                },
+                Some(TypedExpression::TypedExp(_, Expression::Constant(Const::I(IntegerConst::ConstLong(init_val))))) => {
                     StaticInit::LongInit(*init_val)
+                },
+                Some(TypedExpression::TypedExp(_, Expression::Constant(Const::I(IntegerConst::ConstULong(init_val))))) => {
+                    StaticInit::ULongInit(*init_val)
                 },
                 None => {
                     StaticInit::IntInit(0)
@@ -536,16 +542,16 @@ fn typecheck_file_scope_variable_declaration(var_decl: &VariableDeclaration, sym
     let VariableDeclaration::Declarant(var_name, initializer, typ, stg_class) = var_decl;
     let mut initial_value = match initializer {
 
-        Some(TypedExpression::TypedExp(_, Expression::Constant(Const::ConstInt(init_val)))) => {
+        Some(TypedExpression::TypedExp(_, Expression::Constant(Const::I(IntegerConst::ConstInt(init_val))))) => {
             InitialValue::Initial(StaticInit::IntInit(*init_val).convert_to(typ))
         },
-        Some(TypedExpression::TypedExp(_, Expression::Constant(Const::ConstUInt(init_val)))) => {
+        Some(TypedExpression::TypedExp(_, Expression::Constant(Const::I(IntegerConst::ConstUInt(init_val))))) => {
             InitialValue::Initial(StaticInit::UIntInit(*init_val).convert_to(typ))
         },
-        Some(TypedExpression::TypedExp(_, Expression::Constant(Const::ConstLong(init_val)))) => {
+        Some(TypedExpression::TypedExp(_, Expression::Constant(Const::I(IntegerConst::ConstLong(init_val))))) => {
             InitialValue::Initial(StaticInit::LongInit(*init_val).convert_to(typ))
         },
-        Some(TypedExpression::TypedExp(_, Expression::Constant(Const::ConstULong(init_val)))) => {
+        Some(TypedExpression::TypedExp(_, Expression::Constant(Const::I(IntegerConst::ConstULong(init_val))))) => {
             InitialValue::Initial(StaticInit::ULongInit(*init_val).convert_to(typ))
         },
         None => {
@@ -624,6 +630,7 @@ fn type_str(typ: &Type) -> String
         Type::UInt => String::from("uint"),
         Type::Long => String::from("long"),
         Type::ULong => String::from("ulong"),
+        Type::Double => String::from("double"),
         Type::FuncType(param_types, ret_type, _) => {
             let mut param_types_str = vec![];
             for param_type in param_types {
@@ -704,7 +711,8 @@ fn typecheck_function_declaration(func_decl: &mut FunctionDeclaration, symbol_ta
             Type::Int   |
             Type::UInt  |
             Type::Long  |
-            Type::ULong => {
+            Type::ULong |
+            Type::Double => {
                 return Err(format!("Function '{}()' redefines variable '{}", func_name, func_name));
             }
         }
@@ -879,7 +887,8 @@ fn typecheck_file_scope_declaration(decl: &mut Declaration, symbol_table: &mut H
 
 pub fn typecheck_program(prog: &mut Program, symbol_table: &mut HashMap<String, SymbolInfo>) -> Result<(), String>
 {
-    match prog {
+    panic!("typecheck_program NOT IMPLEMENTED [ANYMORE]");
+  /*  match prog {
         Program::ProgramDefinition(decls) => {
             for decl in decls {
                 typecheck_file_scope_declaration(decl, symbol_table)?;
@@ -887,5 +896,5 @@ pub fn typecheck_program(prog: &mut Program, symbol_table: &mut HashMap<String, 
 
             Ok(())
         }
-    }
+    } */
 }

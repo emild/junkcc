@@ -10,6 +10,8 @@ use super::super::parser::IdentifierAttrs;
 use super::ast::*;
 
 
+/*
+
 fn convert_type_to_assembly_type(typ: &Type) -> AssemblyType
 {
     match typ {
@@ -675,10 +677,12 @@ pub fn generate_code_for_top_level_item(tacky_top_level_item: &tacky::ast::TopLe
     Ok(top_level_item)
 }
 
+*/
 
 
 pub fn generate_code(program: &tacky::ast::Program, symbol_table: &HashMap<String, SymbolInfo>) -> Result<(Program, HashMap<String, AssemblySymbolInfo>), String>
 {
+    /*
     let tacky::ast::Program::ProgramDefinition(tacky_top_level_items) = program;
     let mut top_level_items = vec![];
 
@@ -695,4 +699,6 @@ pub fn generate_code(program: &tacky::ast::Program, symbol_table: &HashMap<Strin
     }
 
     Ok((Program::ProgramDefinition(top_level_items), assembly_symbol_table))
+    */
+    panic!("generate_code() not implemented [any more]");
 }

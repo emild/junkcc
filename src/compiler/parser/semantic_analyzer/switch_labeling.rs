@@ -11,7 +11,7 @@ pub struct SwitchStatementInfo {
     expr_type: Type
 }
 
-
+/*
 fn label_unlabeled_statement_switch_statements(unlabeled_stmnt: &mut UnlabeledStatement, switch_stmnt_info: &Option<SwitchStatementInfo>, case_labels_map: &mut HashMap<Const, String>, default_label: &mut Option<String>) -> Result<(), String>
 {
     match unlabeled_stmnt {
@@ -147,8 +147,11 @@ fn label_block_switch_statements(block: &mut Block, switch_stmnt_info: &Option<S
     Ok(())
 }
 
+*/
+
 pub fn label_program_switch_statements(prog: &mut Program) -> Result<(), String>
 {
+    /*
     let Program::ProgramDefinition(decls) = prog;
 
     for decl in decls {
@@ -158,4 +161,6 @@ pub fn label_program_switch_statements(prog: &mut Program) -> Result<(), String>
     }
 
     Ok(())
+    */
+    panic!("Switch labeling not implemented [any more]");
 }

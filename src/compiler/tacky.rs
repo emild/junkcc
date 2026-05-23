@@ -1,3 +1,4 @@
+
 use std::{collections::HashMap, sync::atomic::{AtomicUsize, Ordering}};
 
 pub mod ast;
@@ -9,7 +10,7 @@ use super::parser;
 use super::parser::{IdentifierAttrs, SymbolInfo, InitialValue};
 use super::parser::ast::{TypedExpression, Type, typex_get_type, get_noncompound_operator};
 
-
+/*
 static TMP_NAME_INDEX: AtomicUsize = AtomicUsize::new(0);
 
 static TMP_LABEL_INDEX: AtomicUsize = AtomicUsize::new(0);
@@ -646,11 +647,11 @@ fn emit_tacky_static_duration_variables(symbol_table: &mut HashMap<String, Symbo
     Ok(tacky_vars)
 }
 
-
+*/
 
 pub fn emit_tacky_program(program: &parser::ast::Program, symbol_table: &mut HashMap<String, SymbolInfo>) -> Result<Program, String>
 {
-
+/*
     let parser::ast::Program::ProgramDefinition(decls) = program;
 
     //Emit only the functions
@@ -670,7 +671,9 @@ pub fn emit_tacky_program(program: &parser::ast::Program, symbol_table: &mut Has
     tacky_top_level_items.append(&mut tacky_static_vars);
 
 
-    Ok(Program::ProgramDefinition(tacky_top_level_items))
+    Ok(Program::ProgramDefinition(tacky_top_level_items)) */
+
+    panic!("TACKY NOT [LONGER] IMPLEMENTED");
 }
 
 
