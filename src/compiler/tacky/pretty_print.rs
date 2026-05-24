@@ -78,7 +78,7 @@ fn pretty_print_tacky_val(val: &Val)
 {
     match val {
         Val::Constant(c) => {
-            print!("Constant({}={})", c.get_type().to_string(), c.to_i64());
+            print!("Constant({}={})", c.get_type().to_string(), c.to_string());
         },
         Val::Var(var_name) => {
             print!("Var({})", var_name);
@@ -142,6 +142,34 @@ fn pretty_print_tacky_instructions(instructions: &Vec<Instruction>, indent: usiz
                 print!("{}", " ".repeat(indent));
                 pretty_print_tacky_val(&dst);
                 print!(" = ZERO_EXTEND(");
+                pretty_print_tacky_val(&src);
+                println!(")");
+            },
+            Instruction::DoubleToInt(src, dst) => {
+                print!("{}", " ".repeat(indent));
+                pretty_print_tacky_val(&dst);
+                print!(" = DOUBLE_TO_INT(");
+                pretty_print_tacky_val(&src);
+                println!(")");
+            },
+            Instruction::DoubleToUInt(src, dst) => {
+                print!("{}", " ".repeat(indent));
+                pretty_print_tacky_val(&dst);
+                print!(" = DOUBLE_TO_UINT(");
+                pretty_print_tacky_val(&src);
+                println!(")");
+            },
+            Instruction::IntToDouble(src, dst) => {
+                print!("{}", " ".repeat(indent));
+                pretty_print_tacky_val(&dst);
+                print!(" = INT_TO_DOUBLE(");
+                pretty_print_tacky_val(&src);
+                println!(")");
+            },
+            Instruction::UIntToDouble(src, dst) => {
+                print!("{}", " ".repeat(indent));
+                pretty_print_tacky_val(&dst);
+                print!(" = UINT_TO_DOUBLE(");
                 pretty_print_tacky_val(&src);
                 println!(")");
             },

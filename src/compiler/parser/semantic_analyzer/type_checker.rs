@@ -111,7 +111,7 @@ pub fn get_common_type(typ1: &Type, typ2: &Type) -> Type
         Type::Double
     }
     else if typ1.size() == typ2.size() {
-        if typ1.is_signed() {
+        if typ1.is_signed_integer() {
             typ2.clone()
         }
         else {

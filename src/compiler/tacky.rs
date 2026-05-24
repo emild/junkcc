@@ -6,11 +6,12 @@ mod pretty_print;
 
 use ast::*;
 
+
 use super::parser;
 use super::parser::{IdentifierAttrs, SymbolInfo, InitialValue};
-use super::parser::ast::{TypedExpression, Type, typex_get_type, get_noncompound_operator};
+use super::parser::ast::{TypedExpression, Type, FloatingPointConst, typex_get_type, get_noncompound_operator};
 
-/*
+
 static TMP_NAME_INDEX: AtomicUsize = AtomicUsize::new(0);
 
 static TMP_LABEL_INDEX: AtomicUsize = AtomicUsize::new(0);
@@ -91,17 +92,26 @@ fn get_inc_dec_operator(expr: &parser::ast::Expression) -> Result<BinaryOperator
     Ok(bin_op)
 }
 
+fn get_const_one(typ: &Type) -> parser::ast::Const
+{
+    let val = match typ {
+        Type::Int   => parser::ast::Const::I(parser::ast::IntegerConst::ConstInt(1)),
+        Type::UInt  => parser::ast::Const::I(parser::ast::IntegerConst::ConstUInt(1)),
+        Type::Long  => parser::ast::Const::I(parser::ast::IntegerConst::ConstLong(1)),
+        Type::ULong => parser::ast::Const::I(parser::ast::IntegerConst::ConstULong(1)),
+        Type::Double => parser::ast::Const::F(FloatingPointConst::ConstDouble(1.0)),
+        _ => { panic!("TACKY: Cannot get constant 1 of type {}", typ.to_string()); }
+    };
+
+    val
+}
+
+
 fn emit_tacky_pre_inc_dec(bin_op: BinaryOperator, var_name: &String, typ: &Type, instructions: &mut Vec<Instruction>, symbol_table: &mut HashMap<String, SymbolInfo>) -> Result<Val, String>
 {
     let dst = Val::Var(var_name.clone());
-    let src = match typ {
-        Type::Int   => parser::ast::Const::ConstInt(1),
-        Type::UInt  => parser::ast::Const::ConstUInt(1),
-        Type::Long  => parser::ast::Const::ConstLong(1),
-        Type::ULong => parser::ast::Const::ConstULong(1),
-        _ => { panic!("TACKY pre_inc_dec(): Invalid type: {}", typ.to_string()); }
-    };
-    let src = Val::Constant(src);
+    let one = get_const_one(typ);
+    let src = Val::Constant(one);
     instructions.push(Instruction::Binary(bin_op, dst.clone(), src, dst.clone()));
 
     Ok(dst)
@@ -114,14 +124,8 @@ fn emit_tacky_post_inc_dec(bin_op: BinaryOperator, var_name: &String, typ: &Type
     let new_dst = make_tacky_var(typ, symbol_table);
     instructions.push(Instruction::Copy(dst.clone(), new_dst.clone()));
 
-    let src = match typ {
-        Type::Int   => parser::ast::Const::ConstInt(1),
-        Type::UInt  => parser::ast::Const::ConstUInt(1),
-        Type::Long  => parser::ast::Const::ConstLong(1),
-        Type::ULong => parser::ast::Const::ConstULong(1),
-        _ => { panic!("TACKY post_inc_dec(): Invalid type: {}", typ.to_string()); }
-    };
-    let src = Val::Constant(src);
+    let one = get_const_one(typ);
+    let src = Val::Constant(one);
     instructions.push(Instruction::Binary(bin_op, dst.clone(), src, dst.clone()));
 
     Ok(new_dst)
@@ -133,17 +137,8 @@ fn emit_tacky_expression(typed_expr: &TypedExpression, instructions: &mut Vec<In
     let TypedExpression::TypedExp(_, expr) = typed_expr;
 
     let val = match expr {
-        parser::ast::Expression::Constant(parser::ast::Const::ConstInt(c)) => {
-            Val::Constant(parser::ast::Const::ConstInt(*c))
-        },
-        parser::ast::Expression::Constant(parser::ast::Const::ConstUInt(c)) => {
-            Val::Constant(parser::ast::Const::ConstUInt(*c))
-        },
-        parser::ast::Expression::Constant(parser::ast::Const::ConstLong(c)) => {
-            Val::Constant(parser::ast::Const::ConstLong(*c))
-        },
-        parser::ast::Expression::Constant(parser::ast::Const::ConstULong(c)) => {
-            Val::Constant(parser::ast::Const::ConstULong(*c))
+        parser::ast::Expression::Constant(c) => {
+            Val::Constant(c.clone())
         },
         parser::ast::Expression::Var(var_name) => {
             Val::Var(var_name.clone())
@@ -234,10 +229,10 @@ fn emit_tacky_expression(typed_expr: &TypedExpression, instructions: &mut Vec<In
             instructions.push(Instruction::JumpIfZero(left.clone(), lbl_expr_is_false.clone()));
             let right = emit_tacky_expression(expr2, instructions, symbol_table)?;
             instructions.push(Instruction::JumpIfZero(right.clone(), lbl_expr_is_false.clone()));
-            instructions.push(Instruction::Copy(Val::Constant(parser::ast::Const::ConstInt(1)), result.clone()));
+            instructions.push(Instruction::Copy(Val::Constant(parser::ast::Const::from(1)), result.clone()));
             instructions.push(Instruction::Jump(lbl_expr_end.clone()));
             instructions.push(Instruction::Label(lbl_expr_is_false.clone()));
-            instructions.push(Instruction::Copy(Val::Constant(parser::ast::Const::ConstInt(0)), result.clone()));
+            instructions.push(Instruction::Copy(Val::Constant(parser::ast::Const::from(0)), result.clone()));
             instructions.push(Instruction::Label(lbl_expr_end.clone()));
 
             result
@@ -251,10 +246,10 @@ fn emit_tacky_expression(typed_expr: &TypedExpression, instructions: &mut Vec<In
             instructions.push(Instruction::JumpIfNotZero(left.clone(), lbl_expr_is_true.clone()));
             let right = emit_tacky_expression(expr2, instructions, symbol_table)?;
             instructions.push(Instruction::JumpIfNotZero(right.clone(), lbl_expr_is_true.clone()));
-            instructions.push(Instruction::Copy(Val::Constant(parser::ast::Const::ConstInt(0)), result.clone()));
+            instructions.push(Instruction::Copy(Val::Constant(parser::ast::Const::from(0)), result.clone()));
             instructions.push(Instruction::Jump(lbl_expr_end.clone()));
             instructions.push(Instruction::Label(lbl_expr_is_true.clone()));
-            instructions.push(Instruction::Copy(Val::Constant(parser::ast::Const::ConstInt(1)), result.clone()));
+            instructions.push(Instruction::Copy(Val::Constant(parser::ast::Const::from(1)), result.clone()));
             instructions.push(Instruction::Label(lbl_expr_end.clone()));
 
             result
@@ -335,16 +330,29 @@ fn emit_tacky_expression(typed_expr: &TypedExpression, instructions: &mut Vec<In
             }
             else {
                 let dst = make_tacky_var(typ, symbol_table);
-                if expr_type.size() == typ.size() {
+                if expr_type.is_floating_point() && typ.is_signed_integer() {
+                    instructions.push(Instruction::DoubleToInt(expr_result, dst.clone()));
+                }
+                else if expr_type.is_signed_integer() && typ.is_floating_point() {
+                    instructions.push(Instruction::IntToDouble(expr_result, dst.clone()));
+                }
+                else if expr_type.is_floating_point() && typ.is_unsigned_integer() {
+                    instructions.push(Instruction::DoubleToUInt(expr_result, dst.clone()));
+                }
+                else if expr_type.is_unsigned_integer() && typ.is_floating_point() {
+                    instructions.push(Instruction::UIntToDouble(expr_result, dst.clone()));
+                }
+                else if expr_type.size() == typ.size() {
                     instructions.push(Instruction::Copy(expr_result, dst.clone()));
                 }
                 else if expr_type.size() > typ.size() {
                     instructions.push(Instruction::Truncate(expr_result, dst.clone()));
                 }
-                else if expr_type.is_signed() {
+                else if expr_type.is_signed_integer() {
                     instructions.push(Instruction::SignExtend(expr_result, dst.clone()));
                 }
                 else {
+                    assert!(expr_type.is_unsigned_integer());
                     instructions.push(Instruction::ZeroExtend(expr_result, dst.clone()));
                 }
 
@@ -514,7 +522,7 @@ fn emit_tacky_unlabeled_statement(stmnt: &parser::ast::UnlabeledStatement, instr
             let switch_end_label = break_switch_label(switch_label);
 
             for (case_val, target) in case_labels_map {
-                instructions.push(Instruction::Binary(BinaryOperator::Equal, val.clone(), Val::Constant(case_val.clone()), cmp_result.clone()));
+                instructions.push(Instruction::Binary(BinaryOperator::Equal, val.clone(), Val::Constant(parser::ast::Const::I(case_val.clone())), cmp_result.clone()));
                 instructions.push(Instruction::JumpIfNotZero(cmp_result.clone(), target.clone()));
             }
 
@@ -606,7 +614,7 @@ fn emit_tacky_function_definition(func_def: &parser::ast::FunctionDeclaration, s
             emit_tacky_block(block, &mut instructions, symbol_table)?;
 
             //Force the function to return, in case control reaches the end of its body
-            instructions.push(Instruction::Return(Val::Constant(parser::ast::Const::ConstInt(0))));
+            instructions.push(Instruction::Return(Val::Constant(parser::ast::Const::from(0))));
 
             //Must look at the symbol table and not at the actual declaration
             //because static functions can be declared multiple times
@@ -635,6 +643,7 @@ fn emit_tacky_static_duration_variables(symbol_table: &mut HashMap<String, Symbo
                         Type::UInt  => parser::StaticInit::UIntInit(0),
                         Type::Long  => parser::StaticInit::LongInit(0),
                         Type::ULong => parser::StaticInit::LongInit(0),
+                        Type::Double => parser::StaticInit::DoubleInit(0.0),
                         _ => {panic!("TACKY emit_tacky_static_duration_variables(): Invalid type: '{}'", typ.to_string()); }
                     }
                 InitialValue::NoInitializer => { continue; }
@@ -647,11 +656,10 @@ fn emit_tacky_static_duration_variables(symbol_table: &mut HashMap<String, Symbo
     Ok(tacky_vars)
 }
 
-*/
 
 pub fn emit_tacky_program(program: &parser::ast::Program, symbol_table: &mut HashMap<String, SymbolInfo>) -> Result<Program, String>
 {
-/*
+
     let parser::ast::Program::ProgramDefinition(decls) = program;
 
     //Emit only the functions
@@ -671,9 +679,7 @@ pub fn emit_tacky_program(program: &parser::ast::Program, symbol_table: &mut Has
     tacky_top_level_items.append(&mut tacky_static_vars);
 
 
-    Ok(Program::ProgramDefinition(tacky_top_level_items)) */
-
-    panic!("TACKY NOT [LONGER] IMPLEMENTED");
+    Ok(Program::ProgramDefinition(tacky_top_level_items))
 }
 
 

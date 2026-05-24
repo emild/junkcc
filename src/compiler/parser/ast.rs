@@ -308,6 +308,17 @@ impl Const {
         }
     }
 
+    pub fn to_string(&self) -> String
+    {
+        let intrm = ConstIntermediateFormat::from(self);
+
+        match intrm.value_type {
+            ValueType::SignedInt => format!("{}",intrm.i_val.unwrap()),
+            ValueType::UnsignedInt => format!("{}",intrm.u_val.unwrap()),
+            ValueType::FloatingPoint => format!("{}",intrm.f_val.unwrap())
+        }
+    }
+
 
     pub fn is_false(&self) -> bool
     {
@@ -1006,17 +1017,33 @@ impl Type
         }
     }
 
-    pub fn is_signed(&self) -> bool
+    pub fn is_signed_integer(&self) -> bool
     {
         match self {
             Type::Int   |
-            Type::Long  |
-            Type::Double => true,
+            Type::Long => true,
 
             Type::UInt  |
             Type::ULong => false,
 
-            _ => { panic!("Attempt to call is_signed() for function type"); }
+            Type::Double => false,
+
+            _ => { panic!("Attempt to call is_signed_integer() for function type"); }
+        }
+    }
+
+    pub fn is_unsigned_integer(&self) -> bool
+    {
+        match self {
+            Type::Int   |
+            Type::Long => false,
+
+            Type::UInt  |
+            Type::ULong => true,
+
+            Type::Double => false,
+
+            _ => { panic!("Attempt to call is_unsigned_integer() for function type"); }
         }
     }
 
@@ -1037,6 +1064,22 @@ impl Type
         }
     }
 
+    pub fn is_floating_point(&self) -> bool
+    {
+        match self {
+            Type::Int   |
+            Type::Long  |
+            Type::UInt  |
+            Type::ULong
+                => false,
+
+            Type::Double
+                => true,
+
+            _
+                => { panic!("Attempt to call is_floating_point() for '{:?}'", self); }
+        }
+    }
 
 }
 
