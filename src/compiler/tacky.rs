@@ -269,7 +269,20 @@ fn emit_tacky_expression(typed_expr: &TypedExpression, instructions: &mut Vec<In
                 _ => { assert_eq!(typ1, typ2); }
             };
 
-            let dst = make_tacky_var(&typ1, symbol_table);
+            let dst_typ = match binop {
+                parser::ast::BinaryOperator::LessThan       |
+                parser::ast::BinaryOperator::LessOrEqual    |
+                parser::ast::BinaryOperator::GreaterThan    |
+                parser::ast::BinaryOperator::GreaterOrEqual |
+                parser::ast::BinaryOperator::Equal          |
+                parser::ast::BinaryOperator::NotEqual
+                    => Type::Int,
+                _
+                    => typ1
+            };
+
+
+            let dst = make_tacky_var(&dst_typ, symbol_table);
             let tacky_bin_op = emit_tacky_binary_operator(binop)?;
             instructions.push(Instruction::Binary(tacky_bin_op, src1, src2, dst.clone()));
 

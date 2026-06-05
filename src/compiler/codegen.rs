@@ -4,6 +4,7 @@ mod code_ast_generator;
 mod pseudo_operands_replace;
 mod instruction_fixups;
 mod code_emitter;
+pub mod const_double;
 
 
 

@@ -38,6 +38,14 @@ fn fixup_instruction_operands(instruction: &Instruction) -> Option<Vec<Instructi
         },
 
         //Mov with two memory operands does not work
+        Instruction::Mov(AssemblyType::Double, src, dst) if src.is_mem() && dst.is_mem() => {
+            Some(vec![
+                Instruction::Mov(AssemblyType::Double, src.clone(), Operand::Reg(Register::XMM15)),
+                Instruction::Mov(AssemblyType::Double, Operand::Reg(Register::XMM15), dst.clone())
+            ])
+        },
+
+        //Mov with two memory operands does not work
         Instruction::Mov(ass_type, src, dst) if src.is_mem() && dst.is_mem() => {
             Some(vec![
                 Instruction::Mov(ass_type.clone(), src.clone(), Operand::Reg(Register::R10)),
@@ -133,6 +141,14 @@ fn fixup_instruction_operands(instruction: &Instruction) -> Option<Vec<Instructi
             result
         },
 
+        //Destination must be a register
+        Instruction::Binary(binop, AssemblyType::Double, src, dst) if src.is_mem() && dst.is_mem() => {
+            Some(vec![
+                Instruction::Mov(AssemblyType::Double, dst.clone(), Operand::Reg(Register::XMM15)),
+                Instruction::Binary(binop.clone(), AssemblyType::Double, src.clone(), Operand::Reg(Register::XMM15)),
+                Instruction::Mov(AssemblyType::Double, Operand::Reg(Register::XMM15), dst.clone()),
+            ])
+        },
 
         //For quadword (64 bit) versions of Mul, if the source operand is immediate
         //only its lower 32 bits are considered. The operand is sign-extended to 64 bits
@@ -242,6 +258,13 @@ fn fixup_instruction_operands(instruction: &Instruction) -> Option<Vec<Instructi
                 None
             }
         },
+        //Cmp (comisd): Two mem operands are not allowed
+        Instruction::Cmp(AssemblyType::Double, src1, src2) if src1.is_mem() && src2.is_mem() => {
+            Some(vec![
+                Instruction::Mov(AssemblyType::Double, src2.clone(), Operand::Reg(Register::XMM15)),
+                Instruction::Cmp(AssemblyType::Double, src1.clone(), Operand::Reg(Register::XMM15))
+            ])
+        },
 
         //Cmp: Two mem operands are not allowed
         Instruction::Cmp(ass_type, src1, src2) if src1.is_mem() && src2.is_mem() => {
@@ -271,7 +294,33 @@ fn fixup_instruction_operands(instruction: &Instruction) -> Option<Vec<Instructi
                     Instruction::Push(Operand::Reg(Register::R10))
                 ])
             }
-        }
+        },
+
+        //Destination must be a register
+        Instruction::Cvttsd2si(ass_type, src, dst) if src.is_mem() && dst.is_mem() => {
+            Some(vec![
+                Instruction::Cvttsd2si(ass_type.clone(), src.clone(), Operand::Reg(Register::R11)),
+                Instruction::Mov(ass_type.clone(), Operand::Reg(Register::R11), dst.clone())
+            ])
+        },
+
+        //Source cannot be immendiate, Destination must be a register
+        Instruction::Cvtsi2sd(ass_type, src, dst) if src.is_imm() && dst.is_mem() => {
+            Some(vec![
+                Instruction::Mov(ass_type.clone(), src.clone(), Operand::Reg(Register::R10)),
+                Instruction::Cvttsd2si(ass_type.clone(), Operand::Reg(Register::R10), Operand::Reg(Register::XMM15)),
+                Instruction::Mov(AssemblyType::Double, Operand::Reg(Register::XMM15), dst.clone())
+            ])
+        },
+
+        //Destination must be a register
+        Instruction::Cvtsi2sd(ass_type, src, dst) if src.is_mem() && dst.is_mem() =>  {
+            Some(vec![
+                Instruction::Cvtsi2sd(ass_type.clone(), src.clone(), Operand::Reg(Register::XMM15)),
+                Instruction::Mov(AssemblyType::Double, Operand::Reg(Register::XMM15), dst.clone())
+            ])
+        },
+
         _ => None
     }
 }
@@ -313,7 +362,8 @@ pub fn fixup_function_instructions(top_level_item: &mut TopLevel, stack_allocati
         TopLevel::Function(func_name, global, instructions) => {
             fixup_function_body_instructions(instructions, stack_allocation_size)?;
         },
-        TopLevel::StaticVariable(_,_,_,_) => {}
+        TopLevel::StaticVariable(_,_,_,_) => {},
+        TopLevel::StaticConstant(_,_,_) => {},
         //_ => {
         //    return Err(format!("Fixup Instructions: Expected FunctionDefinion, got '{:?}'", top_level_item));
         //}

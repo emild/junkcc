@@ -5,7 +5,8 @@ fn assembly_type_suffix(ass_type: &AssemblyType) -> &str
 {
     match ass_type {
         AssemblyType::LongWord => "l",
-        AssemblyType::QuadWord => "q"
+        AssemblyType::QuadWord => "q",
+        AssemblyType::Double   => "sd",
     }
 }
 
@@ -46,12 +47,13 @@ fn pretty_print_unary_operator(unary_op: &UnaryOperator)
 fn pretty_print_binary_operator(binary_op: &BinaryOperator)
 {
     match binary_op {
-        BinaryOperator::Add => { print!("add"); },
-        BinaryOperator::Sub => { print!("sub"); },
-        BinaryOperator::Mul => { print!("mul"); },
-        BinaryOperator::And => { print!("and"); },
-        BinaryOperator::Or  => { print!("or");  },
-        BinaryOperator::Xor => { print!("xor"); },
+        BinaryOperator::Add         => { print!("add"); },
+        BinaryOperator::Sub         => { print!("sub"); },
+        BinaryOperator::Mul         => { print!("mul"); },
+        BinaryOperator::And         => { print!("and"); },
+        BinaryOperator::Or          => { print!("or");  },
+        BinaryOperator::Xor         => { print!("xor"); },
+        BinaryOperator::DivDouble   => { print!("divsd"); },
         //_ => { panic!("Unexpected binary operator: '{:?}'", binary_op); }
     }
 }
@@ -206,7 +208,20 @@ fn pretty_print_instructions(instructions: &Vec<Instruction>, indent: usize)
                 pretty_print_operand(&dst);
                 println!("");
             },
-
+            Instruction::Cvttsd2si(ass_type, src, dst) => {
+                print!("{}Cvttsd2si typ={}, src=", " ".repeat(indent), assembly_type_suffix(ass_type));
+                pretty_print_operand(&src);
+                print!(", dest=");
+                pretty_print_operand(&dst);
+                println!("");
+            },
+            Instruction::Cvtsi2sd(ass_type, src, dst) => {
+                print!("{}Cvtsi2sd typ={}, src=", " ".repeat(indent), assembly_type_suffix(ass_type));
+                pretty_print_operand(&src);
+                print!(", dest=");
+                pretty_print_operand(&dst);
+                println!("");
+            },
 
           //  _ => { panic!("Unknown instruction: '{:?}'", ins); }
         };
@@ -231,7 +246,12 @@ fn pretty_print_top_level_item(top_level_item: &TopLevel, indent: usize)
                 print!("GLOBAL ");
             }
             println!("Static var {var_name} = {}", init_value.to_string());
-        }
+        },
+        TopLevel::StaticConstant(const_name, align, init_value) => {
+            print!("{}", " ".repeat(indent));
+            println!("Static Const {const_name} = {}", init_value.to_string());
+        },
+
         //_ => { panic!("Invalid top level item: '{:?}'", f); }
     }
 }

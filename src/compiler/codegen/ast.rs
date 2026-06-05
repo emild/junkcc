@@ -1,23 +1,26 @@
 use super::super::parser::StaticInit;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum AssemblyType {
     LongWord,
-    QuadWord
+    QuadWord,
+    Double
 }
 
 impl AssemblyType {
     pub fn size(&self) -> usize {
         match self {
             AssemblyType::LongWord => 4,
-            AssemblyType::QuadWord => 8
+            AssemblyType::QuadWord => 8,
+            AssemblyType::Double   => 8
         }
     }
 
     pub fn alignment(&self) -> usize {
         match self {
             AssemblyType::LongWord => 4,
-            AssemblyType::QuadWord => 8
+            AssemblyType::QuadWord => 8,
+            AssemblyType::Double   => 8
         }
     }
 
@@ -25,7 +28,7 @@ impl AssemblyType {
 
 #[derive(Debug)]
 pub enum AssemblySymbolInfo {
-    ObjEntry(AssemblyType /* assembly_type */,  bool /* is_static */),
+    ObjEntry(AssemblyType /* assembly_type */,  bool /* is_static */, bool /* is_const */),
     FuncEntry(bool /* is_defined */)
 }
 
@@ -42,7 +45,24 @@ pub enum Register {
     R9,
     R10,
     R11,
-    SP
+    SP,
+
+    XMM0,
+    XMM1,
+    XMM2,
+    XMM3,
+    XMM4,
+    XMM5,
+    XMM6,
+    XMM7,
+    XMM8,
+    XMM9,
+    XMM10,
+    XMM11,
+    XMM12,
+    XMM13,
+    XMM14,
+    XMM15
 }
 
 #[derive(Debug, Clone)]
@@ -117,7 +137,8 @@ pub enum BinaryOperator {
     Mul,
     Or,
     And,
-    Xor
+    Xor,
+    DivDouble
 }
 
 
@@ -141,13 +162,16 @@ pub enum Instruction {
     Label(String),
     Push(Operand),
     Call(String),
-    Ret
+    Ret,
+    Cvttsd2si(AssemblyType /* dst_type */, Operand /* src */, Operand /* dst */),
+    Cvtsi2sd(AssemblyType /* src_type */, Operand /* src */, Operand /* dst */)
 }
 
 #[derive(Debug)]
 pub enum TopLevel {
     Function(String /* name */, bool /* global */, Vec<Instruction> /* body */),
-    StaticVariable(String /* name */, bool /* global */, usize /* alignment */, StaticInit /* init */)
+    StaticVariable(String /* name */, bool /* global */, usize /* alignment */, StaticInit /* init */),
+    StaticConstant(String /* name */, usize /* alignment */, StaticInit /* init */)
 }
 
 #[derive(Debug)]

@@ -24,7 +24,7 @@ impl<'a> PseudoOperandState<'a> {
             Operand::Pseudo(var_name) => {
                 if !self.pseudo_op_table.contains_key(var_name) {
                     match self.symbol_table.get(var_name) {
-                        Some(AssemblySymbolInfo::ObjEntry(_ass_type, true)) =>  {
+                        Some(AssemblySymbolInfo::ObjEntry(_ass_type, true, _)) =>  {
                             return Operand::Data(var_name.clone());
                         },
                         Some(AssemblySymbolInfo::FuncEntry(_)) => {
@@ -55,7 +55,6 @@ impl<'a> PseudoOperandState<'a> {
 
 fn replace_pseudo_operands_in_function_body(instructions: &mut Vec<Instruction>, assembly_symbol_table: &HashMap<String, AssemblySymbolInfo>) -> Result<usize, String>
 {
-
     let mut pseudo_operand_state = PseudoOperandState::new(assembly_symbol_table);
 
     for it in instructions.iter_mut() {
@@ -120,13 +119,23 @@ fn replace_pseudo_operands_in_function_body(instructions: &mut Vec<Instruction>,
                 let new_dst = pseudo_operand_state.replace_operand(&dst, &AssemblyType::LongWord);
                 Some(Instruction::SetCC(cc.clone(), new_dst))
             },
+            Instruction::Cvtsi2sd(ass_type, src, dst) => {
+                let new_src = pseudo_operand_state.replace_operand(&src, ass_type);
+                let new_dst = pseudo_operand_state.replace_operand(&dst, &AssemblyType::Double);
+                Some(Instruction::Cvtsi2sd(ass_type.clone(), new_src, new_dst))
+            },
+            Instruction::Cvttsd2si(ass_type, src, dst) => {
+                let new_src = pseudo_operand_state.replace_operand(&src, &AssemblyType::Double);
+                let new_dst = pseudo_operand_state.replace_operand(&dst, ass_type);
+                Some(Instruction::Cvttsd2si(ass_type.clone(), new_src, new_dst))
+            },
             Instruction::Call(_)    |
             Instruction::Cdq(_)     |
             Instruction::Jmp(_)     |
             Instruction::JmpCC(_,_) |
             Instruction::Label(_)   |
-            Instruction::Ret    => None
-            //_ => None
+            Instruction::Ret    => None,
+            //_ => { panic!("replace_pseudo_operands_in_function_body() not supported YET for instruction '{:?}'", it); }
         };
 
         if let Some(replace_instruction) = replace_instruction {
