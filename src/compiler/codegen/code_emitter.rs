@@ -2,6 +2,7 @@ use std::collections::HashMap;
 use std::fs;
 use std::io::Write;
 use std::io::BufWriter;
+use std::str::SplitAsciiWhitespace;
 use super::ast::*;
 use super::super::parser::StaticInit;
 
@@ -18,20 +19,11 @@ fn get_operand_size(ass_type: &AssemblyType) -> OperandSize
 {
     match ass_type {
         AssemblyType::LongWord => OperandSize::Dword,
-        AssemblyType::QuadWord => OperandSize::Qword
+        AssemblyType::QuadWord => OperandSize::Qword,
+        AssemblyType::Double   => { panic!("get_operand_size() not YET implemented for '{:?}'", ass_type); }
     }
 }
 
-
-fn emit_instruction_suffix(ass_type: &AssemblyType) -> String
-{
-    let suffix = match ass_type {
-        AssemblyType::LongWord => "l",
-        AssemblyType::QuadWord => "q"
-    };
-
-    String::from(suffix)
-}
 
 
 fn emit_byte_register(reg: &Register) -> std::io::Result<String>
@@ -47,7 +39,25 @@ fn emit_byte_register(reg: &Register) -> std::io::Result<String>
         Register::R8  => "r8b",
         Register::R9  => "r9b",
         Register::R10 => "r10b",
-        Register::R11 => "r11b"
+        Register::R11 => "r11b",
+
+        Register::XMM0 => "xmm0",
+        Register::XMM1 => "xmm1",
+        Register::XMM2 => "xmm2",
+        Register::XMM3 => "xmm3",
+        Register::XMM4 => "xmm4",
+        Register::XMM5 => "xmm5",
+        Register::XMM6 => "xmm6",
+        Register::XMM7 => "xmm7",
+        Register::XMM8 => "xmm8",
+        Register::XMM9 => "xmm9",
+        Register::XMM10 => "xmm10",
+        Register::XMM11 => "xmm11",
+        Register::XMM12 => "xmm12",
+        Register::XMM13 => "xmm13",
+        Register::XMM14 => "xmm14",
+        Register::XMM15 => "xmm15",
+
     };
 
     Ok(reg_str.to_string())
@@ -66,7 +76,25 @@ fn emit_word_register(reg: &Register) -> std::io::Result<String>
         Register::R8  => "r8w",
         Register::R9  => "r9w",
         Register::R10 => "r10w",
-        Register::R11 => "r11w"
+        Register::R11 => "r11w",
+
+        Register::XMM0 => "xmm0",
+        Register::XMM1 => "xmm1",
+        Register::XMM2 => "xmm2",
+        Register::XMM3 => "xmm3",
+        Register::XMM4 => "xmm4",
+        Register::XMM5 => "xmm5",
+        Register::XMM6 => "xmm6",
+        Register::XMM7 => "xmm7",
+        Register::XMM8 => "xmm8",
+        Register::XMM9 => "xmm9",
+        Register::XMM10 => "xmm10",
+        Register::XMM11 => "xmm11",
+        Register::XMM12 => "xmm12",
+        Register::XMM13 => "xmm13",
+        Register::XMM14 => "xmm14",
+        Register::XMM15 => "xmm15",
+
     };
 
     Ok(reg_str.to_string())
@@ -86,7 +114,25 @@ fn emit_dword_register(reg: &Register) -> std::io::Result<String>
         Register::R8  => "r8d",
         Register::R9  => "r9d",
         Register::R10 => "r10d",
-        Register::R11 => "r11d"
+        Register::R11 => "r11d",
+
+        Register::XMM0 => "xmm0",
+        Register::XMM1 => "xmm1",
+        Register::XMM2 => "xmm2",
+        Register::XMM3 => "xmm3",
+        Register::XMM4 => "xmm4",
+        Register::XMM5 => "xmm5",
+        Register::XMM6 => "xmm6",
+        Register::XMM7 => "xmm7",
+        Register::XMM8 => "xmm8",
+        Register::XMM9 => "xmm9",
+        Register::XMM10 => "xmm10",
+        Register::XMM11 => "xmm11",
+        Register::XMM12 => "xmm12",
+        Register::XMM13 => "xmm13",
+        Register::XMM14 => "xmm14",
+        Register::XMM15 => "xmm15",
+
     };
 
     Ok(reg_str.to_string())
@@ -106,7 +152,25 @@ fn emit_qword_register(reg: &Register) -> std::io::Result<String>
         Register::R8  => "r8",
         Register::R9  => "r9",
         Register::R10 => "r10",
-        Register::R11 => "r11"
+        Register::R11 => "r11",
+
+        Register::XMM0 => "xmm0",
+        Register::XMM1 => "xmm1",
+        Register::XMM2 => "xmm2",
+        Register::XMM3 => "xmm3",
+        Register::XMM4 => "xmm4",
+        Register::XMM5 => "xmm5",
+        Register::XMM6 => "xmm6",
+        Register::XMM7 => "xmm7",
+        Register::XMM8 => "xmm8",
+        Register::XMM9 => "xmm9",
+        Register::XMM10 => "xmm10",
+        Register::XMM11 => "xmm11",
+        Register::XMM12 => "xmm12",
+        Register::XMM13 => "xmm13",
+        Register::XMM14 => "xmm14",
+        Register::XMM15 => "xmm15",
+
     };
 
     Ok(reg_str.to_string())
@@ -275,7 +339,7 @@ fn emit_call_instruction(label: &String, assembly_symbol_table: &HashMap<String,
         Some(AssemblySymbolInfo::FuncEntry(false)) => {
             target_label = format!("{}@PLT", label);
         },
-        Some(AssemblySymbolInfo::ObjEntry(_,_)) => {
+        Some(AssemblySymbolInfo::ObjEntry(_,_,_)) => {
             panic!("code_emitter: Attempt to call function '{}()', but symbol table says it's not a function", label);
         }
         None => {
@@ -293,7 +357,8 @@ fn instruction_suffix(ass_type: &AssemblyType) -> &str
 {
     match ass_type {
         AssemblyType::LongWord => "l",
-        AssemblyType::QuadWord => "q"
+        AssemblyType::QuadWord => "q",
+        AssemblyType::Double => { panic!("No instruction suffix for Double"); }
     }
 }
 
@@ -341,7 +406,8 @@ fn emit_body(instructions: &Vec<Instruction>, assembly_symbol_table: &HashMap<St
             Instruction::Cdq(ass_type) => {
                 match ass_type {
                     AssemblyType::LongWord => writeln!(buf_writer, "{}cdq", " ".repeat(16))?,
-                    AssemblyType::QuadWord => writeln!(buf_writer, "{}cqo", " ".repeat(16))?
+                    AssemblyType::QuadWord => writeln!(buf_writer, "{}cqo", " ".repeat(16))?,
+                    AssemblyType::Double => { panic!("Attempt to emit Cdq with Double operand type"); }
                 };
             },
             Instruction::Unary(unary_operator, ass_type, dst) => {
@@ -402,9 +468,9 @@ fn emit_body(instructions: &Vec<Instruction>, assembly_symbol_table: &HashMap<St
             }
 
             //TODO: REMOVE
-            //_ => {
-            //    return Err(std::io::Error::other(format!("Unsupported instruction '{:?}'", ins)));
-            //}
+            _ => {
+                panic!("Unsupported instruction '{:?}'", ins);
+            }
         };
     }
     Ok(())
