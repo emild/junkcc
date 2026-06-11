@@ -195,8 +195,8 @@ fn generate_code_for_tacky_unary_instruction(
             if src_ass_type == AssemblyType::Double {
                 vec![
                     Instruction::Binary(BinaryOperator::Xor, AssemblyType::Double, Operand::Reg(Register::XMM0), Operand::Reg(Register::XMM0)),
-                    Instruction::Cmp(AssemblyType::Double, Operand::Reg(Register::XMM0), unary_op_src.clone()),
-                    Instruction::Mov(dst_ass_type.clone(), Operand::Imm(0), unary_op_dst.clone()),
+                    Instruction::Cmp(AssemblyType::Double, unary_op_src.clone(), Operand::Reg(Register::XMM0)),
+                    Instruction::Mov(AssemblyType::LongWord, Operand::Imm(0), unary_op_dst.clone()),
                     Instruction::SetCC(CC::E, unary_op_dst.clone())
                 ]
             }
@@ -299,44 +299,44 @@ fn generate_code_for_divide_instruction(
 
 
 fn generate_code_for_shift_left_instruction(
-    src1: &tacky::ast::Val,
-    src2: &tacky::ast::Val,
+    src: &tacky::ast::Val,
+    count: &tacky::ast::Val,
     dst: &tacky::ast::Val,
     symbol_table: &HashMap<String, SymbolInfo>,
     instructions: &mut Vec<Instruction>) -> Result<(), String>
 {
-    let src1_ass_type = get_tacky_value_assembly_type(src1, symbol_table);
+    let src_ass_type = get_tacky_value_assembly_type(src, symbol_table);
 
-    let src1 = convert_tacky_value_to_operand(src1)?;
-    let src2 = convert_tacky_value_to_operand(src2)?;
+    let src = convert_tacky_value_to_operand(src)?;
+    let count = convert_tacky_value_to_operand(count)?;
     let dst  = convert_tacky_value_to_operand(dst)?;
 
-    instructions.push(Instruction::Mov(src1_ass_type.clone(), src1.clone(), dst.clone()));
-    instructions.push(Instruction::Shl(src1_ass_type.clone(), src2.clone(), dst.clone()));
+    instructions.push(Instruction::Mov(src_ass_type.clone(), src.clone(), dst.clone()));
+    instructions.push(Instruction::Shl(src_ass_type.clone(), count.clone(), dst.clone()));
 
     Ok(())
 }
 
 fn generate_code_for_shift_right_instruction(
     is_signed: bool,
-    src1: &tacky::ast::Val,
-    src2: &tacky::ast::Val,
+    src: &tacky::ast::Val,
+    count: &tacky::ast::Val,
     dst: &tacky::ast::Val,
     symbol_table: &HashMap<String, SymbolInfo>,
     instructions: &mut Vec<Instruction>) -> Result<(), String>
 {
-    let src1_ass_type = get_tacky_value_assembly_type(src1, symbol_table);
+    let src_ass_type = get_tacky_value_assembly_type(src, symbol_table);
 
-    let src1 = convert_tacky_value_to_operand(src1)?;
-    let src2 = convert_tacky_value_to_operand(src2)?;
+    let src = convert_tacky_value_to_operand(src)?;
+    let count = convert_tacky_value_to_operand(count)?;
     let dst  = convert_tacky_value_to_operand(dst)?;
 
-    instructions.push(Instruction::Mov(src1_ass_type.clone(), src1.clone(), dst.clone()));
+    instructions.push(Instruction::Mov(src_ass_type.clone(), src.clone(), dst.clone()));
     if is_signed {
-        instructions.push(Instruction::Shra(src1_ass_type.clone(), src2.clone(), dst.clone()));
+        instructions.push(Instruction::Shra(src_ass_type.clone(), count.clone(), dst.clone()));
     }
     else {
-        instructions.push(Instruction::Shrl(src1_ass_type.clone(), src2.clone(), dst.clone()));
+        instructions.push(Instruction::Shrl(src_ass_type.clone(), count.clone(), dst.clone()));
     }
 
     Ok(())
@@ -364,6 +364,7 @@ fn generate_code_for_binary_instruction(
     Ok(())
 }
 
+
 fn generate_code_for_condition(
     cc: &CC,
     src1: &tacky::ast::Val,
@@ -372,20 +373,13 @@ fn generate_code_for_condition(
     symbol_table: &HashMap<String, SymbolInfo>,
     instructions: &mut Vec<Instruction>) -> Result<(), String>
 {
-    let src1_ass_type = get_tacky_value_assembly_type(src1, symbol_table);
-    let dst_ass_type = get_tacky_value_assembly_type(dst, symbol_table);
-
-    let src1 = convert_tacky_value_to_operand(src1)?;
-    let src2 = convert_tacky_value_to_operand(src2)?;
+    let src_ass_type = get_tacky_value_assembly_type(src1, symbol_table);
+    let cmp_src = convert_tacky_value_to_operand(src1)?;
+    let cmp_dst = convert_tacky_value_to_operand(src2)?;
     let dst  = convert_tacky_value_to_operand(dst)?;
 
-    if dst_ass_type == AssemblyType::Double {
-        instructions.push(Instruction::Mov(AssemblyType::LongWord, Operand::Imm(0), dst.clone()));
-    }
-    else {
-        instructions.push(Instruction::Mov(dst_ass_type.clone(), Operand::Imm(0), dst.clone()));
-    }
-    instructions.push(Instruction::Cmp(src1_ass_type.clone(), src2.clone(), src1.clone()));
+    instructions.push(Instruction::Mov(AssemblyType::LongWord, Operand::Imm(0), dst.clone()));
+    instructions.push(Instruction::Cmp(src_ass_type.clone(), cmp_src.clone(), cmp_dst.clone()));
     instructions.push(Instruction::SetCC(cc.clone(), dst.clone()));
 
     Ok(())
@@ -426,20 +420,22 @@ fn generate_code_for_tacky_binary_instruction(
         tacky::ast::BinaryOperator::ShiftRight => generate_code_for_shift_right_instruction(is_signed_int, &src1, &src2, &dst, symbol_table, instructions)?,
         tacky::ast::BinaryOperator::Equal => generate_code_for_condition(&CC::E, &src1, &src2, &dst, symbol_table, instructions)?,
         tacky::ast::BinaryOperator::NotEqual => generate_code_for_condition(&CC::NE, &src1, &src2, &dst, symbol_table, instructions)?,
+
+        //Please note that the cmp expression subtracts src1 from src2, so the conditions are the 'opposite' of the operator
         tacky::ast::BinaryOperator::LessThan => {
-            let cc = if is_signed_int { CC::L } else { CC::B };
-            generate_code_for_condition(&cc, &src1, &src2, &dst, symbol_table, instructions)?
-        },
-        tacky::ast::BinaryOperator::LessOrEqual => {
-            let cc = if is_signed_int { CC::LE } else { CC::BE };
-            generate_code_for_condition(&cc, &src1, &src2, &dst, symbol_table, instructions)?
-        },
-        tacky::ast::BinaryOperator::GreaterThan => {
             let cc = if is_signed_int { CC::G } else { CC::A };
             generate_code_for_condition(&cc, &src1, &src2, &dst, symbol_table, instructions)?
         },
+        tacky::ast::BinaryOperator::LessOrEqual => {
+            let cc = if is_signed_int { CC::GE } else { CC::AE };
+            generate_code_for_condition(&cc, &src1, &src2, &dst, symbol_table, instructions)?
+        },
+        tacky::ast::BinaryOperator::GreaterThan => {
+            let cc = if is_signed_int { CC::L } else { CC::B };
+            generate_code_for_condition(&cc, &src1, &src2, &dst, symbol_table, instructions)?
+        },
         tacky::ast::BinaryOperator::GreaterOrEqual => {
-            let cc = if is_signed_int { CC::GE } else { CC:: AE };
+            let cc = if is_signed_int { CC::LE } else { CC::BE };
             generate_code_for_condition(&cc, &src1, &src2, &dst, symbol_table, instructions)?
         }
 
@@ -482,15 +478,15 @@ fn generate_code_for_tacky_conditional_jump_instruction(
     symbol_table: &HashMap<String, SymbolInfo>,
     instructions: &mut Vec<Instruction>) -> Result<(), String>
 {
-    let cmp_arg = convert_tacky_value_to_operand(val)?;
-    let cmp_arg_ass_type = get_tacky_value_assembly_type(val, symbol_table);
+    let cmp_dst = convert_tacky_value_to_operand(val)?;
+    let cmp_dst_ass_type = get_tacky_value_assembly_type(val, symbol_table);
 
-    if cmp_arg_ass_type == AssemblyType::Double {
+    if cmp_dst_ass_type == AssemblyType::Double {
         instructions.push(Instruction::Binary(BinaryOperator::Xor, AssemblyType::Double, Operand::Reg(Register::XMM0), Operand::Reg(Register::XMM0)));
-        instructions.push(Instruction::Cmp(AssemblyType::Double, Operand::Reg(Register::XMM0), cmp_arg));
+        instructions.push(Instruction::Cmp(AssemblyType::Double, Operand::Reg(Register::XMM0), cmp_dst));
     }
     else {
-        instructions.push(Instruction::Cmp(cmp_arg_ass_type, Operand::Imm(0), cmp_arg));
+        instructions.push(Instruction::Cmp(cmp_dst_ass_type, Operand::Imm(0), cmp_dst));
     }
 
     instructions.push(Instruction::JmpCC(cc.clone(), label.clone()));
@@ -731,12 +727,12 @@ fn generate_code_for_tacky_uint_to_double(src: &tacky::ast::Val, dst: &tacky::as
 
             instructions.push(Instruction::Cmp(AssemblyType::QuadWord, Operand::Imm(0), src_op.clone()));
             instructions.push(Instruction::JmpCC(CC::L, label_1.clone()));
-            instructions.push(Instruction::Cvttsd2si(AssemblyType::QuadWord, src_op.clone(), dst_op.clone()));
+            instructions.push(Instruction::Cvtsi2sd(AssemblyType::QuadWord, src_op.clone(), dst_op.clone()));
             instructions.push(Instruction::Jmp(label_2.clone()));
             instructions.push(Instruction::Label(label_1.clone()));
             instructions.push(Instruction::Mov(AssemblyType::QuadWord, src_op.clone(), Operand::Reg(Register::AX)));
             instructions.push(Instruction::Mov(AssemblyType::QuadWord, Operand::Reg(Register::AX), Operand::Reg(Register::DX)));
-            instructions.push(Instruction::Shrl(AssemblyType::QuadWord, Operand::Reg(Register::DX), Operand::Imm(1)));
+            instructions.push(Instruction::Shrl(AssemblyType::QuadWord, Operand::Imm(1), Operand::Reg(Register::DX)));
             instructions.push(Instruction::Binary(BinaryOperator::And, AssemblyType::QuadWord, Operand::Imm(1), Operand::Reg(Register::AX)));
             instructions.push(Instruction::Binary(BinaryOperator::Or, AssemblyType::QuadWord, Operand::Reg(Register::AX), Operand::Reg(Register::DX)));
             instructions.push(Instruction::Cvtsi2sd(AssemblyType::QuadWord, Operand::Reg(Register::DX), dst_op.clone()));
@@ -895,19 +891,22 @@ fn generate_code_for_function_definition(func_name: &String, global: bool, param
 
     let (int_reg_params, double_reg_params, stack_params) = (classified_parameters.int_reg_args, classified_parameters.double_reg_args, classified_parameters.stack_args);
 
-    let reg_idx = 0;
+    let mut reg_idx = 0;
     for (int_ass_type, int_reg_op) in int_reg_params {
-        new_instructions.push(Instruction::Mov(int_ass_type.clone(), Operand::Reg(int_params_registers[reg_idx].clone()), int_reg_op.clone()))
+        new_instructions.push(Instruction::Mov(int_ass_type.clone(), Operand::Reg(int_params_registers[reg_idx].clone()), int_reg_op.clone()));
+        reg_idx += 1;
     }
 
-    let reg_idx = 0;
+    let mut reg_idx = 0;
     for double_reg_op in double_reg_params {
-        new_instructions.push(Instruction::Mov(AssemblyType::Double, Operand::Reg(double_params_registers[reg_idx].clone()), double_reg_op.clone()))
+        new_instructions.push(Instruction::Mov(AssemblyType::Double, Operand::Reg(double_params_registers[reg_idx].clone()), double_reg_op.clone()));
+        reg_idx += 1;
     }
 
     let mut stack_idx = 16i64;
     for (ass_stack_type, ass_stack_param) in stack_params {
         new_instructions.push(Instruction::Mov(ass_stack_type, Operand::Stack(stack_idx as i64), ass_stack_param.clone()));
+        stack_idx += 8;
     }
 
     generate_code_for_tacky_instructions(tacky_instructions, symbol_table, &mut new_instructions)?;

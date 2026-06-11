@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use std::fs;
 use std::io::Write;
 use std::io::BufWriter;
-use std::str::SplitAsciiWhitespace;
+
 use super::ast::*;
 use super::super::parser::StaticInit;
 
@@ -20,7 +20,7 @@ fn get_operand_size(ass_type: &AssemblyType) -> OperandSize
     match ass_type {
         AssemblyType::LongWord => OperandSize::Dword,
         AssemblyType::QuadWord => OperandSize::Qword,
-        AssemblyType::Double   => { panic!("get_operand_size() not YET implemented for '{:?}'", ass_type); }
+        AssemblyType::Double   => OperandSize::Qword
     }
 }
 
@@ -233,15 +233,28 @@ fn emit_unary_operator(unary_operator: &UnaryOperator, ass_type: &AssemblyType, 
 fn emit_binary_operator(binary_operator: &BinaryOperator, ass_type: &AssemblyType, src: &Operand, dst: &Operand, buf_writer: &mut BufWriter<fs::File>) -> std::io::Result<()>
 {
     let op_size = get_operand_size(ass_type);
-    let (operator_str, src_size, dst_size) = match binary_operator {
-        BinaryOperator::Add => ("add",  &op_size, &op_size),
-        BinaryOperator::Sub => ("sub",  &op_size, &op_size),
-        BinaryOperator::Mul => ("imul", &op_size, &op_size),
-        BinaryOperator::And => ("and",  &op_size, &op_size),
-        BinaryOperator::Or  => ("or",   &op_size, &op_size),
-        BinaryOperator::Xor => ("xor",  &op_size, &op_size),
-        _ => { return Err(std::io::Error::other(format!("Emit Code: Unsupported binary operand, got '{:?}'", binary_operator))); }
-    };
+    let (operator_str, src_size, dst_size) =
+        if *ass_type == AssemblyType::Double {
+            match binary_operator {
+                BinaryOperator::Xor => ("xorpd",  &OperandSize::Qword, &OperandSize::Qword),
+                BinaryOperator::Sub => ("subsd",  &OperandSize::Qword, &OperandSize::Qword),
+                BinaryOperator::Mul => ("mulsd",  &OperandSize::Qword, &OperandSize::Qword),
+                BinaryOperator::Add => ("addsd",  &OperandSize::Qword, &OperandSize::Qword),
+                BinaryOperator::DivDouble  => ("divsd",   &OperandSize::Qword, &OperandSize::Qword),
+                _ => { return Err(std::io::Error::other(format!("Emit Code: Unsupported binary double operand, got '{:?}'", binary_operator))); }
+            }
+        }
+        else {
+            match binary_operator {
+                BinaryOperator::Add => ("add",  &op_size, &op_size),
+                BinaryOperator::Sub => ("sub",  &op_size, &op_size),
+                BinaryOperator::Mul => ("imul", &op_size, &op_size),
+                BinaryOperator::And => ("and",  &op_size, &op_size),
+                BinaryOperator::Or  => ("or",   &op_size, &op_size),
+                BinaryOperator::Xor => ("xor",  &op_size, &op_size),
+                _ => { return Err(std::io::Error::other(format!("Emit Code: Unsupported binary integer operand, got '{:?}'", binary_operator))); }
+            }
+        };
 
     write!(buf_writer, "{}{}{} ", " ".repeat(16), operator_str, instruction_suffix(ass_type))?;
     emit_operand(src, &src_size, buf_writer)?;
@@ -358,7 +371,7 @@ fn instruction_suffix(ass_type: &AssemblyType) -> &str
     match ass_type {
         AssemblyType::LongWord => "l",
         AssemblyType::QuadWord => "q",
-        AssemblyType::Double => { panic!("No instruction suffix for Double"); }
+        AssemblyType::Double   => ""
     }
 }
 
@@ -369,7 +382,13 @@ fn emit_body(instructions: &Vec<Instruction>, assembly_symbol_table: &HashMap<St
         match ins {
             Instruction::Mov(ass_type, src, dest ) => {
                 let op_size = get_operand_size(ass_type);
-                write!(buf_writer, "{}mov{} ", " ".repeat(16), instruction_suffix(ass_type))?;
+                let suffix = if *ass_type == AssemblyType::Double {
+                    "sd"
+                }
+                else {
+                    instruction_suffix(ass_type)
+                };
+                write!(buf_writer, "{}mov{} ", " ".repeat(16), suffix.clone())?;
                 emit_operand(&src, &op_size, buf_writer)?;
                 write!(buf_writer, ", ")?;
                 emit_operand(&dest, &op_size, buf_writer)?;
@@ -433,12 +452,19 @@ fn emit_body(instructions: &Vec<Instruction>, assembly_symbol_table: &HashMap<St
                 emit_operand(divisor, &op_size, buf_writer)?;
                 writeln!(buf_writer, "")?;
             },
-            Instruction::Cmp(ass_type, src1, src2) => {
+            Instruction::Cmp(AssemblyType::Double, src, dst) => {
+                write!(buf_writer, "{}comisd ", " ".repeat(16))?;
+                emit_operand(src, &OperandSize::Qword, buf_writer)?;
+                write!(buf_writer, ", ")?;
+                emit_operand(dst, &OperandSize::Qword, buf_writer)?;
+                writeln!(buf_writer, "")?;
+            }
+            Instruction::Cmp(ass_type, src, dst) => {
                 let op_size = get_operand_size(ass_type);
                 write!(buf_writer, "{}cmp{} ", " ".repeat(16), instruction_suffix(ass_type))?;
-                emit_operand(src1, &op_size, buf_writer)?;
+                emit_operand(src, &op_size, buf_writer)?;
                 write!(buf_writer, ", ")?;
-                emit_operand(src2, &op_size, buf_writer)?;
+                emit_operand(dst, &op_size, buf_writer)?;
                 writeln!(buf_writer, "")?;
             },
             Instruction::SetCC(cc, dest ) => {
@@ -465,12 +491,28 @@ fn emit_body(instructions: &Vec<Instruction>, assembly_symbol_table: &HashMap<St
                 //MovZeroExtend should have been replaced by other instructions
                 //before the code emission stage
                 panic!("Code Emitter: Attempt to emit MovZeroExtend");
-            }
+            },
+            Instruction::Cvtsi2sd(ass_type, src_op, dst_op) => {
+                let src_size = get_operand_size(ass_type);
+                write!(buf_writer, "{}cvtsi2sd{} ", " ".repeat(16), instruction_suffix(ass_type))?;
+                emit_operand(src_op, &src_size, buf_writer)?;
+                write!(buf_writer, ", ")?;
+                emit_operand(dst_op, &OperandSize::Qword, buf_writer)?;
+                writeln!(buf_writer, "")?;
+            },
+            Instruction::Cvttsd2si(ass_type, src_op, dst_op) => {
+                let dst_size = get_operand_size(ass_type);
+                write!(buf_writer, "{}cvttsd2si{} ", " ".repeat(16), instruction_suffix(ass_type))?;
+                emit_operand(src_op, &OperandSize::Qword, buf_writer)?;
+                write!(buf_writer, ", ")?;
+                emit_operand(dst_op, &dst_size, buf_writer)?;
+                writeln!(buf_writer, "")?;
+            },
 
             //TODO: REMOVE
-            _ => {
-                panic!("Unsupported instruction '{:?}'", ins);
-            }
+            //_ => {
+            //    panic!("Unsupported instruction '{:?}'", ins);
+            //}
         };
     }
     Ok(())
@@ -507,9 +549,11 @@ fn emit_nonzero_static_init(init_value: &StaticInit, buf_writer: &mut BufWriter<
         StaticInit::ULongInit(c) =>
             writeln!(buf_writer, "{}.quad {}", " ".repeat(16), c),
         StaticInit::DoubleInit(c) =>
-            panic!("Code emission for double not YET supported")
+            writeln!(buf_writer, "{}.quad {}  # double({})", " ".repeat(16), c.to_bits(), *c)
     }
 }
+
+
 
 
 fn emit_top_level_item(top_level_item: &TopLevel, assembly_symbol_table: &HashMap<String, AssemblySymbolInfo>, buf_writer: &mut BufWriter<fs::File>) -> std::io::Result<()>
@@ -557,6 +601,17 @@ fn emit_top_level_item(top_level_item: &TopLevel, assembly_symbol_table: &HashMa
 
             Ok(())
         },
+        TopLevel::StaticConstant(const_name, alignment, init_value) => {
+            writeln!(buf_writer, "{}", "#".repeat(40))?;
+            writeln!(buf_writer, "# CONSTANT: {}", const_name)?;
+            writeln!(buf_writer, "{}\n", "#".repeat(40))?;
+            writeln!(buf_writer, "{}.section .rodata", " ".repeat(16))?;
+            writeln!(buf_writer, "{}.align {}", " ".repeat(16), alignment)?;
+            writeln!(buf_writer, ".L_{}:", const_name)?;
+            emit_nonzero_static_init(init_value, buf_writer)?;
+
+            Ok(())
+        }
         _ => {
             Err(std::io::Error::other(format!("Unsupported function definition: '{:?}'", top_level_item)))
         }

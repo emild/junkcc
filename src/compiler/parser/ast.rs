@@ -788,7 +788,7 @@ impl Const {
 }
 
 
-#[derive(Debug, Clone)]
+#[derive(Debug, PartialEq, Clone)]
 pub enum UnaryOperator {
     Plus,
     Complement,

@@ -80,10 +80,9 @@ impl StaticInit
             StaticInit::IntInit(0)      |
             StaticInit::UIntInit(0)     |
             StaticInit::LongInit(0)     |
-            StaticInit::ULongInit(0)    |
-            StaticInit::DoubleInit(0.0)
+            StaticInit::ULongInit(0)
                 => true,
-            _   => false
+            _   => false    // double is always non-zero
         }
     }
 }

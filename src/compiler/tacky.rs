@@ -214,7 +214,14 @@ fn emit_tacky_expression(typed_expr: &TypedExpression, instructions: &mut Vec<In
         parser::ast::Expression::Unary(unop, inner_expression) => {
             let src = emit_tacky_expression(&inner_expression, instructions, symbol_table)?;
             let src_typ = typex_get_type(inner_expression);
-            let dst = make_tacky_var(&src_typ, symbol_table);
+            let dst_typ = if *unop != parser::ast::UnaryOperator::LogicalNot {
+                &src_typ
+            }
+            else {
+                &Type::Int
+            };
+
+            let dst = make_tacky_var(dst_typ, symbol_table);
             let tacky_un_op = emit_tacky_unary_operator(unop)?;
             instructions.push(Instruction::Unary(tacky_un_op, src, dst.clone()));
 

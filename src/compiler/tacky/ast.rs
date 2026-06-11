@@ -41,7 +41,7 @@ pub enum Val {
     Var(String)
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum UnaryOperator {
     Complement,
     Negate,

@@ -20,7 +20,7 @@ pub fn make_double_constant(val: f64) -> String
 {
     let bits = val.to_bits();
     let constant_label = DOUBLE_CONSTANTS.lock().unwrap().entry(bits).or_insert(new_double_constant_name()).clone();
-    constant_label
+    format!(".L_{}", constant_label)
 }
 
 

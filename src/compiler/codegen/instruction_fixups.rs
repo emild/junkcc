@@ -96,14 +96,14 @@ fn fixup_instruction_operands(instruction: &Instruction) -> Option<Vec<Instructi
         },
 
         //Shift count must be either immediate or in CL
-        Instruction::Shl(ass_type, src, dst) => {
-            let result = match src {
+        Instruction::Shl(ass_type, count, dst) => {
+            let result = match count {
                 Operand::Reg(Register::CX) |
                 Operand::Imm(_)
                     => None,
                 _
                     => Some(vec![
-                        Instruction::Mov(AssemblyType::LongWord, src.clone(), Operand::Reg(Register::CX)),
+                        Instruction::Mov(AssemblyType::LongWord, count.clone(), Operand::Reg(Register::CX)),
                         Instruction::Shl(ass_type.clone(), Operand::Reg(Register::CX), dst.clone())
                     ])
             };
@@ -111,14 +111,14 @@ fn fixup_instruction_operands(instruction: &Instruction) -> Option<Vec<Instructi
             result
         },
 
-        Instruction::Shrl(ass_type, src, dst) => {
-            let result = match src {
+        Instruction::Shrl(ass_type, count, dst) => {
+            let result = match count {
                 Operand::Reg(Register::CX) |
                 Operand::Imm(_)
                     => None,
                 _
                     => Some(vec![
-                        Instruction::Mov(AssemblyType::LongWord, src.clone(), Operand::Reg(Register::CX)),
+                        Instruction::Mov(AssemblyType::LongWord, count.clone(), Operand::Reg(Register::CX)),
                         Instruction::Shrl(ass_type.clone(), Operand::Reg(Register::CX), dst.clone())
                     ])
             };
@@ -126,14 +126,14 @@ fn fixup_instruction_operands(instruction: &Instruction) -> Option<Vec<Instructi
             result
         },
 
-        Instruction::Shra(ass_type, src, dst) => {
-            let result = match src {
+        Instruction::Shra(ass_type, count, dst) => {
+            let result = match count {
                 Operand::Reg(Register::CX) |
                 Operand::Imm(_)
                     => None,
                 _
                     => Some(vec![
-                        Instruction::Mov(AssemblyType::LongWord, src.clone(), Operand::Reg(Register::CX)),
+                        Instruction::Mov(AssemblyType::LongWord, count.clone(), Operand::Reg(Register::CX)),
                         Instruction::Shra(ass_type.clone(), Operand::Reg(Register::CX), dst.clone())
                     ])
             };
@@ -234,51 +234,51 @@ fn fixup_instruction_operands(instruction: &Instruction) -> Option<Vec<Instructi
         //the operand is sign-extended to 64 bits. If the actual value of the immediate cannot be represented on
         //32 bits, we must copy the immendiate to a register first
         //Also, the second operand cannot be immediate; if it is, it must be copied to a register
-        Instruction::Cmp(AssemblyType::QuadWord, Operand::Imm(src_c1), src2) => {
-            if !is_representable_on_32_bits(*src_c1) && src2.is_imm() {
+        Instruction::Cmp(AssemblyType::QuadWord, Operand::Imm(src_c), dst) => {
+            if !is_representable_on_32_bits(*src_c) && dst.is_imm() {
                 Some(vec![
-                    Instruction::Mov(AssemblyType::QuadWord, Operand::Imm(*src_c1), Operand::Reg(Register::R10)),
-                    Instruction::Mov(AssemblyType::QuadWord, src2.clone(), Operand::Reg(Register::R11)),
+                    Instruction::Mov(AssemblyType::QuadWord, Operand::Imm(*src_c), Operand::Reg(Register::R10)),
+                    Instruction::Mov(AssemblyType::QuadWord, dst.clone(), Operand::Reg(Register::R11)),
                     Instruction::Cmp(AssemblyType::QuadWord, Operand::Reg(Register::R10), Operand::Reg(Register::R11))
                 ])
             }
-            else if !is_representable_on_32_bits(*src_c1) {
+            else if !is_representable_on_32_bits(*src_c) {
                 Some(vec![
-                    Instruction::Mov(AssemblyType::QuadWord, Operand::Imm(*src_c1), Operand::Reg(Register::R10)),
-                    Instruction::Cmp(AssemblyType::QuadWord, Operand::Reg(Register::R10), src2.clone())
+                    Instruction::Mov(AssemblyType::QuadWord, Operand::Imm(*src_c), Operand::Reg(Register::R10)),
+                    Instruction::Cmp(AssemblyType::QuadWord, Operand::Reg(Register::R10), dst.clone())
                 ])
             }
-            else if src2.is_imm() {
+            else if dst.is_imm() {
                 Some(vec![
-                    Instruction::Mov(AssemblyType::QuadWord, src2.clone(), Operand::Reg(Register::R11)),
-                    Instruction::Cmp(AssemblyType::QuadWord, Operand::Imm(*src_c1), Operand::Reg(Register::R11))
+                    Instruction::Mov(AssemblyType::QuadWord, dst.clone(), Operand::Reg(Register::R11)),
+                    Instruction::Cmp(AssemblyType::QuadWord, Operand::Imm(*src_c), Operand::Reg(Register::R11))
                 ])
             }
             else {
                 None
             }
         },
-        //Cmp (comisd): Two mem operands are not allowed
-        Instruction::Cmp(AssemblyType::Double, src1, src2) if src1.is_mem() && src2.is_mem() => {
+        //Cmp (comisd): Second operand cannot be mem
+        Instruction::Cmp(AssemblyType::Double, src, dst) if dst.is_mem() => {
             Some(vec![
-                Instruction::Mov(AssemblyType::Double, src2.clone(), Operand::Reg(Register::XMM15)),
-                Instruction::Cmp(AssemblyType::Double, src1.clone(), Operand::Reg(Register::XMM15))
+                Instruction::Mov(AssemblyType::Double, dst.clone(), Operand::Reg(Register::XMM15)),
+                Instruction::Cmp(AssemblyType::Double, src.clone(), Operand::Reg(Register::XMM15))
             ])
         },
 
         //Cmp: Two mem operands are not allowed
-        Instruction::Cmp(ass_type, src1, src2) if src1.is_mem() && src2.is_mem() => {
+        Instruction::Cmp(ass_type, src, dst) if src.is_mem() && dst.is_mem() => {
             Some(vec![
-                Instruction::Mov(ass_type.clone(), src1.clone(), Operand::Reg(Register::R10)),
-                Instruction::Cmp(ass_type.clone(), Operand::Reg(Register::R10), src2.clone())
+                Instruction::Mov(ass_type.clone(), src.clone(), Operand::Reg(Register::R10)),
+                Instruction::Cmp(ass_type.clone(), Operand::Reg(Register::R10), dst.clone())
             ])
         },
 
         //Cmp: second operand cannot be immediate.
-        Instruction::Cmp(ass_type, src1, Operand::Imm(src2_c)) => {
+        Instruction::Cmp(ass_type, src, Operand::Imm(dst_c)) => {
             Some(vec![
-                Instruction::Mov(ass_type.clone(), Operand::Imm(*src2_c), Operand::Reg(Register::R11)),
-                Instruction::Cmp(ass_type.clone(), src1.clone(), Operand::Reg(Register::R11))
+                Instruction::Mov(ass_type.clone(), Operand::Imm(*dst_c), Operand::Reg(Register::R11)),
+                Instruction::Cmp(ass_type.clone(), src.clone(), Operand::Reg(Register::R11))
             ])
         },
 
@@ -297,7 +297,7 @@ fn fixup_instruction_operands(instruction: &Instruction) -> Option<Vec<Instructi
         },
 
         //Destination must be a register
-        Instruction::Cvttsd2si(ass_type, src, dst) if src.is_mem() && dst.is_mem() => {
+        Instruction::Cvttsd2si(ass_type, src, dst) if dst.is_mem() => {
             Some(vec![
                 Instruction::Cvttsd2si(ass_type.clone(), src.clone(), Operand::Reg(Register::R11)),
                 Instruction::Mov(ass_type.clone(), Operand::Reg(Register::R11), dst.clone())
@@ -308,13 +308,13 @@ fn fixup_instruction_operands(instruction: &Instruction) -> Option<Vec<Instructi
         Instruction::Cvtsi2sd(ass_type, src, dst) if src.is_imm() && dst.is_mem() => {
             Some(vec![
                 Instruction::Mov(ass_type.clone(), src.clone(), Operand::Reg(Register::R10)),
-                Instruction::Cvttsd2si(ass_type.clone(), Operand::Reg(Register::R10), Operand::Reg(Register::XMM15)),
+                Instruction::Cvtsi2sd(ass_type.clone(), Operand::Reg(Register::R10), Operand::Reg(Register::XMM15)),
                 Instruction::Mov(AssemblyType::Double, Operand::Reg(Register::XMM15), dst.clone())
             ])
         },
 
         //Destination must be a register
-        Instruction::Cvtsi2sd(ass_type, src, dst) if src.is_mem() && dst.is_mem() =>  {
+        Instruction::Cvtsi2sd(ass_type, src, dst) if dst.is_mem() =>  {
             Some(vec![
                 Instruction::Cvtsi2sd(ass_type.clone(), src.clone(), Operand::Reg(Register::XMM15)),
                 Instruction::Mov(AssemblyType::Double, Operand::Reg(Register::XMM15), dst.clone())

@@ -132,11 +132,11 @@ fn pretty_print_instructions(instructions: &Vec<Instruction>, indent: usize)
                 pretty_print_operand(&dest);
                 println!("");
             },
-            Instruction::Cmp(ass_type, src1, src2 ) => {
-                print!("{}cmp typ={}, src1=", " ".repeat(indent), assembly_type_suffix(ass_type));
-                pretty_print_operand(&src1);
-                print!(", ");
-                pretty_print_operand(&src2);
+            Instruction::Cmp(ass_type, src, dst ) => {
+                print!("{}cmp typ={}, src=", " ".repeat(indent), assembly_type_suffix(ass_type));
+                pretty_print_operand(&src);
+                print!(", dst=");
+                pretty_print_operand(&dst);
                 println!("");
             },
             Instruction::Cdq(ass_type) => {
