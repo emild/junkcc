@@ -299,8 +299,11 @@ fn emit_cc(cc: &CC, buf_writer: &mut BufWriter<fs::File>) -> std::io::Result<()>
         CC::B  => "b",
         CC::BE => "be",
         CC::A  => "a",
-        CC::AE => "ae"
+        CC::AE => "ae",
 
+        CC::PO => "po",
+        CC::PE => "pe",
+        CC::P  => "p"
     };
 
     write!(buf_writer, "{}", cc_str)?;

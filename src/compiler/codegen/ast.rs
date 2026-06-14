@@ -65,7 +65,7 @@ pub enum Register {
     XMM15
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum CC { //Condition Code
     E,
     NE,
@@ -80,7 +80,12 @@ pub enum CC { //Condition Code
     B,
     BE,
     A,
-    AE
+    AE,
+
+    /* parity flag */
+    PO, /* not set */
+    PE, /* set */
+    P   /* Synonym to PE */
 }
 
 #[derive(Debug, Clone)]

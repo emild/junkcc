@@ -74,6 +74,10 @@ fn pretty_print_conditional_jump(cc: &CC)
         CC::BE => print!("jbe"),
         CC::A  => print!("ja"),
         CC::AE => print!("jae"),
+
+        CC::PO => print!("jpo"),
+        CC::PE => print!("jpe"),
+        CC::P  => print!("jp")
     }
 }
 
@@ -92,6 +96,10 @@ fn pretty_print_setcc(cc: &CC)
         CC::BE => print!("setbe"),
         CC::A  => print!("seta"),
         CC::AE => print!("setae"),
+
+        CC::PO => print!("setpo"),
+        CC::PE => print!("setpe"),
+        CC::P  => print!("setp")
     }
 }
 

@@ -193,11 +193,14 @@ fn generate_code_for_tacky_unary_instruction(
             ],
         tacky::ast::UnaryOperator::LogicalNot =>
             if src_ass_type == AssemblyType::Double {
+                let is_nan_label = make_unique_label(&String::from("is_nan"));
                 vec![
                     Instruction::Binary(BinaryOperator::Xor, AssemblyType::Double, Operand::Reg(Register::XMM0), Operand::Reg(Register::XMM0)),
                     Instruction::Cmp(AssemblyType::Double, unary_op_src.clone(), Operand::Reg(Register::XMM0)),
                     Instruction::Mov(AssemblyType::LongWord, Operand::Imm(0), unary_op_dst.clone()),
-                    Instruction::SetCC(CC::E, unary_op_dst.clone())
+                    Instruction::JmpCC(CC::PE, is_nan_label.clone()), //Nan is never zero
+                    Instruction::SetCC(CC::E, unary_op_dst.clone()),
+                    Instruction::Label(is_nan_label.clone())
                 ]
             }
             else {
@@ -378,9 +381,31 @@ fn generate_code_for_condition(
     let cmp_dst = convert_tacky_value_to_operand(src2)?;
     let dst  = convert_tacky_value_to_operand(dst)?;
 
+    // NaN handling:
+    // NaN is not equal to anything, not even to itself;
+    //     is not less or greater than anything
+    //     it is different from itslef, therefore NE should return true!!
+    let is_nan_label = if src_ass_type == AssemblyType::Double {
+        make_unique_label(&String::from("is_nan"))
+    }
+    else {
+        String::new()
+    };
+
     instructions.push(Instruction::Mov(AssemblyType::LongWord, Operand::Imm(0), dst.clone()));
+    if src_ass_type == AssemblyType::Double && *cc == CC::NE {
+        //Initialize the result to 1 for the NaN case
+        instructions.push(Instruction::Binary(BinaryOperator::Or, AssemblyType::LongWord, Operand::Imm(1), dst.clone()));
+    }
     instructions.push(Instruction::Cmp(src_ass_type.clone(), cmp_src.clone(), cmp_dst.clone()));
+    if src_ass_type == AssemblyType::Double {
+        //If parity is set, we're dealing with NaN. Leave the initial value unchanged
+        instructions.push(Instruction::JmpCC(CC::PE, is_nan_label.clone()));
+    }
     instructions.push(Instruction::SetCC(cc.clone(), dst.clone()));
+    if src_ass_type == AssemblyType::Double {
+        instructions.push(Instruction::Label(is_nan_label.clone()));
+    }
 
     Ok(())
 }
@@ -480,16 +505,27 @@ fn generate_code_for_tacky_conditional_jump_instruction(
 {
     let cmp_dst = convert_tacky_value_to_operand(val)?;
     let cmp_dst_ass_type = get_tacky_value_assembly_type(val, symbol_table);
+    let is_nan_lbl = make_unique_label(&String::from("nan_argument"));
 
     if cmp_dst_ass_type == AssemblyType::Double {
         instructions.push(Instruction::Binary(BinaryOperator::Xor, AssemblyType::Double, Operand::Reg(Register::XMM0), Operand::Reg(Register::XMM0)));
         instructions.push(Instruction::Cmp(AssemblyType::Double, Operand::Reg(Register::XMM0), cmp_dst));
+        if *cc != CC::NE {
+            instructions.push(Instruction::JmpCC(CC::PE, is_nan_lbl.clone()));
+        }
+        else {
+            //For NaN, the JNE must be taken
+            instructions.push(Instruction::JmpCC(CC::PE, label.clone()));
+        }
     }
     else {
-        instructions.push(Instruction::Cmp(cmp_dst_ass_type, Operand::Imm(0), cmp_dst));
+        instructions.push(Instruction::Cmp(cmp_dst_ass_type.clone(), Operand::Imm(0), cmp_dst));
     }
 
     instructions.push(Instruction::JmpCC(cc.clone(), label.clone()));
+    if cmp_dst_ass_type == AssemblyType::Double && *cc != CC::NE {
+        instructions.push(Instruction::Label(is_nan_lbl.clone()));
+    }
 
     Ok(())
 }
