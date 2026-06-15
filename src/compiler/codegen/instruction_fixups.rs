@@ -1,5 +1,3 @@
-use std::ops::Not;
-
 use super::ast::*;
 
 fn is_representable_on_32_bits(c: i64) -> bool
@@ -359,7 +357,7 @@ fn fixup_function_body_instructions(instructions: &mut Vec<Instruction>, stack_a
 pub fn fixup_function_instructions(top_level_item: &mut TopLevel, stack_allocation_size: usize) -> Result<(), String>
 {
     match  top_level_item {
-        TopLevel::Function(func_name, global, instructions) => {
+        TopLevel::Function(_func_name, _global, instructions) => {
             fixup_function_body_instructions(instructions, stack_allocation_size)?;
         },
         TopLevel::StaticVariable(_,_,_,_) => {},

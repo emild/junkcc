@@ -123,7 +123,7 @@ fn label_statement_switch_statements(stmnt: &mut Statement, switch_stmnt_info: &
 fn label_block_item_switch_statements(block_item: &mut BlockItem, switch_stmnt_info: &Option<SwitchStatementInfo>, case_labels_map: &mut HashMap<IntegerConst, String>, default_label: &mut Option<String>) -> Result<(), String>
 {
     match block_item {
-        BlockItem::D(decl) => {
+        BlockItem::D(_decl) => {
             Ok(())
         },
         BlockItem::S(stmnt) => {

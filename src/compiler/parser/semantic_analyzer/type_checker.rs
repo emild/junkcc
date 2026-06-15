@@ -1,7 +1,5 @@
 use std::collections::HashMap;
 
-use env_logger::init;
-
 use super::super::ast::*;
 
 
@@ -356,8 +354,6 @@ fn typecheck_expr_binary(binop: &BinaryOperator, typed_left: &TypedExpression, t
 fn typecheck_expr_conditional(cond: &TypedExpression, true_expr: &TypedExpression, false_expr: &TypedExpression, symbol_table: &mut HashMap<String, SymbolInfo>) -> Result<TypedExpression, String>
 {
     let mut typed_cond = typecheck_expression(cond, symbol_table)?;
-
-    let typ_cond = typex_get_type(&typed_cond);
 
     typed_cond = convert_to(typed_cond, &Type::Int);
 

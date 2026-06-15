@@ -108,7 +108,7 @@ fn convert_tacky_value_to_operand(val: &tacky::ast::Val) -> Result<Operand, Stri
             Ok(Operand::Data(const_double_label))
         },
         tacky::ast::Val::Var(var_name) => Ok(Operand::Pseudo(var_name.clone())),
-        _ => { return Err(format!("Tacky value to operand conversion error: cannot convert '{:?}'", val)); }
+        // _ => { return Err(format!("Tacky value to operand conversion error: cannot convert '{:?}'", val)); }
     }
 }
 
@@ -996,7 +996,7 @@ pub fn generate_code(program: &tacky::ast::Program, symbol_table: &HashMap<Strin
 
     for top_level_const_double in &top_level_double_constants {
         match top_level_const_double {
-            TopLevel::StaticConstant(name, align, StaticInit::DoubleInit(_)) => {
+            TopLevel::StaticConstant(name, _align, StaticInit::DoubleInit(_)) => {
                 let ass_sym_info = AssemblySymbolInfo::ObjEntry(AssemblyType::Double, true, true);
                 assembly_symbol_table.insert(name.clone(), ass_sym_info);
             },

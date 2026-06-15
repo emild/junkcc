@@ -219,7 +219,7 @@ fn emit_unary_operator(unary_operator: &UnaryOperator, ass_type: &AssemblyType, 
     let operator_str = match unary_operator {
         UnaryOperator::Neg => "neg",
         UnaryOperator::Not => "not",
-        _ => { return Err(std::io::Error::other(format!("Emit Code: Unsupported unary operand, got '{:?}'", unary_operator))); }
+        // _ => { return Err(std::io::Error::other(format!("Emit Code: Unsupported unary operand, got '{:?}'", unary_operator))); }
     };
 
     let op_size = get_operand_size(ass_type);
@@ -345,7 +345,7 @@ fn emit_jmpcc_instruction(cc: &CC, label: &String, buf_writer: &mut BufWriter<fs
 
 fn emit_call_instruction(label: &String, assembly_symbol_table: &HashMap<String, AssemblySymbolInfo>, buf_writer: &mut BufWriter<fs::File>) -> std::io::Result<()>
 {
-    let mut target_label = String::new();
+    let target_label;
     let func_type = assembly_symbol_table.get(label);
     match func_type {
         Some(AssemblySymbolInfo::FuncEntry(true)) => {
@@ -391,7 +391,7 @@ fn emit_body(instructions: &Vec<Instruction>, assembly_symbol_table: &HashMap<St
                 else {
                     instruction_suffix(ass_type)
                 };
-                write!(buf_writer, "{}mov{} ", " ".repeat(16), suffix.clone())?;
+                write!(buf_writer, "{}mov{} ", " ".repeat(16), suffix)?;
                 emit_operand(&src, &op_size, buf_writer)?;
                 write!(buf_writer, ", ")?;
                 emit_operand(&dest, &op_size, buf_writer)?;
@@ -615,9 +615,9 @@ fn emit_top_level_item(top_level_item: &TopLevel, assembly_symbol_table: &HashMa
 
             Ok(())
         }
-        _ => {
-            Err(std::io::Error::other(format!("Unsupported function definition: '{:?}'", top_level_item)))
-        }
+        //_ => {
+        //    Err(std::io::Error::other(format!("Unsupported function definition: '{:?}'", top_level_item)))
+        //}
     }
 }
 

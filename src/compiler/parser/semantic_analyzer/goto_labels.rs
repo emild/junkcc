@@ -61,7 +61,7 @@ fn check_statement_goto_labels(stmnt: &Statement, goto_labels: &mut HashMap<Stri
 fn check_block_item_goto_labels(block_item: &BlockItem, goto_labels: &mut HashMap<String, String>) -> Result<(), String>
 {
     match block_item {
-        BlockItem::D(decl) => {
+        BlockItem::D(_decl) => {
             Ok(())
         },
         BlockItem::S(stmnt) => {
@@ -154,7 +154,7 @@ fn apply_global_goto_labels_to_statement(stmnt: &mut Statement, goto_labels: &Ha
 fn apply_global_goto_labels_to_block_item(block_item: &mut BlockItem, goto_labels: &HashMap<String, String>) -> Result<(), String>
 {
     match block_item {
-        BlockItem::D(decl) => {
+        BlockItem::D(_decl) => {
             Ok(())
         },
         BlockItem::S(stmnt) => {

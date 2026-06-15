@@ -1,5 +1,5 @@
 
-use std::{collections::HashMap, fs::File};
+use std::collections::HashMap;
 
 #[derive(Debug)]
 pub struct Config {

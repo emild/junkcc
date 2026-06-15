@@ -283,7 +283,7 @@ fn resolve_unlabeled_statement(stmnt: &UnlabeledStatement, identifier_map: &mut 
             Ok(UnlabeledStatement::Expr(resolved_expression))
         },
         UnlabeledStatement::Null => Ok(UnlabeledStatement::Null),
-        _ => { panic!("Semantic Analyzer: {:?} Not implemented yet!", stmnt); }
+        //_ => { panic!("Semantic Analyzer: {:?} Not implemented yet!", stmnt); }
     }
 }
 
@@ -385,11 +385,7 @@ fn resolve_function_declaration(func_decl: &FunctionDeclaration, identifier_map:
             let mut new_body = None;
 
             if let Some(body) = body {
-               // let mut goto_labels = HashMap::new();
-               // check_block_goto_labels(&body, &mut goto_labels)?;
-                let mut resolved_body = resolve_block(body, &mut inner_map)?;
-
-
+                let resolved_body = resolve_block(body, &mut inner_map)?;
                 new_body.replace(resolved_body);
             }
 

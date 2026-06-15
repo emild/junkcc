@@ -107,7 +107,7 @@ fn get_const_one(typ: &Type) -> parser::ast::Const
 }
 
 
-fn emit_tacky_pre_inc_dec(bin_op: BinaryOperator, var_name: &String, typ: &Type, instructions: &mut Vec<Instruction>, symbol_table: &mut HashMap<String, SymbolInfo>) -> Result<Val, String>
+fn emit_tacky_pre_inc_dec(bin_op: BinaryOperator, var_name: &String, typ: &Type, instructions: &mut Vec<Instruction>, _symbol_table: &mut HashMap<String, SymbolInfo>) -> Result<Val, String>
 {
     let dst = Val::Var(var_name.clone());
     let one = get_const_one(typ);
@@ -380,7 +380,7 @@ fn emit_tacky_expression(typed_expr: &TypedExpression, instructions: &mut Vec<In
             }
         }
         ,
-          _ => { panic!("TACKY Conversion: unsupported/unimplemented expression, got '{:?}'", expr); }
+        //  _ => { panic!("TACKY Conversion: unsupported/unimplemented expression, got '{:?}'", expr); }
     };
 
     Ok(val)
@@ -566,7 +566,7 @@ fn emit_tacky_unlabeled_statement(stmnt: &parser::ast::UnlabeledStatement, instr
             emit_tacky_expression(expr, instructions, symbol_table)?;
         },
         parser::ast::UnlabeledStatement::Null => {},
-        _ => { panic!("emit_tacky_statement: Not implemented for '{:?}' !", stmnt); }
+        // _ => { panic!("emit_tacky_statement: Not implemented for '{:?}' !", stmnt); }
     }
 
     Ok(())
@@ -576,7 +576,7 @@ fn emit_tacky_unlabeled_statement(stmnt: &parser::ast::UnlabeledStatement, instr
 fn emit_tacky_local_variable_declaration(decl: &parser::ast::VariableDeclaration, instructions: &mut Vec<Instruction>, symbol_table: &mut HashMap<String, SymbolInfo>) -> Result<(), String>
 {
     match decl {
-        parser::ast::VariableDeclaration::Declarant(var_name, Some(init_expr), typ, None) => {
+        parser::ast::VariableDeclaration::Declarant(var_name, Some(init_expr), _typ, None) => {
             let init_val = emit_tacky_expression(init_expr, instructions, symbol_table)?;
             instructions.push(Instruction::Copy(init_val, Val::Var(var_name.clone())));
         },
@@ -628,7 +628,7 @@ fn emit_tacky_block(block: &parser::ast::Block, instructions: &mut Vec<Instructi
 fn emit_tacky_function_definition(func_def: &parser::ast::FunctionDeclaration, symbol_table: &mut HashMap<String, SymbolInfo>) -> Result<TopLevel, String>
 {
      match func_def {
-        parser::ast::FunctionDeclaration::Declarant(func_name, params, Some(block), typ, stg_class) => {
+        parser::ast::FunctionDeclaration::Declarant(func_name, params, Some(block), _typ, _stg_class) => {
             let mut instructions = vec![];
 
             emit_tacky_block(block, &mut instructions, symbol_table)?;

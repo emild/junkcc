@@ -248,14 +248,14 @@ fn pretty_print_top_level_item(top_level_item: &TopLevel, indent: usize)
             println!("{})", " ".repeat(indent + 4));
             println!("{})", " ".repeat(indent));
         },
-        TopLevel::StaticVariable(var_name, global, align, init_value) => {
+        TopLevel::StaticVariable(var_name, global, _align, init_value) => {
             print!("{}", " ".repeat(indent));
             if *global {
                 print!("GLOBAL ");
             }
             println!("Static var {var_name} = {}", init_value.to_string());
         },
-        TopLevel::StaticConstant(const_name, align, init_value) => {
+        TopLevel::StaticConstant(const_name, _align, init_value) => {
             print!("{}", " ".repeat(indent));
             println!("Static Const {const_name} = {}", init_value.to_string());
         },

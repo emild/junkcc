@@ -72,7 +72,7 @@ fn label_statement_loops(stmnt: &mut Statement, loop_label: &Option<String>) -> 
 fn label_block_item_loops(block_item: &mut BlockItem, loop_label: &Option<String>) -> Result<(), String>
 {
     match block_item {
-        BlockItem::D(decl) => {
+        BlockItem::D(_decl) => {
             Ok(())
         },
         BlockItem::S(stmnt) => {

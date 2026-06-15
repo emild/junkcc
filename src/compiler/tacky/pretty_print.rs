@@ -67,9 +67,9 @@ fn pretty_print_tacky_binary_operator(binary_op: &BinaryOperator)
         },
         BinaryOperator::GreaterOrEqual => {
             print!("CHECK_GREATER_OR_EQUAL")
-        }
+        },
 
-        _ => {}
+        // _ => {}
     };
 }
 
@@ -83,7 +83,7 @@ fn pretty_print_tacky_val(val: &Val)
         Val::Var(var_name) => {
             print!("Var({})", var_name);
         },
-        _ => {}
+        //  _ => {}
     };
 }
 

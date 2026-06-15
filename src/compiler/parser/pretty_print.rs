@@ -535,7 +535,7 @@ fn pretty_print_program(p: &Program, indent: usize)
                 println!("");
             }
         }
-        _ => ()
+        // _ => ()
     };
 
     println!("{})", " ".repeat(indent));

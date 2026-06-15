@@ -90,7 +90,7 @@ fn evaluate_constant_binary_operator(binop: &BinaryOperator, sub_expr_1: &TypedE
 
 fn evaluate_constant_expression_with_default_type(typed_expr: &TypedExpression) -> Result<Const, String>
 {
-    let TypedExpression::TypedExp(typ, expr) = typed_expr;
+    let TypedExpression::TypedExp(_, expr) = typed_expr;
     let val = match expr {
         Expression::Assignment(_,_) |
         Expression::CompoundAssignment(_,_,_) |
